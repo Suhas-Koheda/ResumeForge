@@ -1,4 +1,4 @@
-export type BlockType = 'experience' | 'education' | 'skills' | 'project';
+export type BlockType = 'experience' | 'education' | 'skills' | 'project' | 'header';
 
 export interface ResumeBlock {
   id: string;

@@ -61,13 +61,13 @@ export const SkillsBlock: React.FC<SkillsBlockProps> = memo(({ id }) => {
                 />
             </div>
 
-            <div className="p-4 bg-emerald-50/50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/30 rounded-2xl flex flex-col gap-3">
-                <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
+            <div className="p-4 bg-indigo-50/50 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-900/30 rounded-2xl flex flex-col gap-3">
+                <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
                     <Sparkles size={16} />
                     <span className="text-[10px] font-black uppercase tracking-widest text-left">AI Skill Categorizer</span>
                 </div>
                 <textarea
-                    className="w-full bg-white dark:bg-zinc-900 border border-emerald-100 dark:border-emerald-900/20 rounded-xl px-4 py-2 text-xs focus:ring-2 focus:ring-emerald-500/20 outline-none min-h-[60px] max-h-[150px] overflow-y-auto text-left"
+                    className="w-full bg-white dark:bg-zinc-900 border border-indigo-100 dark:border-indigo-900/20 rounded-xl px-4 py-2 text-xs focus:ring-2 focus:ring-indigo-500/20 outline-none min-h-[60px] max-h-[150px] overflow-y-auto text-left"
                     placeholder="Paste your raw list of skills here... Gemini will group them."
                     value={rawInput}
                     onChange={(e) => setRawInput(e.target.value)}
@@ -75,7 +75,7 @@ export const SkillsBlock: React.FC<SkillsBlockProps> = memo(({ id }) => {
                 <button
                     onClick={handleAiPolish}
                     disabled={isPolishing || !rawInput.trim()}
-                    className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl py-2 text-[10px] font-bold uppercase tracking-widest transition-all disabled:opacity-50"
+                    className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl py-2 text-[10px] font-bold uppercase tracking-widest transition-all disabled:opacity-50"
                 >
                     {isPolishing ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
                     {isPolishing ? "Categorizing..." : "Categorize with Gemini"}
@@ -95,7 +95,7 @@ export const SkillsBlock: React.FC<SkillsBlockProps> = memo(({ id }) => {
                         </div>
                     </div>
                     {showLatex && (
-                        <pre className="p-4 bg-zinc-950 text-emerald-400 rounded-xl text-[10px] font-mono overflow-auto border border-white/5 max-h-[200px]">
+                        <pre className="p-4 bg-zinc-950 text-indigo-400 rounded-xl text-[10px] font-mono overflow-auto border border-white/5 max-h-[200px]">
                             {data.latexCode}
                         </pre>
                     )}

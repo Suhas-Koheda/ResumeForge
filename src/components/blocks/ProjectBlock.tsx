@@ -146,7 +146,7 @@ export const ProjectBlock: React.FC<ProjectBlockProps> = memo(({ id }) => {
                         </div>
                     </div>
                     {showLatex && (
-                        <pre className="p-4 bg-zinc-950 text-emerald-400 rounded-xl text-[10px] font-mono overflow-auto border border-white/5 max-h-[300px]">
+                        <pre className="p-4 bg-zinc-950 text-indigo-400 rounded-xl text-[10px] font-mono overflow-auto border border-white/5 max-h-[300px]">
                             {data.latexCode}
                         </pre>
                     )}

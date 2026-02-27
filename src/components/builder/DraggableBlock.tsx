@@ -1,7 +1,7 @@
 import React, { memo } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical, Briefcase, GraduationCap, Code, Rocket, Trash2 } from 'lucide-react';
+import { GripVertical, Briefcase, GraduationCap, Code, Rocket, Trash2, User } from 'lucide-react';
 import { ResumeBlock } from '../../types/block';
 import { BlockRenderer } from './BlockRenderer';
 import { useBlock } from '../../hooks/useResume';
@@ -16,6 +16,7 @@ const getBlockMeta = (type: string) => {
         case 'education': return { icon: GraduationCap, color: 'text-blue-600', bg: 'bg-blue-100', borderColor: 'border-blue-200' };
         case 'skills': return { icon: Code, color: 'text-green-600', bg: 'bg-green-100', borderColor: 'border-green-200' };
         case 'project': return { icon: Rocket, color: 'text-purple-600', bg: 'bg-purple-100', borderColor: 'border-purple-200' };
+        case 'header': return { icon: User, color: 'text-indigo-600', bg: 'bg-indigo-50', borderColor: 'border-indigo-100' };
         default: return { icon: Briefcase, color: 'text-gray-600', bg: 'bg-gray-100', borderColor: 'border-gray-200' };
     }
 }
@@ -50,8 +51,8 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = memo(({ block }) =>
             ref={setNodeRef}
             style={style}
             className={`bg-white dark:bg-zinc-900 rounded-2xl transition-shadow duration-300 flex items-stretch border ${isDragging
-                    ? 'shadow-lift opacity-95 ring-2 ring-primary/20 cursor-grabbing border-primary'
-                    : 'shadow-soft border-border/80 hover:border-border'
+                ? 'shadow-lift opacity-95 ring-2 ring-primary/20 cursor-grabbing border-primary'
+                : 'shadow-soft border-border/80 hover:border-border'
                 }`}
         >
             <div

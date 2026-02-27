@@ -4,10 +4,11 @@ import { useResumeActions } from './hooks/useResume';
 import {
     PlusCircle, Settings, LayoutGrid, Sun, Moon,
     Briefcase, GraduationCap, Code, Rocket,
-    FileText, Download, Loader2, Sparkles, X, ChevronRight, FileCode, Copy
+    FileText, Download, Loader2, Sparkles, X, FileCode, Copy, User
 } from 'lucide-react';
 import { BlockType } from './types/block';
 import { geminiService } from './services/ai';
+import { manualLatexGenerator } from './services/manualLatex';
 
 function App() {
     const {
@@ -18,6 +19,10 @@ function App() {
     const [showSettings, setShowSettings] = useState(false);
     const [isAssembling, setIsAssembling] = useState(false);
     const [fullLatex, setFullLatex] = useState<string | null>(null);
+    const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+    const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+    const [previewMode, setPreviewMode] = useState<'code' | 'pdf'>('code');
+    const [compilationLog, setCompilationLog] = useState<string | null>(null);
 
     React.useEffect(() => {
         if (isDark) document.documentElement.classList.add('dark');
@@ -29,7 +34,15 @@ function App() {
         { type: 'education', label: 'Education', color: 'bg-blue-500', icon: GraduationCap },
         { type: 'skills', label: 'Skills', color: 'bg-green-500', icon: Code },
         { type: 'project', label: 'Project', color: 'bg-purple-500', icon: Rocket },
+        { type: 'header', label: 'Personal Header', color: 'bg-indigo-500', icon: User },
     ];
+
+    const handleManualAssemble = () => {
+        const latex = manualLatexGenerator.generate(blocks);
+        setFullLatex(latex);
+        setPreviewMode('code');
+        setPdfUrl(null);
+    };
 
     const handleAssemble = async () => {
         if (!apiKey) {
@@ -41,6 +54,8 @@ function App() {
         try {
             const latex = await geminiService.assembleFullResume(blocks, customTemplate, apiKey);
             setFullLatex(latex);
+            setPreviewMode('code');
+            setPdfUrl(null);
         } catch (error) {
             alert("Failed to assemble resume. Check your API key.");
         } finally {
@@ -57,6 +72,51 @@ function App() {
         link.download = 'resume.tex';
         link.click();
         URL.revokeObjectURL(url);
+    };
+
+    const downloadPdf = async (shouldDownload = true) => {
+        if (!fullLatex) return;
+        setIsGeneratingPdf(true);
+        try {
+            setCompilationLog(null);
+            const formData = new FormData();
+            formData.append('filecontents[]', fullLatex);
+            formData.append('filename[]', 'resume.tex');
+            formData.append('engine', 'pdflatex');
+            formData.append('return', 'pdf');
+
+            const response = await fetch('https://texlive.net/cgi-bin/latexcgi', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) throw new Error('PDF Generation failed');
+
+            const blob = await response.blob();
+            if (blob.type === 'application/pdf') {
+                const url = URL.createObjectURL(blob);
+                setPdfUrl(url);
+                setPreviewMode('pdf');
+
+                if (shouldDownload) {
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = 'resume.pdf';
+                    link.click();
+                }
+            } else {
+                const text = await blob.text();
+                setCompilationLog(text);
+                throw new Error("LaTeX Compilation Error");
+            }
+        } catch (error) {
+            console.error("PDF Error:", error);
+            if (!compilationLog) {
+                alert("The PDF service is currently busy. Please try again or download the .TEX file.");
+            }
+        } finally {
+            setIsGeneratingPdf(false);
+        }
     };
 
     const exportJson = () => {
@@ -77,7 +137,7 @@ function App() {
                         <LayoutGrid size={18} />
                     </div>
                     <span className="font-bold text-gray-800 dark:text-gray-100 tracking-tight">Antigravity Resume</span>
-                    <span className="text-[10px] bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 px-2.5 py-0.5 rounded-lg font-bold ml-2 border border-emerald-200 dark:border-emerald-800 tracking-wider">PRO</span>
+                    <span className="text-[10px] bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400 px-2.5 py-0.5 rounded-lg font-bold ml-2 border border-indigo-200 dark:border-indigo-800 tracking-wider">PRO</span>
                 </div>
 
                 <div className="flex items-center gap-3">
@@ -112,7 +172,7 @@ function App() {
                                             type="password"
                                             className="w-full bg-secondary/50 dark:bg-zinc-800 rounded-xl px-3 py-2 text-xs border border-border outline-none focus:border-primary transition-all font-mono"
                                             placeholder="AI Key for Polishing..."
-                                            value={apiKey}
+                                            value={apiKey || ''}
                                             onChange={(e) => setApiKey(e.target.value)}
                                         />
                                     </div>
@@ -121,7 +181,7 @@ function App() {
                                         <textarea
                                             className="w-full bg-secondary/50 dark:bg-zinc-800 rounded-xl px-3 py-2 text-[10px] font-mono border border-border outline-none focus:border-primary min-h-[120px]"
                                             placeholder="Paste LaTeX code here. Use [CONTENT_HERE] where you want nodes to go..."
-                                            value={customTemplate}
+                                            value={customTemplate || ''}
                                             onChange={(e) => setCustomTemplate(e.target.value)}
                                         />
                                         <p className="text-[9px] text-muted-foreground mt-2 italic">Gemini will intelligently map your canvas nodes into this template.</p>
@@ -138,7 +198,14 @@ function App() {
                             className="flex items-center gap-2 px-4 py-2 text-[10px] font-black uppercase tracking-[0.1em] bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 rounded-lg transition-all shadow-sm active:scale-95"
                         >
                             {isAssembling ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-                            {isAssembling ? "Assembling..." : "Assemble Resume"}
+                            {isAssembling ? "Assembling..." : "AI Assemble"}
+                        </button>
+                        <button
+                            onClick={handleManualAssemble}
+                            className="flex items-center gap-2 px-4 py-2 text-[10px] font-black uppercase tracking-[0.1em] border border-indigo-600/30 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/10 rounded-lg transition-all shadow-sm active:scale-95"
+                        >
+                            <FileText size={14} />
+                            Fast Export
                         </button>
                         <button
                             onClick={exportJson}
@@ -174,30 +241,36 @@ function App() {
                             </button>
                         ))}
                     </div>
-
-                    <div className="mt-auto p-4 border-t border-border/50 bg-secondary/10 dark:bg-zinc-800/5">
-                        <div className="flex flex-col gap-3">
-                            <button className="flex items-center justify-between w-full p-3 bg-white dark:bg-zinc-900 border border-border/50 rounded-xl hover:shadow-soft transition-all group">
-                                <div className="flex items-center gap-3">
-                                    <FileText size={16} className="text-muted-foreground group-hover:text-primary" />
-                                    <span className="text-xs font-bold text-foreground">Usage Guide</span>
-                                </div>
-                                <ChevronRight size={14} className="text-muted-foreground" />
-                            </button>
-                        </div>
-                    </div>
                 </aside>
 
                 <main className="flex-1 relative overflow-hidden bg-background">
                     <ResumeCanvas />
 
-                    {/* Full LaTeX Output Overlay */}
                     {fullLatex && (
                         <div className="absolute inset-0 z-50 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md flex flex-col animate-in fade-in duration-500">
                             <header className="h-14 border-b border-border flex items-center justify-between px-6 bg-white dark:bg-zinc-900">
-                                <div className="flex items-center gap-3">
-                                    <Sparkles size={18} className="text-indigo-500" />
-                                    <h2 className="font-bold text-foreground">Generated LaTeX Resume</h2>
+                                <div className="flex items-center gap-6">
+                                    <div className="flex items-center gap-2">
+                                        <Sparkles size={18} className="text-indigo-500" />
+                                        <h2 className="font-bold text-foreground">Resume Export</h2>
+                                    </div>
+                                    <div className="flex bg-secondary/50 dark:bg-zinc-800 p-1 rounded-xl">
+                                        <button
+                                            onClick={() => setPreviewMode('code')}
+                                            className={`px-4 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${previewMode === 'code' ? 'bg-white dark:bg-zinc-700 shadow-sm text-primary' : 'text-muted-foreground'}`}
+                                        >
+                                            Source Code
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                if (!pdfUrl) downloadPdf(false);
+                                                else setPreviewMode('pdf');
+                                            }}
+                                            className={`px-4 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all ${previewMode === 'pdf' ? 'bg-white dark:bg-zinc-700 shadow-sm text-primary' : 'text-muted-foreground'}`}
+                                        >
+                                            PDF Preview
+                                        </button>
+                                    </div>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <button
@@ -208,6 +281,14 @@ function App() {
                                         className="flex items-center gap-2 px-4 py-2 text-xs font-bold bg-secondary text-foreground hover:bg-border rounded-xl transition-all"
                                     >
                                         <Copy size={16} /> Copy Code
+                                    </button>
+                                    <button
+                                        onClick={() => downloadPdf(true)}
+                                        disabled={isGeneratingPdf}
+                                        className="flex items-center gap-2 px-4 py-2 text-xs font-bold bg-indigo-600 text-white hover:bg-indigo-700 rounded-xl transition-all shadow-soft disabled:opacity-50"
+                                    >
+                                        {isGeneratingPdf ? <Loader2 size={16} className="animate-spin" /> : <FileText size={16} />}
+                                        {isGeneratingPdf ? "Generating PDF..." : "Download PDF"}
                                     </button>
                                     <button
                                         onClick={downloadTex}
@@ -223,14 +304,55 @@ function App() {
                                     </button>
                                 </div>
                             </header>
-                            <div className="flex-1 overflow-auto p-12 flex justify-center bg-gray-100 dark:bg-zinc-900/50">
-                                <div className="w-full max-w-4xl bg-white dark:bg-zinc-950 shadow-2xl rounded-2xl border border-border p-8 overflow-hidden flex flex-col">
-                                    <div className="flex justify-between items-center mb-4">
-                                        <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/50">Overleaf Compatible Source</span>
-                                    </div>
-                                    <pre className="flex-1 bg-zinc-950 text-emerald-400 p-8 rounded-xl font-mono text-sm overflow-auto selection:bg-indigo-500/30">
-                                        {fullLatex}
-                                    </pre>
+                            <div className="flex-1 overflow-hidden p-8 lg:p-12 flex justify-center bg-gray-100 dark:bg-zinc-900/50">
+                                <div className="w-full max-w-5xl bg-white dark:bg-zinc-950 shadow-2xl rounded-2xl border border-border overflow-hidden flex flex-col">
+                                    {previewMode === 'code' ? (
+                                        <>
+                                            <div className="flex justify-between items-center p-4 border-b border-border bg-white dark:bg-zinc-950">
+                                                <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/50">Overleaf Compatible Source</span>
+                                            </div>
+                                            <pre className="flex-1 bg-zinc-950 text-indigo-400 p-8 font-mono text-sm overflow-auto selection:bg-indigo-500/30">
+                                                {fullLatex}
+                                            </pre>
+                                        </>
+                                    ) : (
+                                        <div className="flex-1 relative bg-zinc-800 flex items-center justify-center">
+                                            {isGeneratingPdf ? (
+                                                <div className="flex flex-col items-center gap-4 text-white">
+                                                    <Loader2 size={40} className="animate-spin text-indigo-400" />
+                                                    <p className="text-sm font-bold tracking-widest uppercase">Compiling LaTeX...</p>
+                                                </div>
+                                            ) : pdfUrl ? (
+                                                <iframe
+                                                    src={pdfUrl}
+                                                    className="w-full h-full border-none"
+                                                    title="PDF Preview"
+                                                />
+                                            ) : compilationLog ? (
+                                                <div className="flex-1 w-full bg-zinc-900 overflow-auto p-4 flex flex-col">
+                                                    <div className="flex items-center justify-between mb-4 border-b border-white/10 pb-2">
+                                                        <span className="text-red-400 font-bold text-xs">LaTeX Compilation Error</span>
+                                                        <button
+                                                            onClick={handleManualAssemble}
+                                                            className="text-[10px] text-indigo-400 hover:underline"
+                                                        >
+                                                            Retry with Auto-Fix
+                                                        </button>
+                                                    </div>
+                                                    <pre className="text-[10px] text-zinc-400 font-mono leading-relaxed">
+                                                        {compilationLog}
+                                                    </pre>
+                                                </div>
+                                            ) : (
+                                                <button
+                                                    onClick={() => downloadPdf(false)}
+                                                    className="bg-indigo-600 text-white px-6 py-3 rounded-2xl font-bold shadow-lift hover:bg-indigo-700 transition-all"
+                                                >
+                                                    Generate Preview
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>
