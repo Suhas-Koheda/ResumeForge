@@ -10,6 +10,8 @@ import { BlockType } from '@shared/types';
 import { OnboardingModal } from './components/ui/OnboardingModal';
 import { geminiService } from './services/ai';
 import { manualLatexGenerator } from './services/manualLatex';
+import { pdf } from '@react-pdf/renderer';
+import { PdfDocument } from './components/builder/PdfDocument';
 
 function App() {
     const {
@@ -85,45 +87,26 @@ function App() {
     };
 
     const downloadPdf = async (shouldDownload = true) => {
-        if (!fullLatex) return;
         setIsGeneratingPdf(true);
         try {
             setCompilationLog(null);
-            const formData = new FormData();
-            formData.append('filecontents[]', fullLatex);
-            formData.append('filename[]', 'resume.tex');
-            formData.append('engine', 'pdflatex');
-            formData.append('return', 'pdf');
 
-            const response = await fetch('https://texlive.net/cgi-bin/latexcgi', {
-                method: 'POST',
-                body: formData
-            });
+            // Construct PDF blob completely locally using React-PDF
+            const blob = await pdf(<PdfDocument blocks={blocks} />).toBlob();
+            const url = URL.createObjectURL(blob);
+            setPdfUrl(url);
+            setPreviewMode('pdf');
 
-            if (!response.ok) throw new Error('PDF Generation failed');
-
-            const blob = await response.blob();
-            if (blob.type === 'application/pdf') {
-                const url = URL.createObjectURL(blob);
-                setPdfUrl(url);
-                setPreviewMode('pdf');
-
-                if (shouldDownload) {
-                    const link = document.createElement('a');
-                    link.href = url;
-                    link.download = 'resume.pdf';
-                    link.click();
-                }
-            } else {
-                const text = await blob.text();
-                setCompilationLog(text);
-                throw new Error("LaTeX Compilation Error");
+            if (shouldDownload) {
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = 'resume.pdf';
+                link.click();
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error("PDF Error:", error);
-            if (!compilationLog) {
-                alert("The PDF service is currently busy. Please try again or download the .TEX file.");
-            }
+            setCompilationLog(error.message || "Unknown error generating PDF locally");
+            alert("Error generating PDF locally. Check blocks.");
         } finally {
             setIsGeneratingPdf(false);
         }

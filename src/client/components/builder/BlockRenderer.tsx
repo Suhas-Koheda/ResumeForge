@@ -1,5 +1,5 @@
 import React from 'react';
-import { ResumeBlock, BlockType } from '../@shared/types';
+import { ResumeBlock, BlockType } from '../../../shared/types';
 import { ExperienceBlock } from '../blocks/ExperienceBlock';
 import { EducationBlock } from '../blocks/EducationBlock';
 import { SkillsBlock } from '../blocks/SkillsBlock';
