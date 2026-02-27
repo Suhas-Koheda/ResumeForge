@@ -4,7 +4,7 @@ import { useResumeActions } from './hooks/useResume';
 import {
     PlusCircle, Settings, LayoutGrid, Sun, Moon,
     Briefcase, GraduationCap, Code, Rocket,
-    FileText, Download, Sparkles, Code2, Copy, Loader2, X, ChevronRight, FileCode
+    FileText, Download, Loader2, Sparkles, X, ChevronRight, FileCode, Copy
 } from 'lucide-react';
 import { BlockType } from './types/block';
 import { geminiService } from './services/ai';

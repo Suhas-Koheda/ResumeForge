@@ -2,7 +2,7 @@ import React, { memo, useState } from 'react';
 import { useBlock } from '../../hooks/useResume';
 import { useBuilderStore } from '../../store/useBuilderStore';
 import { geminiService } from '../../services/ai';
-import { Sparkles, Code2, Copy, Loader2, GraduationCap } from 'lucide-react';
+import { Sparkles, Code2, Copy, Loader2 } from 'lucide-react';
 
 interface EducationBlockProps {
     id: string;
