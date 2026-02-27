@@ -25,7 +25,7 @@ export const HeaderBlock: React.FC<HeaderBlockProps> = memo(({ id }) => {
                     <Icon size={12} />
                 </div>
                 <input
-                    className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-800 p-2 pl-9 text-[10px] outline-none focus:border-black dark:focus:border-white transition-all font-mono"
+                    className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-800 p-2 pl-9 text-[10px] outline-none focus:border-black dark:focus:border-white transition-all font-mono text-zinc-900 dark:text-zinc-100"
                     value={data[field] || ''}
                     onChange={handleChange(field)}
                     placeholder={placeholder}
@@ -43,7 +43,7 @@ export const HeaderBlock: React.FC<HeaderBlockProps> = memo(({ id }) => {
                         <User size={16} />
                     </div>
                     <input
-                        className="w-full bg-white dark:bg-black border border-zinc-200 dark:border-zinc-800 p-4 pl-12 text-lg font-black tracking-tight outline-none focus:border-black dark:focus:border-white transition-all"
+                        className="w-full bg-white dark:bg-black border border-zinc-200 dark:border-zinc-800 p-4 pl-12 text-lg font-black tracking-tight outline-none focus:border-black dark:focus:border-white transition-all text-black dark:text-white"
                         value={data.name || ''}
                         onChange={handleChange('name')}
                         placeholder="NAME_SURNAME"

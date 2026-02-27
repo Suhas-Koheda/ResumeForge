@@ -26,13 +26,18 @@ function App() {
     const [compilationLog, setCompilationLog] = useState<string | null>(null);
     const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
 
+    const hasTriggeredOnboarding = React.useRef(false);
+
     React.useEffect(() => {
-        // Trigger onboarding if no header exists
+        if (hasTriggeredOnboarding.current) return;
+
+        // Trigger onboarding only once per session if no header exists
         const hasHeader = blocks.some(b => b.type === 'header');
         if (!hasHeader && !isAssembling) {
             setIsOnboardingOpen(true);
+            hasTriggeredOnboarding.current = true;
         }
-    }, [blocks.length]);
+    }, [blocks, isAssembling]);
 
     React.useEffect(() => {
         if (isDark) document.documentElement.classList.add('dark');
@@ -164,7 +169,7 @@ function App() {
                                         <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-2 block">AI_API_KEY</label>
                                         <input
                                             type="password"
-                                            className="w-full bg-zinc-50 dark:bg-black border border-zinc-200 dark:border-zinc-800 px-3 py-2 text-[10px] outline-none focus:border-black dark:focus:border-white transition-all"
+                                            className="w-full bg-zinc-50 dark:bg-black border border-zinc-200 dark:border-zinc-800 px-3 py-2 text-[10px] outline-none focus:border-black dark:focus:border-white transition-all text-zinc-900 dark:text-zinc-100"
                                             value={apiKey || ''}
                                             onChange={(e) => setApiKey(e.target.value)}
                                         />
@@ -172,7 +177,7 @@ function App() {
                                     <div>
                                         <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-2 block">CUSTOM_LATEX_TEMPLATE</label>
                                         <textarea
-                                            className="w-full bg-zinc-50 dark:bg-black border border-zinc-200 dark:border-zinc-800 px-3 py-2 text-[10px] min-h-[120px] outline-none focus:border-black dark:focus:border-white transition-all"
+                                            className="w-full bg-zinc-50 dark:bg-black border border-zinc-200 dark:border-zinc-800 px-3 py-2 text-[10px] min-h-[120px] outline-none focus:border-black dark:focus:border-white transition-all text-zinc-900 dark:text-zinc-100"
                                             value={customTemplate || ''}
                                             onChange={(e) => setCustomTemplate(e.target.value)}
                                         />

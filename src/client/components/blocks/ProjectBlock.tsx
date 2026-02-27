@@ -89,7 +89,7 @@ export const ProjectBlock: React.FC<ProjectBlockProps> = memo(({ id }) => {
                     <span className="text-[9px] font-bold uppercase tracking-[0.2em]">Neural Analyzer</span>
                 </div>
                 <textarea
-                    className="w-full bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 p-3 text-[10px] outline-none focus:border-black dark:focus:border-white min-h-[70px] leading-relaxed"
+                    className="w-full bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 p-3 text-[10px] outline-none focus:border-black dark:focus:border-white min-h-[70px] leading-relaxed text-zinc-900 dark:text-zinc-100"
                     placeholder="Input code summaries or readme fragments..."
                     value={rawInput}
                     onChange={(e) => setRawInput(e.target.value)}

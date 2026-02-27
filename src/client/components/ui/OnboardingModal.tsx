@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { X, User, Mail, Phone, MapPin, Globe, Sparkles } from 'lucide-react';
 import { useResumeActions } from '../../hooks/useResume';
-import { ResumeBlock } from '../@shared/types';
+import { ResumeBlock } from '@shared/types';
 
 export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
     const { addBlock, blocks, updateData } = useResumeActions();
@@ -22,7 +22,7 @@ export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }>
         if (headerBlock) {
             updateData(headerBlock.id, formData);
         } else {
-            const newId = addBlock('header') as string;
+            const newId = addBlock('header') as unknown as string;
             // In local mode, the state update is synchronous but we use a microtask to be safe
             Promise.resolve().then(() => {
                 if (newId) updateData(newId, formData);
@@ -54,7 +54,7 @@ export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }>
                                 </label>
                                 <input
                                     type="text"
-                                    className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-800 p-3 text-[11px] outline-none focus:border-black dark:focus:border-white transition-all font-mono"
+                                    className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-800 p-3 text-[11px] outline-none focus:border-black dark:focus:border-white transition-all font-mono text-zinc-900 dark:text-zinc-300"
                                     placeholder="NAME_SURNAME"
                                     value={formData.name}
                                     onChange={e => setFormData({ ...formData, name: e.target.value })}
@@ -68,7 +68,7 @@ export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }>
                                     </label>
                                     <input
                                         type="email"
-                                        className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-800 p-3 text-[11px] outline-none focus:border-black dark:focus:border-white transition-all font-mono"
+                                        className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-800 p-3 text-[11px] outline-none focus:border-black dark:focus:border-white transition-all font-mono text-zinc-900 dark:text-zinc-300"
                                         placeholder="user@domain.tld"
                                         value={formData.email}
                                         onChange={e => setFormData({ ...formData, email: e.target.value })}
@@ -80,7 +80,7 @@ export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }>
                                     </label>
                                     <input
                                         type="text"
-                                        className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-800 p-3 text-[11px] outline-none focus:border-black dark:focus:border-white transition-all font-mono"
+                                        className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-800 p-3 text-[11px] outline-none focus:border-black dark:focus:border-white transition-all font-mono text-zinc-900 dark:text-zinc-300"
                                         placeholder="+X-XXX-XXX-XXXX"
                                         value={formData.phone}
                                         onChange={e => setFormData({ ...formData, phone: e.target.value })}
@@ -95,7 +95,7 @@ export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }>
                                     </label>
                                     <input
                                         type="text"
-                                        className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-800 p-3 text-[11px] outline-none focus:border-black dark:focus:border-white transition-all font-mono"
+                                        className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-800 p-3 text-[11px] outline-none focus:border-black dark:focus:border-white transition-all font-mono text-zinc-900 dark:text-zinc-300"
                                         placeholder="City, State"
                                         value={formData.location}
                                         onChange={e => setFormData({ ...formData, location: e.target.value })}
@@ -107,7 +107,7 @@ export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }>
                                     </label>
                                     <input
                                         type="text"
-                                        className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-800 p-3 text-[11px] outline-none focus:border-black dark:focus:border-white transition-all font-mono"
+                                        className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-800 p-3 text-[11px] outline-none focus:border-black dark:focus:border-white transition-all font-mono text-zinc-900 dark:text-zinc-300"
                                         placeholder="portfolio.exe"
                                         value={formData.website}
                                         onChange={e => setFormData({ ...formData, website: e.target.value })}

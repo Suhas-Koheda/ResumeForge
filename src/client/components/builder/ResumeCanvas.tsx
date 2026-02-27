@@ -28,12 +28,16 @@ const CanvasRegistry: React.FC = () => {
         useSensor(KeyboardSensor)
     );
 
+    const [isDraggingNode, setIsDraggingNode] = React.useState(false);
+
+    const handleDragStart = () => setIsDraggingNode(true);
+
     const handleDragEnd = (event: DragEndEvent) => {
+        setIsDraggingNode(false);
         const { active, delta } = event;
         const block = blocks.find((b: ResumeBlock) => b.id === active.id);
 
         if (block) {
-            // Apply scale adjustment to the delta to maintain precise positioning while zoomed
             const currentScale = scaleRef.current || 1;
             const newX = block.position.x + delta.x / currentScale;
             const newY = block.position.y + delta.y / currentScale;
@@ -58,7 +62,7 @@ const CanvasRegistry: React.FC = () => {
                 maxScale={2}
                 centerOnInit={true}
                 limitToBounds={false}
-                panning={{ disabled: false }}
+                panning={{ excluded: ['nodrag'] }}
                 doubleClick={{ disabled: true }}
                 onTransformed={(ref) => {
                     scaleRef.current = ref.state.scale;
@@ -101,6 +105,7 @@ const CanvasRegistry: React.FC = () => {
                                 <DndContext
                                     sensors={sensors}
                                     collisionDetection={closestCenter}
+                                    onDragStart={handleDragStart}
                                     onDragEnd={handleDragEnd}
                                 >
                                     <div className="absolute inset-0 p-[2000px]">

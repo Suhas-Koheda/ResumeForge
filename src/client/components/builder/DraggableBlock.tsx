@@ -2,7 +2,7 @@ import React, { memo } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { GripVertical, Briefcase, GraduationCap, Code, Rocket, Trash2, User } from 'lucide-react';
-import { ResumeBlock } from '../@shared/types';
+import { ResumeBlock } from '@shared/types';
 import { BlockRenderer } from './BlockRenderer';
 import { useBlock } from '../../hooks/useResume';
 
@@ -11,13 +11,15 @@ interface DraggableBlockProps {
 }
 
 const getBlockMeta = (type: string) => {
+    // Monochromatic, professional palette
+    const baseStyle = { color: 'text-zinc-600 dark:text-zinc-400', bg: 'bg-zinc-100 dark:bg-zinc-800', border: 'border-zinc-200 dark:border-zinc-700' };
     switch (type) {
-        case 'experience': return { icon: Briefcase, color: 'text-orange-500', bg: 'bg-orange-50', border: 'border-orange-200' };
-        case 'education': return { icon: GraduationCap, color: 'text-blue-500', bg: 'bg-blue-50', border: 'border-blue-200' };
-        case 'skills': return { icon: Code, color: 'text-emerald-500', bg: 'bg-emerald-50', border: 'border-emerald-200' };
-        case 'project': return { icon: Rocket, color: 'text-purple-500', bg: 'bg-purple-50', border: 'border-purple-200' };
-        case 'header': return { icon: User, color: 'text-zinc-500', bg: 'bg-zinc-50', border: 'border-zinc-200' };
-        default: return { icon: Briefcase, color: 'text-zinc-500', bg: 'bg-zinc-50', border: 'border-zinc-200' };
+        case 'experience': return { icon: Briefcase, ...baseStyle };
+        case 'education': return { icon: GraduationCap, ...baseStyle };
+        case 'skills': return { icon: Code, ...baseStyle };
+        case 'project': return { icon: Rocket, ...baseStyle };
+        case 'header': return { icon: User, ...baseStyle };
+        default: return { icon: Briefcase, ...baseStyle };
     }
 }
 
@@ -49,7 +51,7 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = memo(({ block }) =>
         <div
             ref={setNodeRef}
             style={style}
-            className={`bg-white dark:bg-zinc-900 transition-all duration-200 flex items-stretch border ${isDragging
+            className={`nodrag bg-white dark:bg-zinc-900 transition-all duration-200 flex items-stretch border ${isDragging
                 ? 'shadow-2xl opacity-90 border-black dark:border-white z-50 scale-[1.02] cursor-grabbing'
                 : 'shadow-sm border-zinc-200 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600'
                 }`}

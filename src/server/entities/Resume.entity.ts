@@ -6,10 +6,10 @@ export class Resume {
     @PrimaryGeneratedColumn("uuid")
     id: string;
 
-    @Column()
+    @Column({ type: "varchar" })
     userId: string;
 
-    @Column({ default: "Untitled Resume" })
+    @Column({ type: "varchar", default: "Untitled Resume" })
     title: string;
 
     @Column("jsonb", { default: { nodes: [], customTemplate: "" } })
