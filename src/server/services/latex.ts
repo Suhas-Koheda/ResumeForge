@@ -8,7 +8,7 @@ const execAsync = promisify(exec);
 
 export const latexService = {
     async compileToPdf(latexCode: string): Promise<string> {
-        // Check if pdflatex is available
+        // Check if pdflatex is available locally
         try {
             await execAsync('pdflatex --version');
         } catch {
@@ -22,14 +22,14 @@ export const latexService = {
         try {
             await fs.writeFile(texPath, latexCode);
 
-            // Compile twice to resolve cross-references (common in modern templates)
+            // Execute PDFLaTeX twice directly from the local environment binaries (stable modern approach)
             await execAsync(`pdflatex -interaction=nonstopmode -output-directory=${tempDir} ${texPath}`);
             await execAsync(`pdflatex -interaction=nonstopmode -output-directory=${tempDir} ${texPath}`);
 
             return pdfPath;
         } catch (error) {
             console.error('LaTeX Execution Error:', error);
-            throw new Error('LaTeX compilation failed. Ensure your content does not have special characters.');
+            throw new Error('LaTeX compilation failed. Your environment must have TeXLive or MiKTeX installed.');
         }
     }
 };

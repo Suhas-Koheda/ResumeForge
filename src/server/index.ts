@@ -26,17 +26,29 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// TypeORM Data Source (Postgres)
-export const AppDataSource = new DataSource({
-    type: "postgres",
-    url: config.MONGODB_URI.startsWith('jdbc:') ? config.MONGODB_URI.replace('jdbc:postgresql://', 'postgres://') : config.MONGODB_URI,
-    synchronize: config.IS_LOCAL,
-    logging: config.IS_LOCAL,
-    entities: [User, Resume],
-    subscribers: [],
-    migrations: [],
-    ssl: config.MONGODB_URI.includes('neon.tech') ? { rejectUnauthorized: false } : false
-});
+// TypeORM Data Source (Local: SQLite, Cloud: Postgres)
+export const AppDataSource = new DataSource(
+    config.IS_LOCAL
+        ? {
+            type: "sqlite",
+            database: "local_dev.sqlite",
+            synchronize: true,
+            logging: true,
+            entities: [User, Resume],
+            subscribers: [],
+            migrations: [],
+        }
+        : {
+            type: "postgres",
+            url: config.MONGODB_URI.startsWith('jdbc:') ? config.MONGODB_URI.replace('jdbc:postgresql://', 'postgres://') : config.MONGODB_URI,
+            synchronize: false,
+            logging: false,
+            entities: [User, Resume],
+            subscribers: [],
+            migrations: [],
+            ssl: config.MONGODB_URI.includes('neon.tech') ? { rejectUnauthorized: false } : false
+        }
+);
 
 let isInitialized = false;
 async function connectToDatabase() {
@@ -44,7 +56,7 @@ async function connectToDatabase() {
     try {
         await AppDataSource.initialize();
         isInitialized = true;
-        console.log("--- Postgres Database Connected ---");
+        console.log(`--- ${config.IS_LOCAL ? 'SQLite' : 'Postgres'} Database Connected ---`);
     } catch (error) {
         console.error("Database connection error:", error);
     }

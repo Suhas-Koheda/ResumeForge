@@ -4,23 +4,23 @@ import { ResumeBlock } from "@shared/types.js";
 @Entity()
 export class Resume {
     @PrimaryGeneratedColumn("uuid")
-    id: string;
+    id!: string;
 
     @Column({ type: "varchar" })
-    userId: string;
+    userId!: string;
 
     @Column({ type: "varchar", default: "Untitled Resume" })
-    title: string;
+    title!: string;
 
     @Column("jsonb", { default: { nodes: [], customTemplate: "" } })
-    canvasData: {
+    canvasData!: {
         nodes: ResumeBlock[];
         customTemplate?: string;
     };
 
     @CreateDateColumn()
-    createdAt: Date;
+    createdAt!: Date;
 
     @UpdateDateColumn()
-    updatedAt: Date;
+    updatedAt!: Date;
 }
