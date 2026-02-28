@@ -67,13 +67,13 @@ export const manualLatexGenerator = {
 
 %----------HEADER----------
 \\begin{center}
-    {\\Huge \\scshape \\color{ACCENT_COLOR} ${this.escapeLatex(header.name || 'Your Name')}} \\\\ \\vspace{2pt}
-    ${this.escapeLatex(header.location || 'Location')} ~~
-    \\Telefon\\ ${this.escapeLatex(header.phone || 'Phone')} ~~
-    \\href{mailto:${header.email || ''}}{\\Letter\\ \\underline{${this.escapeLatex(header.email || '')}}} \\\\
-    ${header.website ? `\\href{https://${header.website.replace('https://', '').replace('http://', '')}}{\\Mundus\\ \\underline{${this.escapeLatex(header.website)}}} ~~` : ''}
-    ${header.linkedin ? `\\href{https://${header.linkedin.replace('https://', '').replace('http://', '')}}{\\textbf{L}\\ \\underline{${this.escapeLatex(header.linkedin)}}} ~~` : ''}
-    ${header.github ? `\\href{https://${header.github.replace('https://', '').replace('http://', '')}}{\\textbf{G}\\ \\underline{${this.escapeLatex(header.github)}}}` : ''}
+    {\\Huge \\scshape \\color{ACCENT_COLOR} ${this.escapeLatex(header.name || 'Your Name')}} \\\\ \\vspace{4pt}
+    ${this.escapeLatex(header.location || 'Location')} $\\vert$
+    \\Telefon\\ ${this.escapeLatex(header.phone || 'Phone')} $\\vert$
+    \\href{mailto:${header.email || ''}}{\\Letter\\ \\underline{${this.escapeLatex(header.email || '')}}} \\\\ \\vspace{2pt}
+    ${header.website ? `\\href{https://${header.website.replace('https://', '').replace('http://', '')}}{\\Mundus\\ \\underline{${this.escapeLatex(header.website)}}}` : ''}
+    ${header.linkedin ? `${header.website ? ' $\\vert$ ' : ''}\\href{https://${header.linkedin.replace('https://', '').replace('http://', '')}}{\\textbf{L}\\ \\underline{${this.escapeLatex(header.linkedin)}}}` : ''}
+    ${header.github ? `${(header.website || header.linkedin) ? ' $\\vert$ ' : ''}\\href{https://${header.github.replace('https://', '').replace('http://', '')}}{\\textbf{G}\\ \\underline{${this.escapeLatex(header.github)}}}` : ''}
 \\end{center}
 `;
     },

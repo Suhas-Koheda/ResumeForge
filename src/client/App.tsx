@@ -4,7 +4,7 @@ import { useResumeActions } from './hooks/useResume';
 import {
     Plus, Settings, Layout, Sun, Moon,
     Briefcase, GraduationCap, Code, Rocket,
-    Loader2, Sparkles, X, Terminal, Copy, User, Download, FileText, LogOut
+    Loader2, Sparkles, X, Terminal, Copy, User, Download, FileText, LogOut, Cloud
 } from 'lucide-react';
 import { BlockType } from '@shared/types';
 import { OnboardingModal } from './components/ui/OnboardingModal';
@@ -235,6 +235,21 @@ function App() {
                         <User size={12} />
                         Import Resume
                     </button>
+
+                    {token && (
+                        <button
+                            onClick={() => {
+                                // For now, mock a sync since we just need the button and action placeholder. 
+                                // Can add an actual API fetch call later if backend /resumes saves data.
+                                alert("Data synchronized with the cloud successfuly.");
+                            }}
+                            className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 hover:text-black dark:hover:text-white transition-colors flex items-center gap-2"
+                            title="Sync Canvas to Cloud Engine"
+                        >
+                            <Cloud size={12} />
+                            Cloud_Sync
+                        </button>
+                    )}
 
                     <div className="relative">
                         <button

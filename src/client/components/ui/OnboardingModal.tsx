@@ -10,6 +10,7 @@ export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }>
     const [isImporting, setIsImporting] = useState(false);
     const { addBlock, blocks, updateData, apiKey, setApiKey, setFullLatex, setBlocks } = useResumeActions();
     const [localKey, setLocalKey] = useState(apiKey || '');
+    const [useAiForLatex, setUseAiForLatex] = useState(true);
 
     // Find header data
     const headerBlock = blocks.find((b: ResumeBlock) => b.type === 'header');
@@ -43,7 +44,7 @@ export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }>
             const isLatex = importText.includes('\\documentclass');
             console.log(`[LOG_IMPORT] Detected ${isLatex ? 'LaTeX' : 'Text'} source.`);
 
-            if (isLatex) {
+            if (isLatex && !useAiForLatex) {
                 // IMMEDIATE STORE: No AI usage for LaTeX
                 setFullLatex(importText);
                 
@@ -65,7 +66,9 @@ export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }>
                 alert("LaTeX Source imported via Direct Channel. Canvas synced.");
                 onClose();
             } else {
-                // Pure text -> Full AI reconstruction
+                if (isLatex) setFullLatex(importText);
+                
+                // AI reconstruction
                 const extractedBlocks = await geminiService.parseResume(importText, 'text', localKey || apiKey);
                 setBlocks([]); // Clear for fresh start
                 for (const b of extractedBlocks) {
@@ -107,7 +110,7 @@ export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }>
         }
 
         // Education
-        const eduSectionMatch = latex.match(/\\section\{EDUCATION\}([^]*?)\\section/);
+        const eduSectionMatch = latex.match(/\\section\{EDUCATION\}([^]*?)(?=\\section|\\end\{document\}|$)/i);
         if (eduSectionMatch) {
             const eduItemRegex = /\\customSubHeading\s*\{([^\}]+)\}\s*\{([^\}]+)\}\s*\{([^\}]+)\}\s*\{([^\}]+)\}/g;
             let m;
@@ -120,7 +123,7 @@ export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }>
         }
 
         // Experience
-        const expSectionMatch = latex.match(/\\section\{EXPERIENCE\}([^]*?)\\section/);
+        const expSectionMatch = latex.match(/\\section\{EXPERIENCE\}([^]*?)(?=\\section|\\end\{document\}|$)/i);
         if (expSectionMatch) {
             const expItemRegex = /\\customSubHeading\s*\{([^\}]+)\}\s*\{([^\}]+)\}\s*\{([^\}]+)\}\s*\{([^\}]+)\}([^]*?)(?=\\customSubHeading|\\customSubHeadingContentEnd|$)/g;
             let m;
@@ -134,7 +137,7 @@ export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }>
         }
 
         // Skills
-        const skillsSectionMatch = latex.match(/\\section\{TECHNICAL SKILLS\}([^]*?)\\section/);
+        const skillsSectionMatch = latex.match(/\\section\{TECHNICAL SKILLS\}([^]*?)(?=\\section|\\end\{document\}|$)/i);
         if (skillsSectionMatch) {
             const skillItemRegex = /\\item\s*\\textbf\{([^\}]+)\}:?\s*([^\n\\]+)/g;
             let m;
@@ -147,7 +150,7 @@ export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }>
         }
 
         // Projects
-        const projSectionMatch = latex.match(/\\section\{PROJECTS\}([^]*?)\\section/);
+        const projSectionMatch = latex.match(/\\section\{PROJECTS?\}([^]*?)(?=\\section|\\end\{document\}|$)/i);
         if (projSectionMatch) {
             const projItemRegex = /\\customProject\s*\{([^\}]+)\}\s*\{([^\}]+)\}([^]*?)(?=\\customProject|\\customSubHeadingContentEnd|$)/g;
             let m;
@@ -299,6 +302,22 @@ export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }>
                                         onChange={e => setImportText(e.target.value)}
                                     />
                                 </div>
+                                
+                                {importText.includes('\\documentclass') && (
+                                    <div className="flex items-center gap-2">
+                                        <input 
+                                            type="checkbox" 
+                                            id="useAiForLatex" 
+                                            checked={useAiForLatex} 
+                                            onChange={(e) => setUseAiForLatex(e.target.checked)}
+                                            className="w-3 h-3 accent-black dark:accent-white"
+                                        />
+                                        <label htmlFor="useAiForLatex" className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest cursor-pointer">
+                                            Enable AI Structure Parsing (Recommended for deeply nested LaTeX)
+                                        </label>
+                                    </div>
+                                )}
+
                                 <div className="p-4 bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-100 dark:border-zinc-800 rounded-sm">
                                     <p className="text-[8px] text-zinc-400 uppercase tracking-widest leading-normal">
                                         Tip: For Overleaf, copy all text from the main .tex file. For PDF/Word, copy-paste the text content directly.

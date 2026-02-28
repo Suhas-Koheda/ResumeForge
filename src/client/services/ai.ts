@@ -146,6 +146,12 @@ Return ONLY raw LaTeX.
             
             Supported block types: 'header', 'experience', 'education', 'skills', 'project'.
             
+            CRITICAL RULES:
+            1. DO NOT make any assumptions or invent data.
+            2. You MUST strictly return all available sections. Do not drop a single entry or data point.
+            3. For Projects, if a date or time period exists, map it to the "duration" field.
+            4. For Experience, map the date or time period to "duration".
+
             JSON Structure for each type (inside 'data' field):
             - 'header': { "name": "", "email": "", "phone": "", "location": "", "website": "", "linkedin": "", "github": "" }
             - 'experience': { "company": "", "role": "", "duration": "", "location": "", "highlights": ["Point 1", "..."] }
@@ -153,7 +159,7 @@ Return ONLY raw LaTeX.
             - 'skills': { "category": "", "skills": "List, separated, by, commas" }
             - 'project': { "title": "", "duration": "", "technologies": "", "highlights": ["Point 1", "..."] }
 
-            Return ONLY a JSON array of objects: [{ "type": BlockType, "data": { ... } }]
+            Return ONLY a valid JSON array of objects: [{ "type": BlockType, "data": { ... } }]
         `;
 
         if (apiKey) {
