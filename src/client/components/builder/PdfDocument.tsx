@@ -6,11 +6,22 @@ import { ResumeBlock } from '../../../shared/types';
 Font.register({
     family: 'NewComputerModern',
     fonts: [
-        { src: 'https://cdn.jsdelivr.net/gh/dreampulse/computer-modern-web-font@master/fonts/cmunrm.ttf' },
-        { src: 'https://cdn.jsdelivr.net/gh/dreampulse/computer-modern-web-font@master/fonts/cmunbx.ttf', fontWeight: 'bold' },
-        { src: 'https://cdn.jsdelivr.net/gh/dreampulse/computer-modern-web-font@master/fonts/cmunti.ttf', fontStyle: 'italic' },
+        { 
+            src: 'https://cdn.jsdelivr.net/gh/dreampulse/computer-modern-web-font@master/fonts/cmunrm.ttf',
+        },
+        { 
+            src: 'https://cdn.jsdelivr.net/gh/dreampulse/computer-modern-web-font@master/fonts/cmunbx.ttf', 
+            fontWeight: 'bold' 
+        },
+        { 
+            src: 'https://cdn.jsdelivr.net/gh/dreampulse/computer-modern-web-font@master/fonts/cmunti.ttf', 
+            fontStyle: 'italic' 
+        },
     ]
 });
+
+// Register a fallback standard serif font in case the above fails
+Font.registerHyphenationCallback(word => [word]);
 
 const styles = StyleSheet.create({
     page: {

@@ -30,7 +30,6 @@ export const manualLatexGenerator = {
 \\usepackage{fancyhdr}
 \\usepackage[english]{babel}
 \\usepackage{tabularx}
-\\usepackage{fontawesome5}
 \\usepackage{multicol}
 \\input{glyphtounicode}
 \\usepackage{xcolor}
@@ -78,11 +77,11 @@ export const manualLatexGenerator = {
 \\begin{center}
     {\\Huge \\scshape \\color{ACCENT_COLOR} ${this.escapeLatex(header.name || 'Your Name')}} \\\\ \\vspace{2pt}
     ${this.escapeLatex(header.location || 'Location')} ~~
-    \\faPhone\\ ${this.escapeLatex(header.phone || 'Phone')} ~~
-    \\href{mailto:${header.email || ''}}{\\faEnvelope\\ \\underline{${this.escapeLatex(header.email || '')}}} \\\\
-    ${header.website ? `\\href{https://${header.website.replace('https://', '').replace('http://', '')}}{\\faGlobe\\ \\underline{${this.escapeLatex(header.website)}}} ~~` : ''}
-    ${header.linkedin ? `\\href{https://${header.linkedin.replace('https://', '').replace('http://', '')}}{\\faLinkedin\\ \\underline{${this.escapeLatex(header.linkedin)}}} ~~` : ''}
-    ${header.github ? `\\href{https://${header.github.replace('https://', '').replace('http://', '')}}{\\faGithub\\ \\underline{${this.escapeLatex(header.github)}}}` : ''}
+    \\Telefon\\ ${this.escapeLatex(header.phone || 'Phone')} ~~
+    \\href{mailto:${header.email || ''}}{\\Letter\\ \\underline{${this.escapeLatex(header.email || '')}}} \\\\
+    ${header.website ? `\\href{https://${header.website.replace('https://', '').replace('http://', '')}}{\\Mundus\\ \\underline{${this.escapeLatex(header.website)}}} ~~` : ''}
+    ${header.linkedin ? `\\href{https://${header.linkedin.replace('https://', '').replace('http://', '')}}{\\textbf{L}\\ \\underline{${this.escapeLatex(header.linkedin)}}} ~~` : ''}
+    ${header.github ? `\\href{https://${header.github.replace('https://', '').replace('http://', '')}}{\\textbf{G}\\ \\underline{${this.escapeLatex(header.github)}}}` : ''}
 \\end{center}
 `;
 
@@ -113,9 +112,9 @@ ${experiences.map(exp => `
 \\customSubHeading
 {${exp.company || 'Company'}}{${exp.duration || 'Duration'}}
 {${exp.role || 'Role'}}{${exp.location || 'Location'}}
-\\customItemListStart
-${(exp.highlights || []).map((h: string) => `\\customItem{${this.escapeLatex(h)}}`).join('\n')}
-\\customItemListEnd
+${(exp.highlights && exp.highlights.length > 0) ? `\\customItemListStart
+${exp.highlights.map((h: string) => `\\customItem{${this.escapeLatex(h)}}`).join('\n')}
+\\customItemListEnd` : ''}
 `).join('')}
 \\customSubHeadingContentEnd
 `;
@@ -158,9 +157,9 @@ ${projects.map(proj => {
 \\customProject
 {\\textbf{${proj.title || 'Project'}} ${tech}}
 {${links} \\quad ${proj.date || ''}}
-\\customItemListStart
-${(proj.highlights || []).map((h: string) => `\\customItem{${this.escapeLatex(h)}}`).join('\n')}
-\\customItemListEnd
+${(proj.highlights && proj.highlights.length > 0) ? `\\customItemListStart
+${proj.highlights.map((h: string) => `\\customItem{${this.escapeLatex(h)}}`).join('\n')}
+\\customItemListEnd` : ''}
 `;
             }).join('')}
 \\customSubHeadingContentEnd

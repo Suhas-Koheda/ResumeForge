@@ -12,7 +12,7 @@ export class Resume {
     @Column({ type: "varchar", default: "Untitled Resume" })
     title!: string;
 
-    @Column("jsonb", { default: { nodes: [], customTemplate: "" } })
+    @Column("simple-json", { default: { nodes: [], customTemplate: "" } })
     canvasData!: {
         nodes: ResumeBlock[];
         customTemplate?: string;

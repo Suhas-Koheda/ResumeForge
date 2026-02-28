@@ -12,6 +12,7 @@ import { geminiService } from './services/ai';
 import { manualLatexGenerator } from './services/manualLatex';
 import { pdf } from '@react-pdf/renderer';
 import { PdfDocument } from './components/builder/PdfDocument';
+import { latexServerService } from './services/latex';
 
 function App() {
     const {
@@ -55,10 +56,9 @@ function App() {
     ];
 
     const handleManualAssemble = () => {
-        const latex = manualLatexGenerator.generate(blocks);
-        setFullLatex(latex);
-        setPreviewMode('code');
-        setPdfUrl(null);
+        setFullLatex(null);
+        setPdfUrl(null); // Clear previous URL to refresh
+        downloadPdf(false);
     };
 
     const handleAssemble = async () => {
@@ -88,11 +88,22 @@ function App() {
 
     const downloadPdf = async (shouldDownload = true) => {
         setIsGeneratingPdf(true);
+        setCompilationLog(null);
         try {
-            setCompilationLog(null);
+            let blob: Blob;
 
-            // Construct PDF blob completely locally using React-PDF
-            const blob = await pdf(<PdfDocument blocks={blocks} />).toBlob();
+            // Explicitly force local generation for Fast Gen by ignoring fullLatex if we're clearing it
+            const shouldUseServer = previewMode === 'code' && !!fullLatex;
+
+            if (shouldUseServer) {
+                console.log("[PDF] Requesting server-side compilation...");
+                blob = await latexServerService.compileLatexToPdf(fullLatex!);
+            } else {
+                console.log("[PDF] Generating locally via React-PDF...");
+                // Construct PDF blob completely locally using React-PDF
+                blob = await pdf(<PdfDocument blocks={blocks} />).toBlob();
+            }
+
             const url = URL.createObjectURL(blob);
             setPdfUrl(url);
             setPreviewMode('pdf');
@@ -105,8 +116,22 @@ function App() {
             }
         } catch (error: any) {
             console.error("PDF Error:", error);
-            setCompilationLog(error.message || "Unknown error generating PDF locally");
-            alert("Error generating PDF locally. Check blocks.");
+            
+            // Try to extract backend error message
+            let errorMessage = error.message;
+            if (error.response && error.response.data instanceof Blob) {
+                const text = await error.response.data.text();
+                try {
+                    const json = JSON.parse(text);
+                    errorMessage = json.error || errorMessage;
+                } catch {
+                    errorMessage = text;
+                }
+            }
+
+            setCompilationLog(errorMessage || "Unknown error generating PDF");
+            setPreviewMode('pdf'); // Switch to PDF preview to show the log
+            alert("Error generating PDF. Check compilation log in preview.");
         } finally {
             setIsGeneratingPdf(false);
         }
@@ -215,7 +240,7 @@ function App() {
                 <main className="flex-1 relative overflow-hidden">
                     <ResumeCanvas />
 
-                    {fullLatex && (
+                    {(fullLatex || pdfUrl) && (
                         <div className="absolute inset-0 z-50 bg-white dark:bg-black flex flex-col animate-in fade-in duration-300">
                             <header className="h-12 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between px-6">
                                 <div className="flex items-center gap-8">
@@ -224,12 +249,14 @@ function App() {
                                         <h2 className="text-[10px] font-bold uppercase tracking-[0.3em]">Build_Output</h2>
                                     </div>
                                     <div className="flex border border-zinc-100 dark:border-zinc-800 p-0.5">
-                                        <button
-                                            onClick={() => setPreviewMode('code')}
-                                            className={`px-4 py-1.5 text-[9px] font-bold uppercase tracking-widest transition-all ${previewMode === 'code' ? 'bg-black text-white dark:bg-white dark:text-black' : 'text-zinc-400'}`}
-                                        >
-                                            Source
-                                        </button>
+                                        {fullLatex && (
+                                            <button
+                                                onClick={() => setPreviewMode('code')}
+                                                className={`px-4 py-1.5 text-[9px] font-bold uppercase tracking-widest transition-all ${previewMode === 'code' ? 'bg-black text-white dark:bg-white dark:text-black' : 'text-zinc-400'}`}
+                                            >
+                                                Source
+                                            </button>
+                                        )}
                                         <button
                                             onClick={() => {
                                                 if (!pdfUrl) downloadPdf(false);
@@ -244,8 +271,10 @@ function App() {
                                 <div className="flex items-center gap-4">
                                     <button
                                         onClick={() => {
-                                            navigator.clipboard.writeText(fullLatex);
-                                            alert("Copied.");
+                                            if (fullLatex) {
+                                                navigator.clipboard.writeText(fullLatex);
+                                                alert("Copied.");
+                                            }
                                         }}
                                         className="text-[9px] font-bold uppercase tracking-widest text-zinc-500 hover:text-black flex items-center gap-2"
                                     >
@@ -267,7 +296,10 @@ function App() {
                                     </button>
                                     <div className="w-px h-4 bg-zinc-200"></div>
                                     <button
-                                        onClick={() => setFullLatex(null)}
+                                        onClick={() => {
+                                            setFullLatex(null);
+                                            setPdfUrl(null);
+                                        }}
                                         className="text-zinc-400 hover:text-black"
                                     >
                                         <X size={16} />
