@@ -24,8 +24,8 @@ export const ProjectBlock: React.FC<ProjectBlockProps> = memo(({ id }) => {
         updateData({ [field]: e.target.value });
     };
 
-    const handlePointsChange = (newPoints: string[]) => {
-        updateData({ points: newPoints });
+    const handlePointsChange = (newHighlights: string[]) => {
+        updateData({ highlights: newHighlights });
     };
 
     const handleAiPolish = async () => {
@@ -35,7 +35,7 @@ export const ProjectBlock: React.FC<ProjectBlockProps> = memo(({ id }) => {
         try {
             const result = await geminiService.polishProject(rawInput, apiKey);
             updateData({
-                points: result.polishedPoints,
+                highlights: result.polishedPoints,
                 technologies: result.technologies,
                 latexCode: result.latexCode
             });
@@ -55,31 +55,55 @@ export const ProjectBlock: React.FC<ProjectBlockProps> = memo(({ id }) => {
                         <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-1.5 block">Repository_Project</label>
                         <input
                             className="w-full bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-100 dark:border-zinc-800 px-3 py-2 text-xs focus:border-black dark:focus:border-white transition-all outline-none text-zinc-900 dark:text-zinc-100 font-bold placeholder:text-zinc-300"
-                            value={data.projectName || ''}
-                            onChange={handleChange('projectName')}
+                            value={data.title || ''}
+                            onChange={handleChange('title')}
                             placeholder="System Name"
                         />
                     </div>
-                    <div>
-                        <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-1.5 block flex items-center gap-2">
-                            Network_Link
-                        </label>
-                        <input
-                            className="w-full bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-100 dark:border-zinc-800 px-3 py-2 text-xs focus:border-black dark:focus:border-white transition-all outline-none text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-300 font-mono"
-                            value={data.link || ''}
-                            onChange={handleChange('link')}
-                            placeholder="https://repo.io"
-                        />
+                    <div className="flex gap-2">
+                        <div className="flex-1">
+                            <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-1.5 block flex items-center gap-2">
+                                Code_Link
+                            </label>
+                            <input
+                                className="w-full bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-100 dark:border-zinc-800 px-3 py-2 text-xs focus:border-black dark:focus:border-white transition-all outline-none text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-300 font-mono"
+                                value={data.githubLink || ''}
+                                onChange={handleChange('githubLink')}
+                                placeholder="https://github.com/..."
+                            />
+                        </div>
+                        <div className="flex-1">
+                            <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-1.5 block flex items-center gap-2">
+                                Live_Link
+                            </label>
+                            <input
+                                className="w-full bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-100 dark:border-zinc-800 px-3 py-2 text-xs focus:border-black dark:focus:border-white transition-all outline-none text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-300 font-mono"
+                                value={data.liveLink || ''}
+                                onChange={handleChange('liveLink')}
+                                placeholder="https://app.io"
+                            />
+                        </div>
                     </div>
                 </div>
-                <div>
-                    <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-1.5 block">Stack_Architecture</label>
-                    <input
-                        className="w-full bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-100 dark:border-zinc-800 px-3 py-2 text-xs focus:border-black dark:focus:border-white transition-all outline-none text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-300 font-mono"
-                        value={data.technologies || ''}
-                        onChange={handleChange('technologies')}
-                        placeholder="React, Postgres, Node, AWS"
-                    />
+                <div className="grid grid-cols-2 gap-4">
+                    <div>
+                        <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-1.5 block">Stack_Architecture</label>
+                        <input
+                            className="w-full bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-100 dark:border-zinc-800 px-3 py-2 text-xs focus:border-black dark:focus:border-white transition-all outline-none text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-300 font-mono"
+                            value={data.technologies || ''}
+                            onChange={handleChange('technologies')}
+                            placeholder="React, Postgres, Node, AWS"
+                        />
+                    </div>
+                    <div>
+                        <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-1.5 block">Timeline (Duration)</label>
+                        <input
+                            className="w-full bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-100 dark:border-zinc-800 px-3 py-2 text-xs focus:border-black dark:focus:border-white transition-all outline-none text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-300 font-mono"
+                            value={data.duration || ''}
+                            onChange={handleChange('duration')}
+                            placeholder="Dec 2023"
+                        />
+                    </div>
                 </div>
             </div>
 
@@ -105,7 +129,7 @@ export const ProjectBlock: React.FC<ProjectBlockProps> = memo(({ id }) => {
             </div>
 
             <BulletListEditor
-                items={data.points || []}
+                items={data.highlights || []}
                 onChange={handlePointsChange}
                 placeholder="Log impactful feature..."
             />

@@ -150,7 +150,8 @@ ${skills.map(s => {
 \\section{PROJECTS}
 \\customSubHeadingContentStart
 ${projects.map(proj => {
-                const tech = proj.technologies ? `$\\vert$ \\emph{${proj.technologies.join(', ')}}` : '';
+                const techArray = Array.isArray(proj.technologies) ? proj.technologies.join(', ') : proj.technologies;
+                const tech = techArray ? `$\\vert$ \\emph{${this.escapeLatex(techArray)}}` : '';
                 const links = [
                     proj.liveLink ? `\\href{${proj.liveLink}}{Live}` : '',
                     proj.githubLink ? `\\href{${proj.githubLink}}{Code}` : ''
@@ -158,8 +159,8 @@ ${projects.map(proj => {
 
                 return `
 \\customProject
-{\\textbf{${proj.title || 'Project'}} ${tech}}
-{${links} \\quad ${proj.date || ''}}
+{\\textbf{${this.escapeLatex(proj.title) || 'Project'}} ${tech}}
+{${links} \\quad ${this.escapeLatex(proj.duration || proj.date || '')}}
 ${(proj.highlights && proj.highlights.length > 0) ? `\\customItemListStart
 ${proj.highlights.map((h: string) => `\\customItem{${this.escapeLatex(h)}}`).join('\n')}
 \\customItemListEnd` : ''}
