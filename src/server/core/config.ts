@@ -15,7 +15,7 @@ export const config = {
     GEMINI_API_KEY: process.env.GEMINI_API_KEY || '',
     JWT_SECRET: process.env.JWT_SECRET || 'dev-secret-keep-secure',
     // IS_LOCAL is true if not explicitly set to 'false' or if NODE_ENV is development
-    IS_LOCAL: process.env.IS_LOCAL !== 'false' && (process.env.NODE_ENV !== 'production'),
+    IS_LOCAL: process.env.IS_LOCAL === 'false' ? false : true,
     ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS
         ? process.env.ALLOWED_ORIGINS.split(',')
         : ['http://localhost:5173', 'http://localhost:3000']

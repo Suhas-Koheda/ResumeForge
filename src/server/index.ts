@@ -2,14 +2,14 @@ import 'reflect-metadata';
 import express from 'express';
 import cors from 'cors';
 import { DataSource } from 'typeorm';
-import { config } from '@server/core/config';
-import authRouter from '@server/api/v1/auth';
-import resumeRouter from '@server/api/v1/resume';
-import exportRouter from '@server/api/v1/export';
-import { aiService } from '@server/services/ai';
-import { authMiddleware } from '@server/core/auth';
-import { User } from '@server/entities/User.entity';
-import { Resume } from '@server/entities/Resume.entity';
+import { config } from './core/config.js';
+import authRouter from './api/v1/auth.js';
+import resumeRouter from './api/v1/resume.js';
+import exportRouter from './api/v1/export.js';
+import { aiService } from './services/ai.js';
+import { authMiddleware } from './core/auth.js';
+import { User } from './entities/User.entity.js';
+import { Resume } from './entities/Resume.entity.js';
 
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -50,7 +50,8 @@ export const AppDataSource = new DataSource(
             ssl: { rejectUnauthorized: false },
             extra: {
                 max: 5, // Connection pool size limit for Serverless environments
-                idleTimeoutMillis: 30000 
+                idleTimeoutMillis: 30000,
+                connectionTimeoutMillis: 5000
             }
         }
 );
