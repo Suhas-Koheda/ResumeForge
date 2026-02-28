@@ -22,8 +22,13 @@ const TECTONIC_BIN = (() => {
 /** Run Tectonic and collect stdout/stderr */
 function runTectonic(args: string[]): Promise<{ stdout: string; stderr: string }> {
     return new Promise((resolve, reject) => {
+        const env = {
+            ...process.env,
+            TECTONIC_CACHE_DIR: path.join(os.tmpdir(), 'tectonic-cache')
+        };
         const child = spawn(TECTONIC_BIN, args, {
             stdio: ['ignore', 'pipe', 'pipe'],
+            env
         });
 
         let stdout = '';
@@ -36,6 +41,7 @@ function runTectonic(args: string[]): Promise<{ stdout: string; stderr: string }
             if ((err as any).code === 'ENOENT') {
                 const fallback = spawn('tectonic', args, {
                     stdio: ['ignore', 'pipe', 'pipe'],
+                    env
                 });
                 let fs2 = '', fe2 = '';
                 fallback.stdout.on('data', (d: Buffer) => (fs2 += d.toString()));
