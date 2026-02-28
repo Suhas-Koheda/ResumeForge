@@ -16,7 +16,17 @@ export const AppDataSource = new DataSource(
         }
         : {
             type: "postgres",
-            url: config.MONGODB_URI.startsWith('jdbc:') ? config.MONGODB_URI.replace('jdbc:postgresql://', 'postgres://') : config.MONGODB_URI,
+            url: (() => {
+                const baseStr = config.MONGODB_URI.startsWith('jdbc:') ? config.MONGODB_URI.replace('jdbc:postgresql://', 'postgres://') : config.MONGODB_URI;
+                try {
+                    const parsedUrl = new URL(baseStr);
+                    if (config.DB_USERNAME) parsedUrl.username = config.DB_USERNAME;
+                    if (config.DB_PASSWORD) parsedUrl.password = encodeURIComponent(config.DB_PASSWORD);
+                    return parsedUrl.toString();
+                } catch (e) {
+                    return baseStr;
+                }
+            })(),
             synchronize: true,
             logging: false,
             entities: [User, Resume],
