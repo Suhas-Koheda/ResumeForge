@@ -40,3 +40,6 @@ yarn-error.log*
 
 # Database
 *.sqlite
+
+# Tectonic binary (downloaded at build time)
+.bin/

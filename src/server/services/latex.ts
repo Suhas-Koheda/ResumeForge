@@ -1,94 +1,131 @@
-import { exec } from 'child_process';
-import { promisify } from 'util';
+import { spawn } from 'child_process';
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
+import { fileURLToPath } from 'url';
 
-const execAsync = promisify(exec);
+const __filename = fileURLToPath(import.meta.url);
+const __dirname  = path.dirname(__filename);
+
+// The binary is placed here by scripts/install-tectonic.sh at build time.
+// In development it falls back to "tectonic" on the host $PATH.
+const TECTONIC_BIN = (() => {
+    const bundled = path.resolve(__dirname, '../../../.bin/tectonic');
+    return bundled;  // spawn will fall back to PATH if non-existent
+})();
+
+/** Run Tectonic and collect stdout/stderr */
+function runTectonic(args: string[]): Promise<{ stdout: string; stderr: string }> {
+    return new Promise((resolve, reject) => {
+        const child = spawn(TECTONIC_BIN, args, {
+            stdio: ['ignore', 'pipe', 'pipe'],
+        });
+
+        let stdout = '';
+        let stderr = '';
+        child.stdout.on('data', (d: Buffer) => (stdout += d.toString()));
+        child.stderr.on('data', (d: Buffer) => (stderr += d.toString()));
+
+        child.on('error', (err) => {
+            // If the bundled binary is absent, try the $PATH version
+            if ((err as any).code === 'ENOENT') {
+                const fallback = spawn('tectonic', args, {
+                    stdio: ['ignore', 'pipe', 'pipe'],
+                });
+                let fs2 = '', fe2 = '';
+                fallback.stdout.on('data', (d: Buffer) => (fs2 += d.toString()));
+                fallback.stderr.on('data', (d: Buffer) => (fe2 += d.toString()));
+                fallback.on('error', () =>
+                    reject(new Error('Tectonic is not installed on this server. Please download the .TEX file instead.'))
+                );
+                fallback.on('close', code =>
+                    code === 0
+                        ? resolve({ stdout: fs2, stderr: fe2 })
+                        : reject(new Error(`Tectonic exited ${code}:\n${fe2}\n${fs2}`))
+                );
+            } else {
+                reject(err);
+            }
+        });
+
+        child.on('close', code => {
+            if (code === 0) resolve({ stdout, stderr });
+            else reject(new Error(`Tectonic exited ${code}:\n${stderr}\n${stdout}`));
+        });
+    });
+}
 
 export const latexService = {
-    async compileToPdf(latexCode: string): Promise<string> {
-        // Check if pdflatex is available locally
-        try {
-            await execAsync('pdflatex --version');
-        } catch {
-            throw new Error('PDFLaTeX is not installed on this server. Please download the .TEX file instead.');
-        }
-
+    /**
+     * Compile a LaTeX source string with Tectonic.
+     * Returns the resulting PDF as a raw Buffer so the caller can
+     * pipe it directly to the HTTP response or write it to disk.
+     */
+    async compileToPdf(latexCode: string): Promise<Buffer> {
         const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'latex-'));
-        const texPath = path.join(tempDir, 'resume.tex');
-        const pdfPath = path.join(tempDir, 'resume.pdf');
+        const texPath  = path.join(tempDir, 'resume.tex');
+        const pdfPath  = path.join(tempDir, 'resume.pdf');
 
         try {
-            await fs.writeFile(texPath, latexCode);
+            // ---------------------------------------------------------------
+            // Pre-process: neutralise pdfLaTeX-only primitives that cause
+            // Tectonic (XeTeX engine) to abort with "Undefined control sequence"
+            // ---------------------------------------------------------------
+            let source = latexCode;
 
-            // AUTO-FIX: If fontawesome5 is missing, provide a shim
-            let optimizedLatex = latexCode;
+            // \pdfgentounicode=1  – pdflatex only, controls ToUnicode CMap generation
+            source = source.replace(/\\pdfgentounicode\s*=\s*\d+/g, '% pdfgentounicode stripped for Tectonic');
+
+            // \pdfglyphtounicode{...}{...}  – pdflatex only
+            source = source.replace(/\\pdfglyphtounicode\s*\{[^}]*\}\s*\{[^}]*\}/g, '');
+
+            // \input{glyphtounicode} – loads pdflatex-specific unicode mapping file
+            source = source.replace(/\\input\{glyphtounicode\}/g, '% glyphtounicode stripped for Tectonic');
+
+            // \pdfminorversion, \pdfcompresslevel, \pdfobjcompresslevel – pdf driver primitives
+            source = source.replace(/\\pdf(minorversion|compresslevel|objcompresslevel)\s*=\s*\d+/g, '');
+
+            await fs.writeFile(texPath, source, 'utf8');
+
+            // ---------------------------------------------------------------
+            // Run: tectonic resume.tex --outdir <tempDir> --keep-logs
+            //   -Z shell-escape is NOT enabled for security reasons.
+            // ---------------------------------------------------------------
             try {
-                await execAsync('kpsewhich fontawesome5.sty');
-            } catch {
-                console.warn("[LOG_LATEX] fontawesome5.sty not found. Injecting shim.");
-                // Replace fontawesome5 usage with marvosym fallbacks or empty shims
-                optimizedLatex = optimizedLatex.replace(/\\usepackage\{fontawesome5\}/, '% fontawesome5 missing, using shim\n\\usepackage{marvosym}');
-                
-                const shim = `
-% Fallback definitions for fontawesome5 icons
-\\providecommand{\\faPhone}{\\Telefon}
-\\providecommand{\\faEnvelope}{\\Letter}
-\\providecommand{\\faGlobe}{\\Mundus}
-\\providecommand{\\faLinkedin}{IN}
-\\providecommand{\\faGithub}{GIT}
-`;
-                optimizedLatex = optimizedLatex.replace(/\\begin\{document\}/, `${shim}\n\\begin{document}`);
-            }
-
-            // Also check for glyphtounicode.tex
-            try {
-                await execAsync('kpsewhich glyphtounicode.tex');
-            } catch {
-                console.warn("[LOG_LATEX] glyphtounicode.tex not found. Commenting out.");
-                optimizedLatex = optimizedLatex.replace(/\\input\{glyphtounicode\}/, '% \\input{glyphtounicode} % missing');
-            }
-
-            await fs.writeFile(texPath, optimizedLatex);
-
-            // Execute PDFLaTeX directly. It's better to quote the paths to avoid issues with spaces.
-            // Using -halt-on-error to fail fast and -interaction=nonstopmode to continue on non-fatal errors
-            const cmd = `pdflatex -interaction=nonstopmode -halt-on-error -output-directory="${tempDir}" "${texPath}"`;
-            
-            try {
-                // First pass
-                await execAsync(cmd);
-                // Second pass for references/layout
-                await execAsync(cmd);
-            } catch (execError: any) {
-                // If PDF was generated despite errors, we might still want to return it, 
-                // but usually a non-zero exit code with -halt-on-error means it failed.
-                const stdout = execError.stdout || '';
-                const stderr = execError.stderr || '';
-                console.error('LaTeX Execution Stdout:', stdout);
-                console.error('LaTeX Execution Stderr:', stderr);
-                
-                // Read the log file if it exists for better debugging
+                await runTectonic([
+                    texPath,
+                    '--outdir', tempDir,
+                    '--keep-logs',
+                    '--print',          // prints log to stderr so we capture it
+                ]);
+            } catch (tecErr: any) {
+                // Try to read the .log for a better error message
                 let logContent = '';
                 try {
                     logContent = await fs.readFile(path.join(tempDir, 'resume.log'), 'utf8');
-                } catch {}
+                } catch { /* no log produced */ }
 
-                throw new Error(`LaTeX compilation failed: ${stderr || 'Check the logs for details.'}\n--- STDOUT ---\n${stdout.slice(-1000)}\n--- LOG ---\n${logContent.slice(-1000)}`);
+                throw new Error(
+                    `LaTeX compilation failed:\n${tecErr.message}` +
+                    (logContent ? `\n\n--- TEX LOG (last 2000 chars) ---\n${logContent.slice(-2000)}` : '')
+                );
             }
 
-            // Check if PDF actually exists
+            // ---------------------------------------------------------------
+            // Verify and return PDF as Buffer
+            // ---------------------------------------------------------------
             try {
                 await fs.access(pdfPath);
             } catch {
-                throw new Error('LaTeX ran but no PDF was produced.');
+                throw new Error('Tectonic ran successfully but no PDF was produced.');
             }
 
-            return pdfPath;
-        } catch (error) {
-            console.error('LaTeX Service Error:', error);
-            throw error;
+            const pdfBuffer = await fs.readFile(pdfPath);
+            return pdfBuffer;
+
+        } finally {
+            // Always clean up – don't await, fire and forget
+            fs.rm(tempDir, { recursive: true, force: true }).catch(() => {});
         }
-    }
+    },
 };

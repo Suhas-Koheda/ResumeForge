@@ -69,12 +69,11 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = memo(({ block }) =>
     const { remove } = useBlock(block.id);
 
     const style: React.CSSProperties = {
-        position: 'absolute',
-        left: block.position.x,
-        top: block.position.y,
+        display: 'inline-block',
+        width: '450px',
+        verticalAlign: 'top',
         transform: CSS.Translate.toString(transform),
         zIndex: isDragging ? 50 : 1,
-        width: '450px',
     };
 
     const meta = getBlockMeta(block.type);

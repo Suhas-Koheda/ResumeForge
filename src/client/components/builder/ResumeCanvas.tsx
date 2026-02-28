@@ -16,7 +16,6 @@ import { ResumeBlock } from '@shared/types';
 
 const CanvasRegistry: React.FC = () => {
     const { blocks, updateBlockPosition } = useResumeActions();
-    // We use a ref to store the current scale since it's needed during drag end
     const scaleRef = useRef(1);
 
     const sensors = useSensors(
@@ -43,6 +42,24 @@ const CanvasRegistry: React.FC = () => {
             const newY = block.position.y + delta.y / currentScale;
             updateBlockPosition(active.id as string, newX, newY);
         }
+    };
+
+    // Group blocks by their type (e.g. "project", "experience", "skills")
+    const grouped: Record<string, ResumeBlock[]> = blocks.reduce(
+        (acc: Record<string, ResumeBlock[]>, b: ResumeBlock) => {
+            (acc[b.type] = acc[b.type] || []).push(b);
+            return acc;
+        },
+        {}
+    );
+
+    // Colour accent per type
+    const typeColors: Record<string, string> = {
+        header:     '#6366f1',
+        experience: '#0ea5e9',
+        education:  '#10b981',
+        project:    '#f59e0b',
+        skills:     '#ec4899',
     };
 
     return (
@@ -120,9 +137,55 @@ const CanvasRegistry: React.FC = () => {
                                                 </div>
                                             </div>
                                         ) : (
-                                            blocks.map((block: ResumeBlock) => (
-                                                <DraggableBlock key={block.id} block={block} />
-                                            ))
+                                            // ── Clustered view: one section per block type ──────────────────
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '40px' }}>
+                                                {Object.entries(grouped).map(([type, group]) => {
+                                                    const accent = typeColors[type] ?? '#71717a';
+                                                    return (
+                                                        <div key={type}>
+                                                            {/* Cluster label */}
+                                                            <div style={{
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                gap: '8px',
+                                                                marginBottom: '12px',
+                                                            }}>
+                                                                <div style={{
+                                                                    width: '3px',
+                                                                    height: '16px',
+                                                                    borderRadius: '2px',
+                                                                    backgroundColor: accent,
+                                                                }} />
+                                                                <span style={{
+                                                                    fontSize: '10px',
+                                                                    fontWeight: 900,
+                                                                    textTransform: 'uppercase',
+                                                                    letterSpacing: '0.25em',
+                                                                    color: accent,
+                                                                }}>
+                                                                    {type}
+                                                                    <span style={{ color: '#a1a1aa', marginLeft: '6px', fontWeight: 400 }}>
+                                                                        ×{group.length}
+                                                                    </span>
+                                                                </span>
+                                                                <div style={{ flex: 1, height: '1px', backgroundColor: '#e4e4e7' }} />
+                                                            </div>
+
+                                                            {/* Cluster cards – flex-wrap so they sit side-by-side */}
+                                                            <div style={{
+                                                                display: 'flex',
+                                                                flexWrap: 'wrap',
+                                                                gap: '16px',
+                                                            }}>
+                                                                {group.map((block: ResumeBlock) => (
+                                                                    <DraggableBlock key={block.id} block={block} />
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                            // ────────────────────────────────────────────────────────────────
                                         )}
                                     </div>
                                 </DndContext>
