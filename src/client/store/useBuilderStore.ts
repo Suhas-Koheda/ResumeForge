@@ -19,6 +19,7 @@ interface BuilderStore {
     setBlocks: (blocks: ResumeBlock[]) => void;
     setFullLatex: (latex: string | null) => void;
     switchResume: (index: number) => void;
+    addResume: () => void;
     apiKey: string;
     setApiKey: (key: string) => void;
     customTemplate: string;
@@ -69,6 +70,21 @@ export const useBuilderStore = create<BuilderStore>()(
                     blocks: target.blocks,
                     fullLatex: target.fullLatex,
                     resumes: newResumes
+                });
+            },
+
+            addResume: () => {
+                const state = get();
+                const newResumes = [...state.resumes];
+                newResumes[state.activeResumeIndex] = { blocks: state.blocks, fullLatex: state.fullLatex };
+                newResumes.push({ blocks: [], fullLatex: null });
+                
+                const newIndex = newResumes.length - 1;
+                set({
+                    resumes: newResumes,
+                    activeResumeIndex: newIndex,
+                    blocks: [],
+                    fullLatex: null
                 });
             },
 

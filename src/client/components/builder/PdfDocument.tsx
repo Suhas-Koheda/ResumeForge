@@ -211,7 +211,7 @@ export const PdfDocument: React.FC<PdfDocumentProps> = ({ blocks }) => {
                         <Text style={styles.sectionTitle}>Technical Skills</Text>
                         {skills.map((s, idx) => (
                             <View key={idx} style={{ marginBottom: 6, flexDirection: 'row' }}>
-                                <Text style={{ fontWeight: 'bold', width: 90 }}>{s.category || 'Skills'}:</Text>
+                                <Text style={{ fontFamily: 'Helvetica-Bold', width: 90 }}>{s.category || 'Skills'}:</Text>
                                 <Text style={{ flex: 1 }}>{s.skills || ''}</Text>
                             </View>
                         ))}

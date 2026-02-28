@@ -20,7 +20,7 @@ function App() {
     const {
         addBlock, apiKey, setApiKey, blocks,
         customTemplate, setCustomTemplate,
-        activeResumeIndex, switchResume,
+        activeResumeIndex, switchResume, addResume, resumes,
         fullLatex, setFullLatex,
         viewState, setViewState,
         token, logout, setToken, setBlocks
@@ -231,7 +231,7 @@ function App() {
                     <div className="w-px h-4 bg-zinc-200 dark:bg-zinc-800"></div>
 
                     <div className="flex gap-1 bg-zinc-50 dark:bg-zinc-950 p-1 border border-zinc-200 dark:border-zinc-800 rounded-sm">
-                        {[0, 1].map((idx) => (
+                        {resumes.map((_, idx) => (
                             <button
                                 key={idx}
                                 onClick={() => switchResume(idx)}
@@ -243,6 +243,13 @@ function App() {
                                 R_{idx + 1}
                             </button>
                         ))}
+                        <button
+                            onClick={() => addResume()}
+                            className="px-2 py-1 text-[9px] font-bold uppercase tracking-widest text-zinc-400 hover:text-black dark:hover:text-white transition-all flex items-center justify-center"
+                            title="New Resume Canvas"
+                        >
+                            <Plus size={10} />
+                        </button>
                     </div>
 
                     <div className="w-px h-4 bg-zinc-200 dark:bg-zinc-800"></div>
@@ -285,6 +292,32 @@ function App() {
                         </button>
                     )}
 
+                    {!isLocalMode && token && (
+                        <>
+                            <div className="w-px h-4 bg-zinc-200 dark:bg-zinc-800"></div>
+                            <div className="flex items-center gap-3">
+                                <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 flex items-center gap-1.5 border border-zinc-200 dark:border-zinc-800 rounded-full px-2 py-0.5" title="Connected Profile">
+                                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                                    Active_Session
+                                </span>
+                                <button
+                                    onClick={() => {
+                                        if (confirm("Are you sure you want to log out?")) {
+                                            logout();
+                                            setBlocks([]);
+                                            setFullLatex(null);
+                                        }
+                                    }}
+                                    className="text-[10px] font-bold uppercase tracking-widest text-red-500 hover:text-red-600 transition-colors flex items-center gap-2"
+                                    title="Disconnect Profile"
+                                >
+                                    <LogOut size={12} />
+                                    Logout
+                                </button>
+                            </div>
+                        </>
+                    )}
+
                     <div className="relative">
                         <button
                             onClick={() => setShowSettings(!showSettings)}
@@ -318,16 +351,11 @@ function App() {
                                             onChange={(e) => setCustomTemplate(e.target.value)}
                                         />
                                     </div>
-                                    <button 
-                                        onClick={logout}
-                                        className="mt-4 flex items-center justify-center gap-2 w-full border border-red-500/20 text-red-500 hover:bg-red-500/10 py-2 text-[10px] font-bold uppercase tracking-widest transition-colors"
-                                    >
-                                        <LogOut size={12} /> Log Out
-                                    </button>
                                 </div>
                             </div>
                         )}
                     </div>
+                </div>
 
                     <div className="flex items-center gap-1 border border-zinc-200 dark:border-zinc-800 p-1">
                         <button
@@ -346,7 +374,6 @@ function App() {
                             FAST_GEN
                         </button>
                     </div>
-                </div>
             </header>
 
             <div className="flex flex-1 relative overflow-hidden">
@@ -454,7 +481,7 @@ function App() {
                                                     <p className="text-[8px] font-bold tracking-[0.4em] uppercase">System.Compiling</p>
                                                 </div>
                                             ) : pdfUrl ? (
-                                                <iframe src={pdfUrl} className="w-full h-full border-none" title="PDF" />
+                                                <iframe src={pdfUrl || undefined} className="w-full h-full border-none" title="PDF" />
                                             ) : compilationLog ? (
                                                 <div className="flex-1 w-full p-8 overflow-auto font-mono text-[10px] text-red-500 bg-zinc-50">
                                                     <p className="font-bold mb-4 uppercase tracking-widest underline">Critical Compilation Error</p>
