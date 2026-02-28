@@ -61,16 +61,14 @@ export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }>
                     const extracted = data.blocks || [];
 
                     if (extracted.length > 0) {
-                        setBlocks([]); // Clear for fresh start
-                        for (const b of extracted) {
-                            if (b.type && b.data) {
-                                const id = addBlock(b.type);
-                                if (id) {
-                                    // Small delay to ensure block is added before data update
-                                    setTimeout(() => updateData(id, b.data), 10);
-                                }
-                            }
-                        }
+                        const newBlocks: ResumeBlock[] = extracted.filter((b: any) => b.type && b.data).map((b: any, index: number) => ({
+                            id: Math.random().toString(36).substring(7),
+                            type: b.type,
+                            position: { x: 50, y: 50 + index * 150 },
+                            data: b.data || {},
+                            enabled: true
+                        }));
+                        setBlocks(newBlocks);
                         if (data.metadata?.warnings?.length > 0) {
                             console.warn("AST Parse Warnings:", data.metadata.warnings);
                             alert("AST Parsing completed with warnings: " + data.metadata.warnings.join(", "));
@@ -91,13 +89,14 @@ export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }>
 
                 // AI reconstruction
                 const extractedBlocks = await geminiService.parseResume(importText, 'text', localKey || apiKey);
-                setBlocks([]); // Clear for fresh start
-                for (const b of extractedBlocks) {
-                    if (b.type && b.data) {
-                        const id = addBlock(b.type);
-                        setTimeout(() => updateData(id, b.data), 10);
-                    }
-                }
+                const newBlocks: ResumeBlock[] = extractedBlocks.filter((b: any) => b.type && b.data).map((b: any, index: number) => ({
+                    id: Math.random().toString(36).substring(7),
+                    type: b.type,
+                    position: { x: 50, y: 50 + index * 150 },
+                    data: b.data || {},
+                    enabled: true
+                }));
+                setBlocks(newBlocks);
                 onClose();
             }
         } catch (error: any) {

@@ -26,6 +26,28 @@ rm -f "$TMPFILE"
 chmod +x "$TECTONIC"
 echo "✅ Tectonic installed to $TECTONIC"
 
+# Pre-warm the cache so Render doesn't hit a 60s timeout on the first PDF compile
+CACHE_DIR="$(cd "$(dirname "$0")/.." && pwd)/.tectonic-cache"
+echo "🔥 Pre-warming Tectonic cache to avoid production timeouts (this may take a minute)..."
+export TECTONIC_CACHE_DIR="$CACHE_DIR"
+mkdir -p "$CACHE_DIR"
+
+cat << 'EOF' > /tmp/dummy.tex
+\documentclass{article}
+\usepackage{times}
+\usepackage{geometry}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\usepackage{xcolor}
+\begin{document}
+Hello World
+\end{document}
+EOF
+
+"$TECTONIC" /tmp/dummy.tex -o /tmp || true
+echo "✅ Cache pre-warmed at $CACHE_DIR"
+
 # Verification log for cloud environments
 echo "🔍 Verifying Tectonic installation..."
 if [ -f "$TECTONIC" ]; then

@@ -56,28 +56,52 @@ export class LatexParserEngine {
             if (section.title.toLowerCase().includes('header') && adapter) continue; // Already extracted
             const blockType = this.classifySection(section.title);
 
-            let data: any = [];
+            let entries: any[] = [];
             if (adapter) {
                 switch (blockType) {
-                    case 'experience': data = adapter.extractExperience(section.content); break;
-                    case 'education': data = adapter.extractEducation(section.content); break;
-                    case 'skills': data = adapter.extractSkills(section.content); break;
-                    case 'project': data = adapter.extractProjects(section.content); break;
-                    case 'summary': data = adapter.extractSummary(section.content); break;
-                    default: data = adapter.extractCustom(section.content); break;
+                    case 'experience': entries = adapter.extractExperience(section.content); break;
+                    case 'education': entries = adapter.extractEducation(section.content); break;
+                    case 'skills': entries = adapter.extractSkills(section.content); break;
+                    case 'project': entries = adapter.extractProjects(section.content); break;
+                    case 'summary': entries = adapter.extractSummary(section.content); break;
+                    default: entries = adapter.extractCustom(section.content); break;
                 }
             }
 
-            extractedBlocks.push({
-                id: Math.random().toString(36).substring(7),
-                type: blockType,
-                _original_section: section.title,
-                _template_type: templateMatched,
-                data,
-                _raw_latex: '' // Left intentionally blank, can be populated via AST locs
-            });
-            // Approximate token counting logic...
-            totalExtractedTokens += JSON.stringify(data).length / 5;
+            if (entries.length > 0) {
+                for (const entry of entries) {
+                    let mappedData: any = { ...entry };
+
+                    if (blockType === 'experience') {
+                        mappedData = { company: entry.primary, role: entry.secondary, date: entry.date, location: entry.location, description: entry.description };
+                    } else if (blockType === 'education') {
+                        mappedData = { school: entry.primary, degree: entry.secondary, date: entry.date, location: entry.location, description: entry.description };
+                    } else if (blockType === 'project') {
+                        mappedData = { projectName: entry.primary, role: entry.secondary, date: entry.date, description: entry.description };
+                    } else if (blockType === 'skills') {
+                        mappedData = { category: entry.primary, skills: entry.description || [] };
+                    }
+
+                    extractedBlocks.push({
+                        id: Math.random().toString(36).substring(7),
+                        type: blockType,
+                        _original_section: section.title,
+                        _template_type: templateMatched,
+                        data: mappedData,
+                        _raw_latex: ''
+                    });
+                    totalExtractedTokens += JSON.stringify(mappedData).length / 5;
+                }
+            } else if (!adapter) {
+                extractedBlocks.push({
+                    id: Math.random().toString(36).substring(7),
+                    type: blockType,
+                    _original_section: section.title,
+                    _template_type: templateMatched,
+                    data: {},
+                    _raw_latex: ''
+                });
+            }
         }
 
         // 5. Validation & Confidence

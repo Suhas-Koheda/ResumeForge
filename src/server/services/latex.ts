@@ -52,9 +52,12 @@ async function runTectonic(args: string[]): Promise<{ stdout: string; stderr: st
     const binToRun = await prepareTectonicBin();
 
     return new Promise((resolve, reject) => {
+        const IS_SERVERLESS = !!process.env.VERCEL || !!process.env.NETLIFY || process.env.VITE_VERCEL === 'true';
+        const cacheDir = IS_SERVERLESS ? path.join(os.tmpdir(), 'tectonic-cache') : path.join(process.cwd(), '.tectonic-cache');
+
         const env = {
             ...process.env,
-            TECTONIC_CACHE_DIR: path.join(os.tmpdir(), 'tectonic-cache')
+            TECTONIC_CACHE_DIR: cacheDir
         };
         const child = spawn(binToRun, args, {
             stdio: ['ignore', 'pipe', 'pipe'],
