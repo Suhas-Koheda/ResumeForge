@@ -5,6 +5,8 @@ import { EducationBlock } from '../blocks/EducationBlock';
 import { SkillsBlock } from '../blocks/SkillsBlock';
 import { ProjectBlock } from '../blocks/ProjectBlock';
 import { HeaderBlock } from '../blocks/HeaderBlock';
+import { SummaryBlock } from '../blocks/SummaryBlock';
+import { OtherBlock } from '../blocks/OtherBlock';
 
 /**
  * Scalable Block Registry
@@ -19,6 +21,8 @@ const BLOCK_REGISTRY: Record<BlockType, React.FC<{ id: string; data: any }>> = {
     skills: SkillsBlock,
     project: ProjectBlock,
     header: HeaderBlock,
+    summary: SummaryBlock,
+    other: OtherBlock,
 };
 
 interface BlockRendererProps {

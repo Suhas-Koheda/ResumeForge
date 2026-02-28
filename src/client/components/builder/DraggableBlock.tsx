@@ -1,7 +1,7 @@
 import React, { memo, useRef, useEffect } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical, Briefcase, GraduationCap, Code, Rocket, Trash2, User } from 'lucide-react';
+import { GripVertical, Briefcase, GraduationCap, Code, Rocket, Trash2, User, Power } from 'lucide-react';
 import { ResumeBlock } from '@shared/types';
 import { BlockRenderer } from './BlockRenderer';
 import { useBlock } from '../../hooks/useResume';
@@ -42,9 +42,11 @@ const Port: React.FC<{ side: 'left' | 'right'; accent: string }> = ({ side, acce
 
 export const DraggableBlock: React.FC<DraggableBlockProps> = memo(({ block }) => {
     const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: block.id });
-    const { remove } = useBlock(block.id);
+    const { remove, toggle } = useBlock(block.id);
     const meta = getBlockMeta(block.type);
     const Icon = meta.icon;
+
+    const isExcluded = block.enabled === false;
 
     // Attach a native (non-passive) wheel listener on the card body so that
     // scrolling inside the card scrolls its content instead of zooming the canvas.
@@ -70,10 +72,11 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = memo(({ block }) =>
         position: 'absolute',
         left: block.position.x,
         top: block.position.y,
-        width: 420,
+        width: 'min(420px, 90vw)',
         transform: CSS.Translate.toString(transform),
         zIndex: isDragging ? 1000 : 1,
-        transition: isDragging ? 'none' : 'box-shadow 0.2s',
+        transition: isDragging ? 'none' : 'box-shadow 0.2s, opacity 0.2s',
+        opacity: isExcluded ? 0.4 : 1,
     };
 
     return (
@@ -154,27 +157,48 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = memo(({ block }) =>
                         )}
                     </div>
 
-                    {/* Delete */}
-                    <button
-                        className="nodrag"
-                        onClick={(e) => { e.stopPropagation(); remove(); }}
-                        style={{
-                            padding: 4,
-                            borderRadius: 4,
-                            border: 'none',
-                            background: 'transparent',
-                            cursor: 'pointer',
-                            color: '#4b5563',
-                            display: 'flex',
-                            alignItems: 'center',
-                            transition: 'color 0.15s',
-                        }}
-                        onMouseEnter={e => (e.currentTarget.style.color = '#ef4444')}
-                        onMouseLeave={e => (e.currentTarget.style.color = '#4b5563')}
-                        title="Delete node"
-                    >
-                        <Trash2 size={13} />
-                    </button>
+                    <div className="flex items-center gap-1">
+                        {/* Toggle Inclusion */}
+                        <button
+                            className="nodrag"
+                            onClick={(e) => { e.stopPropagation(); toggle(); }}
+                            style={{
+                                padding: 4,
+                                borderRadius: 4,
+                                background: 'transparent',
+                                color: isExcluded ? '#9ca3af' : meta.accent,
+                                cursor: 'pointer',
+                                transition: 'all 0.15s',
+                                border: 'none',
+                                display: 'flex',
+                                alignItems: 'center',
+                            }}
+                            title={isExcluded ? "Include in resume" : "Exclude from resume"}
+                        >
+                            <Power size={13} strokeWidth={isExcluded ? 1.5 : 3} />
+                        </button>
+
+                        <button
+                            className="nodrag"
+                            onClick={(e) => { e.stopPropagation(); remove(); }}
+                            style={{
+                                padding: 4,
+                                borderRadius: 4,
+                                border: 'none',
+                                background: 'transparent',
+                                cursor: 'pointer',
+                                color: '#4b5563',
+                                display: 'flex',
+                                alignItems: 'center',
+                                transition: 'color 0.15s',
+                            }}
+                            onMouseEnter={e => (e.currentTarget.style.color = '#ef4444')}
+                            onMouseLeave={e => (e.currentTarget.style.color = '#4b5563')}
+                            title="Delete node"
+                        >
+                            <Trash2 size={13} />
+                        </button>
+                    </div>
                 </div>
 
                 {/* ── Node body ─────────────────────────────────────────── */}

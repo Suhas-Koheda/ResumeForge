@@ -58,6 +58,7 @@ export const geminiService = {
     },
 
     async assembleFullResume(blocks: ResumeBlock[], template: string, apiKey?: string) {
+        const enabledBlocks = blocks.filter(b => b.enabled !== false);
         const prompt = `
 You are a LaTeX resume engine.
 
@@ -88,7 +89,7 @@ You MUST use them exactly.
 
 ==================================================
 INPUT BLOCKS (JSON):
-${JSON.stringify(blocks)}
+${JSON.stringify(enabledBlocks)}
 ==================================================
 
 RULES:
@@ -111,7 +112,8 @@ RULES:
    - Experience → \\customSubHeading + optional item list
    - Projects → \\customProject + optional item list
    - Skills → standard itemize block
-   - Achievements → standard itemize block
+   - Summary → standalone paragraph
+   - Other/Achievements → use custom title section + optional item list
 7. Do NOT invent data.
 8. Preserve dates exactly as provided.
 9. Use professional concise language.
@@ -144,7 +146,7 @@ Return ONLY raw LaTeX.
             You are a resume data extractor. 
             Extract all information from the provided ${type === 'text' ? 'text/LaTeX' : 'document'} and return it as an array of ResumeBlock objects.
             
-            Supported block types: 'header', 'experience', 'education', 'skills', 'project'.
+            Supported block types: 'header', 'experience', 'education', 'skills', 'project', 'summary', 'other'.
             
             CRITICAL RULES:
             1. DO NOT make any assumptions or invent data.
@@ -158,6 +160,8 @@ Return ONLY raw LaTeX.
             - 'education': { "school": "", "degree": "", "year": "", "location": "" }
             - 'skills': { "category": "", "skills": "List, separated, by, commas" }
             - 'project': { "title": "", "duration": "", "technologies": "", "highlights": ["Point 1", "..."] }
+            - 'summary': { "summary": "Full text of professional description" }
+            - 'other': { "title": "CUSTOM TITLE", "highlights": ["Item 1"], "content": "OR plain text if no list" }
 
             Return ONLY a valid JSON array of objects: [{ "type": BlockType, "data": { ... } }]
         `;

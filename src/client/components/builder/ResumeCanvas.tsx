@@ -20,19 +20,23 @@ const TYPE_ACCENT: Record<string, string> = {
     education:  '#10b981',
     project:    '#f59e0b',
     skills:     '#ec4899',
+    summary:    '#8b5cf6',
+    other:      '#64748b',
 };
 
 // Cluster column X origins (blocks of the same type stack in the same column)
 const CLUSTER_COLUMNS: Record<string, number> = {
-    header:     300,
-    experience: 850,
-    education:  1400,
-    project:    1950,
+    header:     0,
+    summary:    500,
+    experience: 1000,
+    education:  1500,
+    project:    2000,
     skills:     2500,
+    other:      3000,
 };
 const NODE_WIDTH  = 420;
 const NODE_VGAP   = 24;  // vertical gap between stacked nodes of same type
-const NODE_HEIGHT = 220; // estimated node height for stacking
+const NODE_HEIGHT = 200; // estimated node height for stacking
 
 /** Draw SVG bezier connector lines between node clusters */
 const ClusterConnectors: React.FC<{ groups: Record<string, ResumeBlock[]> }> = ({ groups }) => {
@@ -44,9 +48,9 @@ const ClusterConnectors: React.FC<{ groups: Record<string, ResumeBlock[]> }> = (
         const fromType = types[i];
         const toType   = types[i + 1];
         const fromX = (CLUSTER_COLUMNS[fromType] ?? (300 + i * 550)) + NODE_WIDTH;
-        const fromY = 2000 + 60; // approximate centre of first node header
+        const fromY = 60; // approximate centre of first node header
         const toX   = CLUSTER_COLUMNS[toType] ?? (300 + (i + 1) * 550);
-        const toY   = 2000 + 60;
+        const toY   = 60;
         const cpX   = (fromX + toX) / 2;
         const accent = TYPE_ACCENT[fromType] ?? '#71717a';
 
@@ -152,10 +156,12 @@ const CanvasRegistry: React.FC = () => {
             `}</style>
 
             <TransformWrapper
-                initialScale={0.65}
+                initialScale={0.8}
+                initialPositionX={100}
+                initialPositionY={100}
                 minScale={0.1}
-                maxScale={2.5}
-                centerOnInit={true}
+                maxScale={2}
+                centerOnInit={false}
                 limitToBounds={false}
                 panning={{ excluded: ['nodrag'] }}
                 doubleClick={{ disabled: true }}
@@ -228,8 +234,8 @@ const CanvasRegistry: React.FC = () => {
                                     {/* Bezier connectors between cluster columns */}
                                     <ClusterConnectors groups={grouped} />
 
-                                    {/* Absolute inset offset so nodes start near viewport centre */}
-                                    <div style={{ position: 'absolute', top: 2000, left: 1000 }}>
+                                     {/* Absolute inset offset removed: cards now start at world origin */}
+                                    <div style={{ position: 'absolute', top: 0, left: 0 }}>
                                         {blocks.length === 0 ? (
                                             <div
                                                 style={{

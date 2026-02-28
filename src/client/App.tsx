@@ -3,8 +3,8 @@ import { ResumeCanvas } from './components/builder/ResumeCanvas';
 import { useResumeActions } from './hooks/useResume';
 import {
     Plus, Settings, Layout, Sun, Moon,
-    Briefcase, GraduationCap, Code, Rocket,
-    Loader2, Sparkles, X, Terminal, Copy, User, Download, FileText, LogOut, Cloud, Trash2
+    Briefcase, GraduationCap, Code, Rocket, FileText, Layers,
+    Loader2, Sparkles, X, Terminal, Copy, User, Download, LogOut, Cloud, Trash2
 } from 'lucide-react';
 import { BlockType } from '@shared/types';
 import { OnboardingModal } from './components/ui/OnboardingModal';
@@ -12,8 +12,6 @@ import { Landing } from './components/ui/Landing';
 import { Auth } from './components/ui/Auth';
 import { geminiService } from './services/ai';
 import { manualLatexGenerator } from './services/manualLatex';
-import { pdf } from '@react-pdf/renderer';
-import { PdfDocument } from './components/builder/PdfDocument';
 import { latexServerService } from './services/latex';
 
 function App() {
@@ -80,10 +78,12 @@ function App() {
 
     const blockButtons: { type: BlockType; label: string; icon: any }[] = [
         { type: 'header', label: 'Header', icon: User },
+        { type: 'summary', label: 'Summary', icon: FileText },
         { type: 'experience', label: 'Experience', icon: Briefcase },
         { type: 'education', label: 'Education', icon: GraduationCap },
         { type: 'skills', label: 'Skills', icon: Code },
         { type: 'project', label: 'Project', icon: Rocket },
+        { type: 'other', label: 'Other', icon: Layers },
     ];
 
     const handleManualAssemble = () => {
@@ -108,8 +108,9 @@ function App() {
             console.log("[LOG_AI_ASSEMBLE] Full LaTeX document constructed.");
 
             setFullLatex(fullDoc);
-            setPreviewMode('code');
+            setPreviewMode('code'); // Start showing code while PDF generates
             setPdfUrl(null);
+            downloadPdf(false); // Auto-generate PDF preview
         } catch (error) {
             console.error("Assembly Error:", error);
             alert("Failed to assemble resume. Check your API key or active session.");
@@ -141,24 +142,15 @@ function App() {
         setIsGeneratingPdf(true);
         setCompilationLog(null);
         try {
-            let blob: Blob;
-
-            // Explicitly force local generation for Fast Gen by ignoring fullLatex if we're clearing it
-            const shouldUseServer = previewMode === 'code' && !!fullLatex;
-
-            if (shouldUseServer) {
-                console.log("[LOG_PDF_GEN] Requesting server-side compilation...");
-                blob = await latexServerService.compileLatexToPdf(fullLatex!);
-                console.log("[LOG_PDF_GEN] Server-side compilation successful. Blob received.");
-            } else {
-                console.log("[LOG_PDF_GEN] Starting Local React-PDF generation (FAST_GEN)...");
-                const doc = <PdfDocument blocks={blocks} />;
-                console.log("[LOG_PDF_GEN] PdfDocument component initialized for local rendering.");
-
-                // Construct PDF blob completely locally using React-PDF
-                blob = await pdf(doc).toBlob();
-                console.log("[LOG_PDF_GEN] Local React-PDF blob generation successful:", blob.size, "bytes");
+            let content = fullLatex;
+            if (!content) {
+                console.log("[LOG_PDF_GEN] No fullLatex found, generating on-the-fly for Tectonic...");
+                content = manualLatexGenerator.generate(blocks);
             }
+
+            console.log("[LOG_PDF_GEN] Requesting server-side compilation (Tectonic)...");
+            const blob = await latexServerService.compileLatexToPdf(content);
+            console.log("[LOG_PDF_GEN] Server-side compilation successful. Blob received.");
 
             const url = URL.createObjectURL(blob);
             setPdfUrl(url);
@@ -216,20 +208,9 @@ function App() {
             <header className="h-10 border-b border-zinc-200 dark:border-[#2d3042] bg-white dark:bg-[#1e2028] flex items-center justify-between px-4 z-20 shrink-0">
                 <div className="flex items-center gap-6">
                     <div className="flex items-center gap-2">
-                        <Terminal size={14} className="text-black dark:text-white" />
-                        <span className="text-[10px] font-black uppercase tracking-[0.3em] text-black dark:text-white">ResumeForge.core</span>
+                        <Terminal size={12} className="text-black dark:text-white" />
+                        <span className="text-[9px] font-black uppercase tracking-[0.2em] text-black dark:text-white">ResumeForge.core</span>
                     </div>
-                </div>
-
-                <div className="flex items-center gap-4">
-                    <button
-                        onClick={() => setIsDark(!isDark)}
-                        className="text-zinc-400 hover:text-black dark:hover:text-white transition-colors p-1"
-                    >
-                        {isDark ? <Sun size={14} /> : <Moon size={14} />}
-                    </button>
-
-                    <div className="w-px h-4 bg-zinc-200 dark:bg-zinc-800"></div>
 
                     <div className="flex gap-1 bg-zinc-100 dark:bg-[#111215] p-1 border border-zinc-200 dark:border-[#2d3042] rounded-full">
                         {resumes.map((_, idx) => (
@@ -244,97 +225,64 @@ function App() {
                                 >
                                     R_{idx + 1}
                                 </button>
-                                {/* Delete button – only shown on hover, hidden when last resume */}
                                 {resumes.length > 1 && (
                                     <button
                                         onClick={(e) => {
                                             e.stopPropagation();
-                                            if (confirm(`Delete Resume R_${idx + 1}? This cannot be undone.`)) {
-                                                deleteResume(idx);
-                                            }
+                                            if (confirm(`Delete Resume R_${idx + 1}?`)) deleteResume(idx);
                                         }}
                                         className="opacity-0 group-hover/pill:opacity-100 transition-opacity w-4 h-4 flex items-center justify-center rounded-full hover:bg-red-100 dark:hover:bg-red-900/40 text-zinc-400 hover:text-red-500 mr-1"
-                                        title={`Delete R_${idx + 1}`}
                                     >
                                         <X size={8} />
                                     </button>
                                 )}
                             </div>
                         ))}
-                        <button
-                            onClick={() => addResume()}
-                            className="px-2 py-1 text-[9px] font-bold text-zinc-400 hover:text-black dark:hover:text-white transition-all flex items-center justify-center rounded-full"
-                            title="New Resume"
-                        >
-                            <Plus size={10} />
-                        </button>
+                        <button onClick={() => addResume()} className="px-2 py-1 text-[9px] font-bold text-zinc-400 hover:text-black dark:hover:text-white"><Plus size={10} /></button>
                     </div>
 
                     <div className="w-px h-4 bg-zinc-200 dark:bg-zinc-800"></div>
 
                     <button
+                        onClick={() => setIsDark(!isDark)}
+                        className="text-zinc-400 hover:text-black dark:hover:text-white p-1"
+                        title="Toggle Theme"
+                    >
+                        {isDark ? <Sun size={14} /> : <Moon size={14} />}
+                    </button>
+
+                    {!isLocalMode && token && (
+                        <button
+                            onClick={() => { if (confirm("Logout?")) logout(); }}
+                            className="text-[10px] font-bold uppercase tracking-widest text-red-500 hover:text-red-600 transition-colors flex items-center gap-2 px-2"
+                        >
+                            <LogOut size={12} />
+                            Logout
+                        </button>
+                    )}
+                </div>
+
+                <div className="flex items-center gap-4">
+                    <button
                         onClick={() => setIsOnboardingOpen(true)}
                         className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 hover:text-black dark:hover:text-white transition-colors flex items-center gap-2"
-                        title="Import/Setup Identity"
                     >
                         <User size={12} />
-                        Import Resume
+                        Import
                     </button>
 
                     <button
                         onClick={() => {
-                            if (confirm("Are you sure you want to completely clear the canvas?")) {
+                            if (confirm("Clear canvas?")) {
                                 setBlocks([]);
                                 setFullLatex(null);
                             }
                         }}
                         className="text-[10px] font-bold uppercase tracking-widest text-red-500 hover:text-red-600 transition-colors flex items-center gap-2"
-                        title="Clear Canvas"
                     >
                         <Trash2 size={12} />
-                        Clear Canvas
+                        Clear
                     </button>
-
-                    {!isLocalMode && token && (
-                        <button
-                            onClick={() => {
-                                // For now, mock a sync since we just need the button and action placeholder. 
-                                // Can add an actual API fetch call later if backend /resumes saves data.
-                                alert("Data synchronized with the cloud successfuly.");
-                            }}
-                            className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 hover:text-black dark:hover:text-white transition-colors flex items-center gap-2"
-                            title="Sync Canvas to Cloud Engine"
-                        >
-                            <Cloud size={12} />
-                            Cloud_Sync
-                        </button>
-                    )}
-
-                    {!isLocalMode && token && (
-                        <>
-                            <div className="w-px h-4 bg-zinc-200 dark:bg-zinc-800"></div>
-                            <div className="flex items-center gap-3">
-                                <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 flex items-center gap-1.5 border border-zinc-200 dark:border-zinc-800 rounded-full px-2 py-0.5" title="Connected Profile">
-                                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-                                    Active_Session
-                                </span>
-                                <button
-                                    onClick={() => {
-                                        if (confirm("Are you sure you want to log out?")) {
-                                            logout();
-                                            setBlocks([]);
-                                            setFullLatex(null);
-                                        }
-                                    }}
-                                    className="text-[10px] font-bold uppercase tracking-widest text-red-500 hover:text-red-600 transition-colors flex items-center gap-2"
-                                    title="Disconnect Profile"
-                                >
-                                    <LogOut size={12} />
-                                    Logout
-                                </button>
-                            </div>
-                        </>
-                    )}
 
                     <div className="relative">
                         <button
@@ -347,33 +295,21 @@ function App() {
 
                         {showSettings && (
                             <div className="absolute top-full right-0 mt-2 w-80 bg-white dark:bg-zinc-900 border border-black dark:border-zinc-700 p-6 z-50">
-                                <div className="flex justify-between items-center mb-6">
-                                    <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-400">Environment Variables</p>
-                                    <button onClick={() => setShowSettings(false)}><X size={12} className="text-zinc-400 hover:text-black" /></button>
-                                </div>
                                 <div className="flex flex-col gap-6">
                                     <div>
                                         <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-2 block">AI_API_KEY</label>
                                         <input
                                             type="password"
-                                            className="w-full bg-zinc-50 dark:bg-black border border-zinc-200 dark:border-zinc-800 px-3 py-2 text-[10px] outline-none focus:border-black dark:focus:border-white transition-all text-zinc-900 dark:text-zinc-100"
+                                            className="w-full bg-zinc-50 dark:bg-black border border-zinc-200 dark:border-zinc-800 px-3 py-2 text-[10px] outline-none"
                                             value={apiKey || ''}
                                             onChange={(e) => setApiKey(e.target.value)}
                                         />
                                     </div>
-                                    <div>
-                                        <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-2 block">CUSTOM_LATEX_TEMPLATE</label>
-                                        <textarea
-                                            className="w-full bg-zinc-50 dark:bg-black border border-zinc-200 dark:border-zinc-800 px-3 py-2 text-[10px] min-h-[120px] outline-none focus:border-black dark:focus:border-white transition-all text-zinc-900 dark:text-zinc-100"
-                                            value={customTemplate || ''}
-                                            onChange={(e) => setCustomTemplate(e.target.value)}
-                                        />
-                                    </div>
+                                    <button onClick={() => setShowSettings(false)} className="text-[9px] font-bold uppercase text-zinc-500 hover:text-black">Close</button>
                                 </div>
                             </div>
                         )}
                     </div>
-                </div>
 
                     <div className="flex items-center gap-1 border border-zinc-200 dark:border-zinc-800 p-1">
                         <button
@@ -382,93 +318,39 @@ function App() {
                             className="px-3 py-1.5 text-[9px] font-bold uppercase tracking-[0.2em] bg-black text-white dark:bg-white dark:text-black hover:opacity-80 disabled:opacity-30 transition-all flex items-center gap-2"
                         >
                             {isAssembling ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />}
-                            AI_COMPILE
+                            COMPILE
                         </button>
                         <button
                             onClick={handleManualAssemble}
                             className="px-3 py-1.5 text-[9px] font-bold uppercase tracking-[0.2em] border border-black dark:border-white text-black dark:text-white hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black transition-all flex items-center gap-2"
                         >
                             <Layout size={10} />
-                            FAST_GEN
+                            MANUAL
                         </button>
                     </div>
+                </div>
             </header>
 
-            <div className="flex flex-1 relative overflow-hidden">
-                <aside className="w-16 border-r border-zinc-200 dark:border-[#2d3042] bg-white dark:bg-[#1e2028] flex flex-col items-center py-6 gap-8 z-10 shrink-0">
-                    <div className="text-zinc-300 dark:text-zinc-700 mb-2">
+            <div className="flex flex-1 flex-col sm:flex-row relative overflow-hidden">
+                <aside className="w-full sm:w-16 h-16 sm:h-auto border-t sm:border-t-0 sm:border-r border-zinc-200 dark:border-[#2d3042] bg-white dark:bg-[#1e2028] flex sm:flex-col items-center justify-around sm:justify-start py-2 sm:py-6 gap-2 sm:gap-8 z-10 shrink-0 order-2 sm:order-1">
+                    <div className="hidden sm:block text-zinc-300 dark:text-zinc-700 mb-2">
                         <Plus size={16} />
                     </div>
                     {blockButtons.map(({ type, label, icon: Icon }) => (
                         <button
                             key={type}
                             onClick={() => addBlock(type)}
-                            className="group relative flex flex-col items-center gap-2 text-zinc-400 dark:text-zinc-500 hover:text-black dark:hover:text-zinc-100 transition-all"
+                            className="group relative flex flex-col items-center gap-1 sm:gap-2 text-zinc-400 dark:text-zinc-500 hover:text-black dark:hover:text-zinc-100 transition-all font-bold"
                             title={label}
                         >
-                            <div className="w-10 h-10 rounded-lg border border-zinc-100 dark:border-[#2d3042] flex items-center justify-center group-hover:border-black dark:group-hover:border-zinc-500 group-hover:bg-zinc-50 dark:group-hover:bg-[#2d3042] transition-all">
-                                <Icon size={18} strokeWidth={1.5} />
+                            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg border border-zinc-100 dark:border-[#2d3042] flex items-center justify-center group-hover:border-black dark:group-hover:border-zinc-500 group-hover:bg-zinc-50 dark:group-hover:bg-[#2d3042] transition-all">
+                                <Icon size={16} strokeWidth={1.5} />
                             </div>
-                            <span className="text-[7px] font-bold uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity absolute top-full mt-2 whitespace-nowrap bg-black dark:bg-[#2d3042] text-white px-2 py-1 rounded">
-                                {label}
-                            </span>
                         </button>
                     ))}
-
-                    {/* ── Profile icon at bottom – cloud-only logout ── */}
-                    <div className="mt-auto relative">
-                        <button
-                            onClick={() => setShowProfile(p => !p)}
-                            className="w-8 h-8 rounded-full flex items-center justify-center border border-zinc-200 dark:border-[#2d3042] bg-zinc-50 dark:bg-[#111215] text-zinc-500 dark:text-zinc-400 hover:border-zinc-400 dark:hover:border-zinc-500 transition-all"
-                            title="Profile"
-                        >
-                            <User size={14} />
-                        </button>
-
-                        {showProfile && (
-                            <div
-                                className="absolute bottom-full left-full mb-2 ml-2 w-48 bg-white dark:bg-[#1e2028] border border-zinc-200 dark:border-[#2d3042] rounded-lg shadow-xl p-3 flex flex-col gap-2 z-50"
-                            >
-                                {/* active session badge */}
-                                {!isLocalMode && token && (
-                                    <div className="flex items-center gap-2 px-1 pb-2 border-b border-zinc-100 dark:border-[#2d3042]">
-                                        <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
-                                        <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400">Active Session</span>
-                                    </div>
-                                )}
-
-                                {/* theme toggle */}
-                                <button
-                                    onClick={() => setIsDark(d => !d)}
-                                    className="flex items-center gap-2 px-2 py-1.5 rounded text-[10px] font-bold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-[#2d3042] transition-colors w-full text-left"
-                                >
-                                    {isDark ? <Sun size={12} /> : <Moon size={12} />}
-                                    {isDark ? 'Light Mode' : 'Dark Mode'}
-                                </button>
-
-                                {/* logout – cloud only */}
-                                {!isLocalMode && token && (
-                                    <button
-                                        onClick={() => {
-                                            setShowProfile(false);
-                                            if (confirm('Log out?')) {
-                                                logout();
-                                                setBlocks([]);
-                                                setFullLatex(null);
-                                            }
-                                        }}
-                                        className="flex items-center gap-2 px-2 py-1.5 rounded text-[10px] font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors w-full text-left"
-                                    >
-                                        <LogOut size={12} />
-                                        Logout
-                                    </button>
-                                )}
-                            </div>
-                        )}
-                    </div>
                 </aside>
 
-                <main className="flex-1 relative overflow-hidden">
+                <main className="flex-1 relative overflow-hidden order-1 sm:order-2">
                     <ResumeCanvas />
 
                     {(fullLatex || pdfUrl || compilationLog) && (
@@ -516,7 +398,7 @@ function App() {
                                         disabled={isGeneratingPdf}
                                         className="bg-black text-white dark:bg-white dark:text-black px-4 py-2 text-[9px] font-bold uppercase tracking-widest hover:opacity-80 disabled:opacity-30"
                                     >
-                                        {isGeneratingPdf ? <FileText size={16} className="animate-spin" /> : <FileText size={16} />}
+                                        {isGeneratingPdf ? <Loader2 size={16} className="animate-spin" /> : <FileText size={16} />}
                                         {isGeneratingPdf ? "COMPILING..." : "EXP_PDF"}
                                     </button>
                                     <button
@@ -525,12 +407,8 @@ function App() {
                                     >
                                         <Download size={12} /> .TEX
                                     </button>
-                                    <div className="w-px h-4 bg-zinc-200"></div>
                                     <button
-                                        onClick={() => {
-                                            setFullLatex(null);
-                                            setPdfUrl(null);
-                                        }}
+                                        onClick={() => { setFullLatex(null); setPdfUrl(null); }}
                                         className="text-zinc-400 hover:text-black"
                                     >
                                         <X size={16} />

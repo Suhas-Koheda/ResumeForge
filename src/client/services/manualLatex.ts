@@ -85,15 +85,32 @@ export const manualLatexGenerator = {
     },
 
     generate(blocks: ResumeBlock[]): string {
-        const header = blocks.find(b => b.type === 'header')?.data || {};
-        const experiences = blocks.filter(b => b.type === 'experience').map(b => b.data);
-        const education = blocks.filter(b => b.type === 'education').map(b => b.data);
-        const projects = blocks.filter(b => b.type === 'project').map(b => b.data);
-        const skills = blocks.filter(b => b.type === 'skills').map(b => b.data);
+        const enabledBlocks = blocks.filter(b => b.enabled !== false);
+        const header = (enabledBlocks.find(b => b.type === 'header') || blocks.find(b => b.type === 'header'))?.data || {};
+        const experiences = enabledBlocks.filter(b => b.type === 'experience').map(b => b.data);
+        const education = enabledBlocks.filter(b => b.type === 'education').map(b => b.data);
+        const projects = enabledBlocks.filter(b => b.type === 'project').map(b => b.data);
+        const skills = enabledBlocks.filter(b => b.type === 'skills').map(b => b.data);
+        const summaries = enabledBlocks.filter(b => b.type === 'summary').map(b => b.data);
+        const others = enabledBlocks.filter(b => b.type === 'other').map(b => b.data);
 
         const preamble = this.generatePreamble(header);
 
         let content = '';
+
+        // Summary Section
+        if (summaries.length > 0) {
+            content += `
+%-----------SUMMARY-----------
+\\section{PROFESSIONAL SUMMARY}
+${summaries.map(s => `
+${this.escapeLatex(s.summary || '')}
+${(s.highlights && s.highlights.length > 0) ? `\\customItemListStart
+${s.highlights.map((h: string) => `\\customItem{${this.escapeLatex(h)}}`).join('\n')}
+\\customItemListEnd` : ''}
+`).join('\n\n')}
+`;
+        }
 
         // Education Section
         if (education.length > 0) {
@@ -173,6 +190,20 @@ ${proj.highlights.map((h: string) => `\\customItem{${this.escapeLatex(h)}}`).joi
             }).join('')}
 \\customSubHeadingContentEnd
 `;
+        }
+
+        // Other Sections
+        if (others.length > 0) {
+            content += others.map(o => `
+%-----------OTHER: ${o.title || 'ADDITIONAL'}-----------
+\\section{${(o.title || 'ADDITIONAL').toUpperCase()}}
+${(o.highlights && o.highlights.length > 0) ? `\\customSubHeadingContentStart
+\\item
+\\customItemListStart
+${o.highlights.map((h: string) => `\\customItem{${this.escapeLatex(h)}}`).join('\n')}
+\\customItemListEnd
+\\customSubHeadingContentEnd` : this.escapeLatex(o.content || '')}
+`).join('');
         }
 
         const end = this.generatePostamble();

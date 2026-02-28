@@ -11,6 +11,7 @@ export const useBlock = (id: string) => {
 
     const updateBlock = useBuilderStore((state) => state.updateBlock);
     const deleteBlock = useBuilderStore((state) => state.deleteBlock);
+    const toggleBlock = useBuilderStore((state) => state.toggleBlock);
     const updateBlockPosition = useBuilderStore((state) => state.updateBlockPosition);
 
     const updateData = useCallback(
@@ -29,6 +30,7 @@ export const useBlock = (id: string) => {
         data,
         updateData,
         remove,
+        toggle: () => toggleBlock(id),
         setPosition
     };
 };
@@ -40,6 +42,7 @@ export const useResumeActions = () => {
     const blocks = useBuilderStore((state) => state.blocks);
     const addBlock = useBuilderStore((state) => state.addBlock);
     const updateBlock = useBuilderStore((state) => state.updateBlock);
+    const toggleBlock = useBuilderStore((state) => state.toggleBlock);
     const updateBlockPosition = useBuilderStore((state) => state.updateBlockPosition);
     const apiKey = useBuilderStore((state) => state.apiKey);
     const setApiKey = useBuilderStore((state) => state.setApiKey);
@@ -66,6 +69,7 @@ export const useResumeActions = () => {
         blocks,
         addBlock,
         updateData: updateBlock,
+        toggleBlock,
         updateBlockPosition,
         apiKey,
         setApiKey,

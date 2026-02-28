@@ -15,6 +15,7 @@ interface BuilderStore {
     addBlock: (type: BlockType) => string;
     updateBlock: (id: string, data: any) => void;
     deleteBlock: (id: string) => void;
+    toggleBlock: (id: string) => void;
     updateBlockPosition: (id: string, x: number, y: number) => void;
     setBlocks: (blocks: ResumeBlock[]) => void;
     setFullLatex: (latex: string | null) => void;
@@ -109,15 +110,17 @@ export const useBuilderStore = create<BuilderStore>()(
                     const blocksOfType = state.blocks.filter(b => b.type === type);
                     
                     const BASE_X: Record<string, number> = {
-                        header: 100,
-                        experience: 600,
-                        education: 1100,
-                        project: 1600,
-                        skills: 2100,
+                        header: 0,
+                        summary: 500,
+                        experience: 1000,
+                        education: 1500,
+                        project: 2000,
+                        skills: 2500,
+                        other: 3000,
                     };
                     
-                    const startX = BASE_X[type as keyof typeof BASE_X] || 100;
-                    const startY = 100;
+                    const startX = BASE_X[type as keyof typeof BASE_X] ?? 0;
+                    const startY = 0;
 
                     let newX = startX;
                     let newY = startY;
@@ -125,7 +128,7 @@ export const useBuilderStore = create<BuilderStore>()(
                     if (blocksOfType.length > 0) {
                         const lastBlock = blocksOfType[blocksOfType.length - 1];
                         newX = lastBlock.position.x;
-                        newY = lastBlock.position.y + 400; // offset by rough typical block height
+                        newY = lastBlock.position.y + 200; // very tight stacking per user request
                     } else if (state.blocks.length > 0 && !BASE_X[type]) {
                         // Fallback if type not recognized, append to general end
                         const lastBlock = state.blocks[state.blocks.length - 1];
@@ -154,6 +157,13 @@ export const useBuilderStore = create<BuilderStore>()(
             deleteBlock: (id) =>
                 set((state) => ({
                     blocks: state.blocks.filter((block) => block.id !== id),
+                })),
+
+            toggleBlock: (id) =>
+                set((state) => ({
+                    blocks: state.blocks.map((block) =>
+                        block.id === id ? { ...block, enabled: block.enabled === false ? true : false } : block
+                    ),
                 })),
 
             updateBlockPosition: (id, x, y) =>
