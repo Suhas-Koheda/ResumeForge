@@ -51,6 +51,7 @@ export const useResumeActions = () => {
     const activeResumeIndex = useBuilderStore((state) => state.activeResumeIndex);
     const setFullLatex = useBuilderStore((state) => state.setFullLatex);
     const addResume = useBuilderStore((state) => state.addResume);
+    const deleteResume = useBuilderStore((state) => state.deleteResume);
     const resumes = useBuilderStore((state) => state.resumes);
     const fullLatex = useBuilderStore((state) => state.fullLatex);
     
@@ -75,6 +76,7 @@ export const useResumeActions = () => {
         activeResumeIndex,
         setFullLatex,
         addResume,
+        deleteResume,
         resumes,
         fullLatex,
         token,

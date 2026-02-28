@@ -20,7 +20,7 @@ function App() {
     const {
         addBlock, apiKey, setApiKey, blocks,
         customTemplate, setCustomTemplate,
-        activeResumeIndex, switchResume, addResume, resumes,
+        activeResumeIndex, switchResume, addResume, deleteResume, resumes,
         fullLatex, setFullLatex,
         viewState, setViewState,
         token, logout, setToken, setBlocks
@@ -34,6 +34,7 @@ function App() {
     const [compilationLog, setCompilationLog] = useState<string | null>(null);
     const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
     const [isLocalMode, setIsLocalMode] = useState(false);
+    const [showProfile, setShowProfile] = useState(false);
 
     const hasTriggeredOnboarding = React.useRef(false);
 
@@ -211,8 +212,8 @@ function App() {
     }
 
     return (
-        <div className="h-screen w-screen flex flex-col bg-white dark:bg-black overflow-hidden font-mono selection:bg-black selection:text-white dark:selection:bg-white dark:selection:text-black">
-            <header className="h-10 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-black flex items-center justify-between px-4 z-20 shrink-0">
+        <div className="h-screen w-screen flex flex-col bg-white dark:bg-[#111215] overflow-hidden font-mono selection:bg-black selection:text-white dark:selection:bg-white dark:selection:text-black">
+            <header className="h-10 border-b border-zinc-200 dark:border-[#2d3042] bg-white dark:bg-[#1e2028] flex items-center justify-between px-4 z-20 shrink-0">
                 <div className="flex items-center gap-6">
                     <div className="flex items-center gap-2">
                         <Terminal size={14} className="text-black dark:text-white" />
@@ -230,23 +231,40 @@ function App() {
 
                     <div className="w-px h-4 bg-zinc-200 dark:bg-zinc-800"></div>
 
-                    <div className="flex gap-1 bg-zinc-50 dark:bg-zinc-950 p-1 border border-zinc-200 dark:border-zinc-800 rounded-sm">
+                    <div className="flex gap-1 bg-zinc-100 dark:bg-[#111215] p-1 border border-zinc-200 dark:border-[#2d3042] rounded-full">
                         {resumes.map((_, idx) => (
-                            <button
-                                key={idx}
-                                onClick={() => switchResume(idx)}
-                                className={`px-2 py-1 text-[9px] font-bold uppercase tracking-widest transition-all ${activeResumeIndex === idx
-                                        ? 'bg-black text-white dark:bg-white dark:text-black'
-                                        : 'text-zinc-400 hover:text-black dark:hover:text-white'
+                            <div key={idx} className="relative group/pill flex items-center">
+                                <button
+                                    onClick={() => switchResume(idx)}
+                                    className={`pl-3 pr-2 py-1 text-[9px] font-bold uppercase tracking-widest transition-all rounded-full ${
+                                        activeResumeIndex === idx
+                                            ? 'bg-black text-white dark:bg-white dark:text-black shadow'
+                                            : 'text-zinc-400 hover:text-black dark:hover:text-white'
                                     }`}
-                            >
-                                R_{idx + 1}
-                            </button>
+                                >
+                                    R_{idx + 1}
+                                </button>
+                                {/* Delete button – only shown on hover, hidden when last resume */}
+                                {resumes.length > 1 && (
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            if (confirm(`Delete Resume R_${idx + 1}? This cannot be undone.`)) {
+                                                deleteResume(idx);
+                                            }
+                                        }}
+                                        className="opacity-0 group-hover/pill:opacity-100 transition-opacity w-4 h-4 flex items-center justify-center rounded-full hover:bg-red-100 dark:hover:bg-red-900/40 text-zinc-400 hover:text-red-500 mr-1"
+                                        title={`Delete R_${idx + 1}`}
+                                    >
+                                        <X size={8} />
+                                    </button>
+                                )}
+                            </div>
                         ))}
                         <button
                             onClick={() => addResume()}
-                            className="px-2 py-1 text-[9px] font-bold uppercase tracking-widest text-zinc-400 hover:text-black dark:hover:text-white transition-all flex items-center justify-center"
-                            title="New Resume Canvas"
+                            className="px-2 py-1 text-[9px] font-bold text-zinc-400 hover:text-black dark:hover:text-white transition-all flex items-center justify-center rounded-full"
+                            title="New Resume"
                         >
                             <Plus size={10} />
                         </button>
@@ -377,7 +395,7 @@ function App() {
             </header>
 
             <div className="flex flex-1 relative overflow-hidden">
-                <aside className="w-16 border-r border-zinc-200 dark:border-zinc-800 bg-white dark:bg-black flex flex-col items-center py-6 gap-8 z-10 shrink-0">
+                <aside className="w-16 border-r border-zinc-200 dark:border-[#2d3042] bg-white dark:bg-[#1e2028] flex flex-col items-center py-6 gap-8 z-10 shrink-0">
                     <div className="text-zinc-300 dark:text-zinc-700 mb-2">
                         <Plus size={16} />
                     </div>
@@ -385,17 +403,69 @@ function App() {
                         <button
                             key={type}
                             onClick={() => addBlock(type)}
-                            className="group relative flex flex-col items-center gap-2 text-zinc-400 hover:text-black dark:hover:text-white transition-all"
+                            className="group relative flex flex-col items-center gap-2 text-zinc-400 dark:text-zinc-500 hover:text-black dark:hover:text-zinc-100 transition-all"
                             title={label}
                         >
-                            <div className="w-10 h-10 border border-zinc-100 dark:border-zinc-900 flex items-center justify-center group-hover:border-black dark:group-hover:border-white group-hover:bg-zinc-50 dark:group-hover:bg-zinc-900 transition-all">
+                            <div className="w-10 h-10 rounded-lg border border-zinc-100 dark:border-[#2d3042] flex items-center justify-center group-hover:border-black dark:group-hover:border-zinc-500 group-hover:bg-zinc-50 dark:group-hover:bg-[#2d3042] transition-all">
                                 <Icon size={18} strokeWidth={1.5} />
                             </div>
-                            <span className="text-[7px] font-bold uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity absolute top-full mt-2 whitespace-nowrap bg-black text-white px-2 py-1">
-                                ADD_{label.toUpperCase()}
+                            <span className="text-[7px] font-bold uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity absolute top-full mt-2 whitespace-nowrap bg-black dark:bg-[#2d3042] text-white px-2 py-1 rounded">
+                                {label}
                             </span>
                         </button>
                     ))}
+
+                    {/* ── Profile icon at bottom – cloud-only logout ── */}
+                    <div className="mt-auto relative">
+                        <button
+                            onClick={() => setShowProfile(p => !p)}
+                            className="w-8 h-8 rounded-full flex items-center justify-center border border-zinc-200 dark:border-[#2d3042] bg-zinc-50 dark:bg-[#111215] text-zinc-500 dark:text-zinc-400 hover:border-zinc-400 dark:hover:border-zinc-500 transition-all"
+                            title="Profile"
+                        >
+                            <User size={14} />
+                        </button>
+
+                        {showProfile && (
+                            <div
+                                className="absolute bottom-full left-full mb-2 ml-2 w-48 bg-white dark:bg-[#1e2028] border border-zinc-200 dark:border-[#2d3042] rounded-lg shadow-xl p-3 flex flex-col gap-2 z-50"
+                            >
+                                {/* active session badge */}
+                                {!isLocalMode && token && (
+                                    <div className="flex items-center gap-2 px-1 pb-2 border-b border-zinc-100 dark:border-[#2d3042]">
+                                        <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                                        <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-500 dark:text-zinc-400">Active Session</span>
+                                    </div>
+                                )}
+
+                                {/* theme toggle */}
+                                <button
+                                    onClick={() => setIsDark(d => !d)}
+                                    className="flex items-center gap-2 px-2 py-1.5 rounded text-[10px] font-bold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-[#2d3042] transition-colors w-full text-left"
+                                >
+                                    {isDark ? <Sun size={12} /> : <Moon size={12} />}
+                                    {isDark ? 'Light Mode' : 'Dark Mode'}
+                                </button>
+
+                                {/* logout – cloud only */}
+                                {!isLocalMode && token && (
+                                    <button
+                                        onClick={() => {
+                                            setShowProfile(false);
+                                            if (confirm('Log out?')) {
+                                                logout();
+                                                setBlocks([]);
+                                                setFullLatex(null);
+                                            }
+                                        }}
+                                        className="flex items-center gap-2 px-2 py-1.5 rounded text-[10px] font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors w-full text-left"
+                                    >
+                                        <LogOut size={12} />
+                                        Logout
+                                    </button>
+                                )}
+                            </div>
+                        )}
+                    </div>
                 </aside>
 
                 <main className="flex-1 relative overflow-hidden">

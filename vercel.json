@@ -1,12 +1,17 @@
 {
   "version": 2,
-  "buildCommand": "npm run vercel-build",
+  "buildCommand": "bash scripts/install-tectonic.sh && npm run build:client",
   "outputDirectory": "dist/client",
   "builds": [
     {
       "src": "src/server/index.ts",
       "use": "@vercel/node",
-      "config": { "includeFiles": ["dist/**"] }
+      "config": {
+        "includeFiles": [
+          "dist/**",
+          ".bin/tectonic"
+        ]
+      }
     },
     {
       "src": "package.json",

@@ -1,4 +1,4 @@
-import React, { memo } from 'react';
+import React, { memo, useRef, useEffect } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { GripVertical, Briefcase, GraduationCap, Code, Rocket, Trash2, User } from 'lucide-react';
@@ -12,125 +12,192 @@ interface DraggableBlockProps {
 
 const getBlockMeta = (type: string) => {
     switch (type) {
-        case 'header': return { 
-            icon: User, 
-            color: 'text-blue-600 dark:text-blue-400', 
-            bg: 'bg-blue-50 dark:bg-blue-900/30', 
-            border: 'border-blue-200 dark:border-blue-800/50',
-            band: 'bg-blue-500'
-        };
-        case 'experience': return { 
-            icon: Briefcase, 
-            color: 'text-emerald-600 dark:text-emerald-400', 
-            bg: 'bg-emerald-50 dark:bg-emerald-900/30', 
-            border: 'border-emerald-200 dark:border-emerald-800/50',
-            band: 'bg-emerald-500'
-        };
-        case 'education': return { 
-            icon: GraduationCap, 
-            color: 'text-violet-600 dark:text-violet-400', 
-            bg: 'bg-violet-50 dark:bg-violet-900/30', 
-            border: 'border-violet-200 dark:border-violet-800/50',
-            band: 'bg-violet-500'
-        };
-        case 'skills': return { 
-            icon: Code, 
-            color: 'text-amber-600 dark:text-amber-400', 
-            bg: 'bg-amber-50 dark:bg-amber-900/30', 
-            border: 'border-amber-200 dark:border-amber-800/50',
-            band: 'bg-amber-500'
-        };
-        case 'project': return { 
-            icon: Rocket, 
-            color: 'text-rose-600 dark:text-rose-400', 
-            bg: 'bg-rose-50 dark:bg-rose-900/30', 
-            border: 'border-rose-200 dark:border-rose-800/50',
-            band: 'bg-rose-500'
-        };
-        default: return { 
-            icon: Briefcase, 
-            color: 'text-zinc-600 dark:text-zinc-400', 
-            bg: 'bg-zinc-50 dark:bg-zinc-900/30', 
-            border: 'border-zinc-200 dark:border-zinc-800/50',
-            band: 'bg-zinc-500'
-        };
+        case 'header':     return { icon: User,          accent: '#6366f1', label: 'Header' };
+        case 'experience': return { icon: Briefcase,     accent: '#0ea5e9', label: 'Experience' };
+        case 'education':  return { icon: GraduationCap, accent: '#10b981', label: 'Education' };
+        case 'skills':     return { icon: Code,          accent: '#f59e0b', label: 'Skills' };
+        case 'project':    return { icon: Rocket,        accent: '#ec4899', label: 'Project' };
+        default:           return { icon: Briefcase,     accent: '#71717a', label: type };
     }
-}
+};
+
+/** Small circle port (input left / output right) like n8n */
+const Port: React.FC<{ side: 'left' | 'right'; accent: string }> = ({ side, accent }) => (
+    <div
+        style={{
+            position: 'absolute',
+            top: '50%',
+            [side]: -8,
+            transform: 'translateY(-50%)',
+            width: 14,
+            height: 14,
+            borderRadius: '50%',
+            background: '#1e2028',
+            border: `2px solid ${accent}`,
+            boxShadow: `0 0 6px ${accent}55`,
+            zIndex: 10,
+        }}
+    />
+);
 
 export const DraggableBlock: React.FC<DraggableBlockProps> = memo(({ block }) => {
-    const {
-        attributes,
-        listeners,
-        setNodeRef,
-        transform,
-        isDragging,
-    } = useDraggable({ id: block.id });
-
+    const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: block.id });
     const { remove } = useBlock(block.id);
-
-    const style: React.CSSProperties = {
-        display: 'inline-block',
-        width: '450px',
-        verticalAlign: 'top',
-        transform: CSS.Translate.toString(transform),
-        zIndex: isDragging ? 50 : 1,
-    };
-
     const meta = getBlockMeta(block.type);
     const Icon = meta.icon;
-    const nodeName = block.type.toUpperCase();
+
+    // Attach a native (non-passive) wheel listener on the card body so that
+    // scrolling inside the card scrolls its content instead of zooming the canvas.
+    // React's synthetic onWheel won't work here because react-zoom-pan-pinch
+    // registers its own native listener which fires before React's bubble phase.
+    const bodyRef = useRef<HTMLDivElement>(null);
+    useEffect(() => {
+        const el = bodyRef.current;
+        if (!el) return;
+        const stop = (e: WheelEvent) => e.stopPropagation();
+        el.addEventListener('wheel', stop, { passive: false });
+        return () => el.removeEventListener('wheel', stop);
+    }, []);
+
+    const subtitle =
+        block.type === 'header'     ? block.data?.name :
+        block.type === 'experience' ? block.data?.company :
+        block.type === 'education'  ? block.data?.school :
+        block.type === 'project'    ? (block.data?.projectName || block.data?.title) :
+        block.type === 'skills'     ? block.data?.category : '';
+
+    const wrapperStyle: React.CSSProperties = {
+        position: 'absolute',
+        left: block.position.x,
+        top: block.position.y,
+        width: 420,
+        transform: CSS.Translate.toString(transform),
+        zIndex: isDragging ? 1000 : 1,
+        transition: isDragging ? 'none' : 'box-shadow 0.2s',
+    };
 
     return (
-        <div
-            ref={setNodeRef}
-            style={style}
-            className={`nodrag bg-white dark:bg-zinc-900 transition-all duration-200 flex items-stretch border relative overflow-hidden ${isDragging
-                ? 'shadow-2xl opacity-90 border-black dark:border-white z-50 scale-[1.02] cursor-grabbing'
-                : 'shadow-sm border-zinc-200 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600'
-                }`}
-        >
-            <div className={`absolute top-0 left-0 bottom-0 w-1 ${meta.band}`} />
-            
-            <div
-                {...attributes}
-                {...listeners}
-                className="w-8 ml-1 flex items-center justify-center cursor-grab active:cursor-grabbing text-zinc-300 dark:text-zinc-600 hover:text-zinc-900 dark:hover:text-zinc-100 border-r border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950/50 transition-colors"
-                title="Drag"
-            >
-                <GripVertical size={14} />
-            </div>
+        <div ref={setNodeRef} style={wrapperStyle} className="nodrag">
+            {/* Input port */}
+            <Port side="left" accent={meta.accent} />
+            {/* Output port */}
+            <Port side="right" accent={meta.accent} />
 
-            <div className="flex-1 flex flex-col min-w-0">
-                <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-100 dark:border-zinc-800">
-                    <div className="flex items-center gap-3">
-                        <div className={`w-8 h-8 rounded shrink-0 flex items-center justify-center ${meta.bg} dark:bg-zinc-800/50 border ${meta.border} dark:border-zinc-700 ${meta.color}`}>
-                            <Icon size={16} />
-                        </div>
-                        <div className="flex flex-col">
-                            <span className="text-[10px] font-bold text-zinc-900 dark:text-zinc-100 tracking-[0.2em]">{nodeName}</span>
-                            <span className="text-[9px] text-zinc-400 font-medium truncate max-w-[200px]">
-                                {block.type === 'header' && block.data?.name}
-                                {block.type === 'experience' && block.data?.company}
-                                {block.type === 'education' && block.data?.school}
-                                {block.type === 'project' && (block.data?.projectName || block.data?.title)}
-                                {block.type === 'skills' && block.data?.category}
-                            </span>
-                        </div>
+            <div
+                className={`
+                    bg-white dark:bg-[#1e2028]
+                    ${
+                        isDragging
+                            ? `border-[${meta.accent}]`
+                            : 'border-zinc-200 dark:border-[#2d3042]'
+                    }
+                `}
+                style={{
+                    borderRadius: 8,
+                    border: isDragging
+                        ? `1.5px solid ${meta.accent}`
+                        : undefined,
+                    boxShadow: isDragging
+                        ? `0 0 24px ${meta.accent}44, 0 16px 40px rgba(0,0,0,0.3)`
+                        : '0 2px 12px rgba(0,0,0,0.1)',
+                    borderWidth: isDragging ? undefined : '1.5px',
+                    borderStyle: 'solid',
+                    overflow: 'hidden',
+                    transform: isDragging ? 'scale(1.02)' : 'scale(1)',
+                    transition: 'transform 0.15s, box-shadow 0.15s, border-color 0.15s',
+                }}
+            >
+                {/* ── Node header (n8n-style coloured bar) ─────────────── */}
+                <div
+                    {...attributes}
+                    {...listeners}
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 10,
+                        padding: '10px 14px',
+                        background: `linear-gradient(135deg, ${meta.accent}22, ${meta.accent}08)`,
+                        borderBottom: `1px solid ${meta.accent}30`,
+                        cursor: isDragging ? 'grabbing' : 'grab',
+                        userSelect: 'none',
+                    }}
+                >
+                    {/* Grip */}
+                    <GripVertical size={13} className="text-zinc-400 dark:text-zinc-600" style={{ flexShrink: 0 }} />
+
+                    {/* Icon badge */}
+                    <div
+                        style={{
+                            width: 28,
+                            height: 28,
+                            borderRadius: 7,
+                            background: `${meta.accent}22`,
+                            border: `1px solid ${meta.accent}44`,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0,
+                        }}
+                    >
+                        <Icon size={14} style={{ color: meta.accent }} />
                     </div>
 
+                    {/* Type + subtitle */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.18em', color: meta.accent }}>
+                            {meta.label}
+                        </div>
+                        {subtitle && (
+                            <div style={{ fontSize: 9, color: '#6b7280', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {subtitle}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Delete */}
                     <button
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            remove();
+                        className="nodrag"
+                        onClick={(e) => { e.stopPropagation(); remove(); }}
+                        style={{
+                            padding: 4,
+                            borderRadius: 4,
+                            border: 'none',
+                            background: 'transparent',
+                            cursor: 'pointer',
+                            color: '#4b5563',
+                            display: 'flex',
+                            alignItems: 'center',
+                            transition: 'color 0.15s',
                         }}
-                        className="p-1 text-zinc-300 hover:text-red-600 transition-colors"
-                        title="Delete"
+                        onMouseEnter={e => (e.currentTarget.style.color = '#ef4444')}
+                        onMouseLeave={e => (e.currentTarget.style.color = '#4b5563')}
+                        title="Delete node"
                     >
-                        <Trash2 size={14} />
+                        <Trash2 size={13} />
                     </button>
                 </div>
 
-                <div className="p-5">
+                {/* ── Node body ─────────────────────────────────────────── */}
+                <div
+                    ref={bodyRef}
+                    className={`nodrag node-body-${block.id}`}
+                    style={{
+                        padding: '14px 16px',
+                        fontSize: 11,
+                        maxHeight: '280px',
+                        overflowY: 'auto',
+                        overflowX: 'hidden',
+                        scrollbarWidth: 'thin',
+                        scrollbarColor: `${meta.accent}55 transparent`,
+                    }}
+                >
+                    <style>{`
+                        .node-body-${block.id} { color: inherit; }
+                        .node-body-${block.id}::-webkit-scrollbar { width: 4px; }
+                        .node-body-${block.id}::-webkit-scrollbar-track { background: transparent; }
+                        .node-body-${block.id}::-webkit-scrollbar-thumb { background: ${meta.accent}55; border-radius: 4px; }
+                        .node-body-${block.id}::-webkit-scrollbar-thumb:hover { background: ${meta.accent}99; }
+                    `}</style>
                     <BlockRenderer block={block} />
                 </div>
             </div>

@@ -20,6 +20,7 @@ interface BuilderStore {
     setFullLatex: (latex: string | null) => void;
     switchResume: (index: number) => void;
     addResume: () => void;
+    deleteResume: (index: number) => void;
     apiKey: string;
     setApiKey: (key: string) => void;
     customTemplate: string;
@@ -85,6 +86,20 @@ export const useBuilderStore = create<BuilderStore>()(
                     activeResumeIndex: newIndex,
                     blocks: [],
                     fullLatex: null
+                });
+            },
+
+            deleteResume: (index) => {
+                const state = get();
+                if (state.resumes.length <= 1) return; // always keep at least one
+                const newResumes = state.resumes.filter((_, i) => i !== index);
+                const newIndex = Math.min(index, newResumes.length - 1);
+                const target = newResumes[newIndex];
+                set({
+                    resumes: newResumes,
+                    activeResumeIndex: newIndex,
+                    blocks: target.blocks,
+                    fullLatex: target.fullLatex,
                 });
             },
 
