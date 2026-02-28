@@ -43,3 +43,6 @@ yarn-error.log*
 
 # Tectonic binary (downloaded at build time)
 .bin/
+
+# Tectonic cache
+.tectonic-cache/

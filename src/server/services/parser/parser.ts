@@ -73,11 +73,11 @@ export class LatexParserEngine {
                     let mappedData: any = { ...entry };
 
                     if (blockType === 'experience') {
-                        mappedData = { company: entry.primary, role: entry.secondary, date: entry.date, location: entry.location, description: entry.description };
+                        mappedData = { company: entry.primary, role: entry.secondary, duration: entry.date, location: entry.location, highlights: entry.description };
                     } else if (blockType === 'education') {
-                        mappedData = { school: entry.primary, degree: entry.secondary, date: entry.date, location: entry.location, description: entry.description };
+                        mappedData = { school: entry.primary, degree: entry.secondary, year: entry.date, location: entry.location };
                     } else if (blockType === 'project') {
-                        mappedData = { projectName: entry.primary, role: entry.secondary, date: entry.date, description: entry.description };
+                        mappedData = { title: entry.primary, technologies: entry.secondary, duration: entry.date, highlights: entry.description };
                     } else if (blockType === 'skills') {
                         mappedData = { category: entry.primary, skills: entry.description || [] };
                     }

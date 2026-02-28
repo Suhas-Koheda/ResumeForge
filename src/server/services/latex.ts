@@ -7,16 +7,19 @@ import os from 'os';
 // In development it falls back to "tectonic" on the host $PATH.
 // Resolve Tectonic binary path - handle both local dev and bundled cloud environments
 const TECTONIC_BIN = (() => {
+    const isWin = process.platform === 'win32';
+    const binName = isWin ? 'tectonic.exe' : 'tectonic';
+
     // 1. Try absolute path from process.cwd (Root-based path)
-    const rootPath = path.resolve(process.cwd(), '.bin/tectonic');
+    const rootPath = path.resolve(process.cwd(), '.bin', binName);
     if (fsSync.existsSync(rootPath)) return rootPath;
 
     // 2. Try process.env.LAMBDA_TASK_ROOT or standard Netlify bundle path
-    const fallbackPath = path.resolve(process.env.LAMBDA_TASK_ROOT || process.cwd(), '.bin/tectonic');
+    const fallbackPath = path.resolve(process.env.LAMBDA_TASK_ROOT || process.cwd(), '.bin', binName);
     if (fsSync.existsSync(fallbackPath)) return fallbackPath;
 
     // 3. Fallback to path-based search (requires tectonic to be in system $PATH)
-    return 'tectonic';
+    return binName;
 })();
 
 let readyTectonicBin = TECTONIC_BIN;
@@ -24,11 +27,15 @@ let isBinPrepared = false;
 
 async function prepareTectonicBin() {
     if (isBinPrepared) return readyTectonicBin;
-    if (TECTONIC_BIN === 'tectonic') {
+
+    // In local dev, if it's already a valid path (absolute or in bin), just use it.
+    // Also if we use the system PATH, no prep needed.
+    if (!path.isAbsolute(TECTONIC_BIN) || process.platform === 'win32') {
         isBinPrepared = true;
         return readyTectonicBin;
     }
 
+    // Serverless/Cloud logic: copy to /tmp to ensure execution permissions
     try {
         const tmpBin = path.join(os.tmpdir(), 'tectonic-bin');
         try {
@@ -40,7 +47,6 @@ async function prepareTectonicBin() {
         readyTectonicBin = tmpBin;
     } catch (e) {
         console.warn('Failed to prepare Tectonic binary in /tmp:', e);
-        // Fallback to the original path, might still work or fail with EACCES
     }
 
     isBinPrepared = true;

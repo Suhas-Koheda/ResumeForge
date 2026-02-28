@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import { ResumeBlock, BlockType } from '@shared/types';
 
 interface ResumeStorage {
+    id?: string;
     blocks: ResumeBlock[];
     fullLatex: string | null;
 }
@@ -12,6 +13,7 @@ interface BuilderStore {
     activeResumeIndex: number;
     blocks: ResumeBlock[];
     fullLatex: string | null;
+    setResumeId: (index: number, id: string) => void;
     addBlock: (type: BlockType) => string;
     updateBlock: (id: string, data: any) => void;
     deleteBlock: (id: string) => void;
@@ -56,15 +58,37 @@ export const useBuilderStore = create<BuilderStore>()(
             logout: () => set({ token: null, viewState: 'landing' }),
             setViewState: (viewState) => set({ viewState }),
 
-            setBlocks: (blocks) => set({ blocks }),
-            setFullLatex: (fullLatex) => set({ fullLatex }),
+            setResumeId: (index, id) => set((state) => {
+                const newResumes = [...state.resumes];
+                if (newResumes[index]) {
+                    newResumes[index] = { ...newResumes[index], id };
+                }
+                return { resumes: newResumes };
+            }),
+
+            setBlocks: (blocks) => set((state) => {
+                const newResumes = [...state.resumes];
+                newResumes[state.activeResumeIndex] = {
+                    ...newResumes[state.activeResumeIndex],
+                    blocks
+                };
+                return { blocks, resumes: newResumes };
+            }),
+            setFullLatex: (fullLatex) => set((state) => {
+                const newResumes = [...state.resumes];
+                newResumes[state.activeResumeIndex] = {
+                    ...newResumes[state.activeResumeIndex],
+                    fullLatex
+                };
+                return { fullLatex, resumes: newResumes };
+            }),
 
             switchResume: (index) => {
                 const state = get();
                 // Save current to index
                 const newResumes = [...state.resumes];
                 newResumes[state.activeResumeIndex] = { blocks: state.blocks, fullLatex: state.fullLatex };
-                
+
                 // Load new from index
                 const target = newResumes[index] || { blocks: [], fullLatex: null };
                 set({
@@ -80,7 +104,7 @@ export const useBuilderStore = create<BuilderStore>()(
                 const newResumes = [...state.resumes];
                 newResumes[state.activeResumeIndex] = { blocks: state.blocks, fullLatex: state.fullLatex };
                 newResumes.push({ blocks: [], fullLatex: null });
-                
+
                 const newIndex = newResumes.length - 1;
                 set({
                     resumes: newResumes,
@@ -108,7 +132,6 @@ export const useBuilderStore = create<BuilderStore>()(
                 const id = generateId();
                 set((state) => {
                     const blocksOfType = state.blocks.filter(b => b.type === type);
-                    
                     const BASE_X: Record<string, number> = {
                         header: 0,
                         summary: 500,
@@ -118,60 +141,66 @@ export const useBuilderStore = create<BuilderStore>()(
                         skills: 2500,
                         other: 3000,
                     };
-                    
+
                     const startX = BASE_X[type as keyof typeof BASE_X] ?? 0;
                     const startY = 0;
-
                     let newX = startX;
                     let newY = startY;
 
                     if (blocksOfType.length > 0) {
                         const lastBlock = blocksOfType[blocksOfType.length - 1];
                         newX = lastBlock.position.x;
-                        newY = lastBlock.position.y + 200; // very tight stacking per user request
-                    } else if (state.blocks.length > 0 && !BASE_X[type]) {
-                        // Fallback if type not recognized, append to general end
-                        const lastBlock = state.blocks[state.blocks.length - 1];
-                        newX = lastBlock.position.x;
-                        newY = lastBlock.position.y + 400;
+                        newY = lastBlock.position.y + 200;
                     }
 
-                    const newBlock: ResumeBlock = {
-                        id,
-                        type,
-                        position: { x: newX, y: newY },
-                        data: {},
-                    };
-                    return { blocks: [...state.blocks, newBlock] };
+                    const newBlock: ResumeBlock = { id, type, position: { x: newX, y: newY }, data: {}, enabled: true };
+                    const newBlocks = [...state.blocks, newBlock];
+
+                    const newResumes = [...state.resumes];
+                    newResumes[state.activeResumeIndex] = { ...newResumes[state.activeResumeIndex], blocks: newBlocks };
+
+                    return { blocks: newBlocks, resumes: newResumes };
                 });
                 return id;
             },
 
             updateBlock: (id, partialData) =>
-                set((state) => ({
-                    blocks: state.blocks.map((block) =>
+                set((state) => {
+                    const newBlocks = state.blocks.map((block) =>
                         block.id === id ? { ...block, data: { ...block.data, ...partialData } } : block
-                    ),
-                })),
+                    );
+                    const newResumes = [...state.resumes];
+                    newResumes[state.activeResumeIndex] = { ...newResumes[state.activeResumeIndex], blocks: newBlocks };
+                    return { blocks: newBlocks, resumes: newResumes };
+                }),
 
             deleteBlock: (id) =>
-                set((state) => ({
-                    blocks: state.blocks.filter((block) => block.id !== id),
-                })),
+                set((state) => {
+                    const newBlocks = state.blocks.filter((block) => block.id !== id);
+                    const newResumes = [...state.resumes];
+                    newResumes[state.activeResumeIndex] = { ...newResumes[state.activeResumeIndex], blocks: newBlocks };
+                    return { blocks: newBlocks, resumes: newResumes };
+                }),
 
             toggleBlock: (id) =>
-                set((state) => ({
-                    blocks: state.blocks.map((block) =>
+                set((state) => {
+                    const newBlocks = state.blocks.map((block) =>
                         block.id === id ? { ...block, enabled: block.enabled === false ? true : false } : block
-                    ),
-                })),
+                    );
+                    const newResumes = [...state.resumes];
+                    newResumes[state.activeResumeIndex] = { ...newResumes[state.activeResumeIndex], blocks: newBlocks };
+                    return { blocks: newBlocks, resumes: newResumes };
+                }),
 
             updateBlockPosition: (id, x, y) =>
-                set((state) => ({
-                    blocks: state.blocks.map((block) =>
+                set((state) => {
+                    const newBlocks = state.blocks.map((block) =>
                         block.id === id ? { ...block, position: { x, y } } : block
-                    ),
-                })),
+                    );
+                    const newResumes = [...state.resumes];
+                    newResumes[state.activeResumeIndex] = { ...newResumes[state.activeResumeIndex], blocks: newBlocks };
+                    return { blocks: newBlocks, resumes: newResumes };
+                }),
 
             setApiKey: (apiKey) => set({ apiKey }),
             setCustomTemplate: (customTemplate) => set({ customTemplate }),

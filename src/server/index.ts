@@ -19,7 +19,12 @@ import fs from 'fs';
 const app = express();
 
 console.log("=== DIAGNOSTIC LOG (SERVER STARTUP) ===");
-console.log("DB URL (config.MONGODB_URI):", config.MONGODB_URI);
+if (config.IS_LOCAL) {
+    console.log("DB_DRIVER: SQLite");
+    console.log("DB_FILE: local_dev.sqlite");
+} else {
+    console.log("DB URL (config.MONGODB_URI):", config.MONGODB_URI);
+}
 console.log("DB USERNAME:", config.DB_USERNAME);
 console.log("DB PASSWORD:", config.DB_PASSWORD ? 'SET' : 'NOT SET');
 console.log("JWT SECRET:", config.JWT_SECRET ? 'SET' : 'NOT SET');

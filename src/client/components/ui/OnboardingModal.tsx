@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { X, User, Mail, Phone, MapPin, Globe, Sparkles, Rocket, Loader2 } from 'lucide-react';
 import { useResumeActions } from '../../hooks/useResume';
-import { ResumeBlock } from '@shared/types';
+import { ResumeBlock, BlockType } from '@shared/types';
 import { geminiService } from '../../services/ai';
+import { offlineLatexParser } from '../../services/offlineParser';
 
 export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
     const [tab, setTab] = useState<'profile' | 'import'>('profile');
@@ -49,32 +50,18 @@ export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }>
                 setFullLatex(importText);
 
                 try {
-                    const res = await fetch('/api/v1/import/latex', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ latexCode: importText })
-                    });
-
-                    if (!res.ok) throw new Error('Failed to parse LaTeX');
-
-                    const data = await res.json();
-                    const extracted = data.blocks || [];
+                    const extracted = offlineLatexParser.parseLatexBlocks(importText);
 
                     if (extracted.length > 0) {
-                        const newBlocks: ResumeBlock[] = extracted.filter((b: any) => b.type && b.data).map((b: any, index: number) => ({
+                        const newBlocks: ResumeBlock[] = extracted.map((b: any) => ({
                             id: Math.random().toString(36).substring(7),
-                            type: b.type,
-                            position: { x: 50, y: 50 + index * 150 },
+                            type: b.type as BlockType,
+                            position: { x: 0, y: 0 },
                             data: b.data || {},
                             enabled: true
                         }));
                         setBlocks(newBlocks);
-                        if (data.metadata?.warnings?.length > 0) {
-                            console.warn("AST Parse Warnings:", data.metadata.warnings);
-                            alert("AST Parsing completed with warnings: " + data.metadata.warnings.join(", "));
-                        } else {
-                            alert("Template Detected: " + (data.metadata?.template_detected || 'Custom') + ". Canvas synced.");
-                        }
+                        alert("Template Detected. Canvas synced offline.");
                     } else {
                         alert("Our parser couldn't find any structural blocks. Try enabling AI parsing fallback.");
                     }
@@ -89,10 +76,10 @@ export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }>
 
                 // AI reconstruction
                 const extractedBlocks = await geminiService.parseResume(importText, 'text', localKey || apiKey);
-                const newBlocks: ResumeBlock[] = extractedBlocks.filter((b: any) => b.type && b.data).map((b: any, index: number) => ({
+                const newBlocks: ResumeBlock[] = extractedBlocks.filter((b: any) => b.type && b.data).map((b: any) => ({
                     id: Math.random().toString(36).substring(7),
                     type: b.type,
-                    position: { x: 50, y: 50 + index * 150 },
+                    position: { x: 0, y: 0 },
                     data: b.data || {},
                     enabled: true
                 }));
@@ -105,110 +92,6 @@ export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }>
         } finally {
             setIsImporting(false);
         }
-    };
-
-    // Robust Regex-based parser for Udoy Saha LaTeX Template
-    const parseLatexBlocks = (latex: string): Partial<ResumeBlock>[] => {
-        const blocks: Partial<ResumeBlock>[] = [];
-
-        // Header
-        const nameMatch = latex.match(/\\Huge\s+\\scshape\s+(?:\\color\{[^}]+\}\s*)?([^}\\]+)/);
-        const emailMatch = latex.match(/mailto:([^}]+)/);
-        const phoneMatch = latex.match(/\\faPhone\\\s*([\+\d\-]+)/) || latex.match(/\\Telefon\\\s*([\+\d\-]+)/);
-        const locationMatch = latex.match(/\\vspace\{[^}]+\}\s*([^~\\]+)/) || latex.match(/Hyderabad, India/) || latex.match(/\\begin\{center\}[^]*?([^\n,]+,\s*[^\n\\]+)[^]*?\\faPhone/);
-
-        const websiteMatch = latex.match(/\\href\{([^}]+)\}\s*\{\\faGlobe/) || latex.match(/\\href\{([^}]+)\}\s*\{\\Mundus/);
-        const linkedinMatch = latex.match(/\\href\{([^}]+)\}\s*\{\\faLinkedin/) || latex.match(/\\href\{([^}]+)\}\s*\{\\textbf\{L\}/);
-        const githubMatch = latex.match(/\\href\{([^}]+)\}\s*\{\\faGithub/) || latex.match(/\\href\{([^}]+)\}\s*\{\\textbf\{G\}/);
-
-        if (nameMatch || emailMatch || phoneMatch) {
-            blocks.push({
-                type: 'header',
-                data: {
-                    name: nameMatch ? nameMatch[1].trim() : '',
-                    email: emailMatch ? emailMatch[1].trim() : '',
-                    phone: phoneMatch ? phoneMatch[1].trim() : '',
-                    location: locationMatch ? (typeof locationMatch === 'string' ? locationMatch : locationMatch[1] || locationMatch[0]).trim() : '',
-                    website: websiteMatch ? websiteMatch[1].trim() : '',
-                    linkedin: linkedinMatch ? linkedinMatch[1].trim() : '',
-                    github: githubMatch ? githubMatch[1].trim() : ''
-                }
-            });
-        }
-
-        // Education
-        const eduSectionMatch = latex.match(/\\section\{EDUCATION\}([^]*?)(?=\\section|\\end\{document\}|$)/i);
-        if (eduSectionMatch) {
-            const eduItemRegex = /\\customSubHeading\s*\{([^\}]+)\}\s*\{([^\}]+)\}\s*\{([^\}]+)\}\s*\{([^\}]+)\}/g;
-            let m;
-            while ((m = eduItemRegex.exec(eduSectionMatch[1])) !== null) {
-                blocks.push({
-                    type: 'education',
-                    data: { school: m[1], year: m[2], degree: m[3], location: m[4] }
-                });
-            }
-        }
-
-        // Experience
-        const expSectionMatch = latex.match(/\\section\{EXPERIENCE\}([^]*?)(?=\\section|\\end\{document\}|$)/i);
-        if (expSectionMatch) {
-            const expItemRegex = /\\customSubHeading\s*\{([^\}]+)\}\s*\{([^\}]+)\}\s*\{([^\}]+)\}\s*\{([^\}]+)\}([^]*?)(?=\\customSubHeading|\\customSubHeadingContentEnd|$)/g;
-            let m;
-            while ((m = expItemRegex.exec(expSectionMatch[1])) !== null) {
-                const highlights = (m[5].match(/\\customItem\{([^\}]+)\}/g) || []).map(mi => mi.replace(/\\customItem\{|\}/g, '').trim());
-                blocks.push({
-                    type: 'experience',
-                    data: { company: m[1], duration: m[2], role: m[3], location: m[4], highlights }
-                });
-            }
-        }
-
-        // Skills
-        const skillsSectionMatch = latex.match(/\\section\{TECHNICAL SKILLS\}([^]*?)(?=\\section|\\end\{document\}|$)/i);
-        if (skillsSectionMatch) {
-            const skillItemRegex = /\\item\s*\\textbf\{([^\}]+)\}:?\s*([^\n\\]+)/g;
-            let m;
-            while ((m = skillItemRegex.exec(skillsSectionMatch[1])) !== null) {
-                blocks.push({
-                    type: 'skills',
-                    data: { category: m[1].replace(':', '').trim(), skills: m[2].trim() }
-                });
-            }
-        }
-
-        // Projects
-        const projSectionMatch = latex.match(/\\section\{PROJECTS?\}([^]*?)(?=\\section|\\end\{document\}|$)/i);
-        if (projSectionMatch) {
-            const projectsRaw = projSectionMatch[1].split(/\\customProject\b/).filter(s => s.trim().length > 0 && !s.includes('ContentStart'));
-            projectsRaw.forEach(pRaw => {
-                const titleMatch = pRaw.match(/\\textbf\{([^\}]+)\}/);
-                const techMatch = pRaw.match(/\\emph\{([^\}]+)\}/);
-                const highlights = (pRaw.match(/\\customItem\{([^\}]+)\}/g) || []).map(mi => mi.replace(/\\customItem\{|\}/g, '').trim());
-
-                const liveLinkMatch = pRaw.match(/\\href\{([^}]+)\}\s*\{[^}]*?(?:Live|Link)[^}]*\}/i);
-                const codeLinkMatch = pRaw.match(/\\href\{([^}]+)\}\s*\{[^}]*?Code[^}]*\}/i);
-
-                let duration = "";
-                const quadMatch = pRaw.match(/\\quad\s*([^\}\n]+)/);
-                if (quadMatch) duration = quadMatch[1].replace('}', '').trim();
-
-                if (titleMatch || techMatch || highlights.length > 0) {
-                    blocks.push({
-                        type: 'project',
-                        data: {
-                            title: titleMatch ? titleMatch[1] : '',
-                            technologies: techMatch ? techMatch[1] : '',
-                            liveLink: liveLinkMatch ? liveLinkMatch[1] : '',
-                            githubLink: codeLinkMatch ? codeLinkMatch[1] : '',
-                            duration: duration,
-                            highlights
-                        }
-                    });
-                }
-            });
-        }
-
-        return blocks;
     };
 
     return (

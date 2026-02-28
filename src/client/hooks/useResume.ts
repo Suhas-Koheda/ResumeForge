@@ -57,13 +57,14 @@ export const useResumeActions = () => {
     const deleteResume = useBuilderStore((state) => state.deleteResume);
     const resumes = useBuilderStore((state) => state.resumes);
     const fullLatex = useBuilderStore((state) => state.fullLatex);
-    
+
     // Auth
     const token = useBuilderStore((state) => state.token);
     const setToken = useBuilderStore((state) => state.setToken);
     const logout = useBuilderStore((state) => state.logout);
     const viewState = useBuilderStore((state) => state.viewState);
     const setViewState = useBuilderStore((state) => state.setViewState);
+    const setResumeId = useBuilderStore((state) => state.setResumeId);
 
     return {
         blocks,
@@ -87,6 +88,7 @@ export const useResumeActions = () => {
         setToken,
         logout,
         viewState,
-        setViewState
+        setViewState,
+        setResumeId
     };
 };
