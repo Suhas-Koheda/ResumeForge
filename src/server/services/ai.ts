@@ -4,6 +4,17 @@ import { ResumeBlock } from "../../shared/types.js";
 
 const genAI = new GoogleGenerativeAI(config.GEMINI_API_KEY);
 
+const parseSafeJson = (text: string) => {
+    try {
+        // Remove markdown code fences if present and trim whitespace
+        const cleaned = text.replace(/```json\n?|```\n?/g, "").trim();
+        return JSON.parse(cleaned);
+    } catch (e) {
+        console.error("[LOG_AI_BACKEND] Failed to parse AI JSON. Raw Output:", text);
+        throw new Error(`AI response was not valid JSON: ${e instanceof Error ? e.message : 'Invalid format'}`);
+    }
+};
+
 export const aiService = {
     async polishExperience(rawText: string) {
         const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
@@ -11,17 +22,21 @@ export const aiService = {
             You are an expert resume writer and LaTeX specialist. 
             Convert the following raw job experience description into professional, high-impact bullet points.
             Input: "${rawText}"
+            
             Return the response in strictly valid JSON format:
             {
                 "polishedPoints": ["Point 1", "Point 2"],
                 "latexCode": "\\\\customItemListStart\\n  \\\\customItem{...}\\n\\\\customItemListEnd"
             }
+            
+            Rules:
+            - Output ONLY valid JSON.
+            - Do NOT include markdown code fences (\`\`\`json).
+            - Do NOT include notes or explanations.
         `;
-        const result = await model.generateContent({
-            contents: [{ role: "user", parts: [{ text: prompt }] }],
-            generationConfig: { responseMimeType: "application/json" } as any
-        });
-        return result.response.text();
+        const result = await model.generateContent(prompt);
+        const textResponse = result.response.text();
+        return JSON.stringify(parseSafeJson(textResponse));
     },
 
     async assembleResume(blocks: ResumeBlock[], template: string) {
@@ -97,7 +112,7 @@ Return ONLY raw LaTeX.
             const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
             const prompt = `
                 You are a resume data extractor. 
-                Extract all information from the provided text/LaTeX and return it as an array of ResumeBlock objects.
+                Extract all information from the provided text/LaTeX and return it as a JSON array of ResumeBlock objects.
                 
                 Supported block types: 'header', 'experience', 'education', 'skills', 'project'.
                 
@@ -108,15 +123,21 @@ Return ONLY raw LaTeX.
                 - 'skills': { "category": "", "skills": "Skill1, Skill2, ..." }
                 - 'project': { "title": "", "duration": "", "technologies": "", "highlights": [...] }
 
-                Return ONLY a JSON array.
+                Rules:
+                - Output ONLY a valid JSON array.
+                - Do NOT include markdown code fences (\`\`\`json).
+                - Do NOT include any preamble or commentary.
+                
+                INPUT:
+                ${content}
             `;
-            const result = await model.generateContent({
-                contents: [{ role: "user", parts: [{ text: prompt + "\n\nINPUT:\n" + content }] }],
-                generationConfig: { responseMimeType: "application/json" } as any
-            });
+            const result = await model.generateContent(prompt);
             const textResponse = result.response.text();
+
             console.log("[LOG_AI_BACKEND] Raw response received:", textResponse.substring(0, 100) + "...");
-            return textResponse;
+
+            const parsed = parseSafeJson(textResponse);
+            return JSON.stringify(parsed);
         } catch (error: any) {
             console.error("[LOG_AI_BACKEND] ERROR in parseResume:", error);
             throw error;
