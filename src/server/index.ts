@@ -21,12 +21,13 @@ const app = express();
 
 // Middleware
 app.use(cors({
-    origin: config.ALLOWED_ORIGINS,
-    credentials: true
+    origin: process.env.VITE_VERCEL === 'true' ? ['https://resumeforge.vercel.app', 'http://localhost:5173'] : config.ALLOWED_ORIGINS,
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
 }));
 app.use(express.json());
 
-// TypeORM Data Source (Local: SQLite, Cloud: Postgres)
+// TypeORM Data Source for Serverless PostgreSQL
 export const AppDataSource = new DataSource(
     config.IS_LOCAL
         ? {
@@ -46,42 +47,51 @@ export const AppDataSource = new DataSource(
             entities: [User, Resume],
             subscribers: [],
             migrations: [],
-            ssl: config.MONGODB_URI.includes('neon.tech') ? { rejectUnauthorized: false } : false
+            ssl: { rejectUnauthorized: false },
+            extra: {
+                max: 5, // Connection pool size limit for Serverless environments
+                idleTimeoutMillis: 30000 
+            }
         }
 );
 
-let isInitialized = false;
+let dbConnectionPromise: Promise<DataSource> | null = null;
 async function connectToDatabase() {
-    if (isInitialized) return;
-    try {
-        await AppDataSource.initialize();
-        isInitialized = true;
-        console.log(`--- ${config.IS_LOCAL ? 'SQLite' : 'Postgres'} Database Connected ---`);
-    } catch (error) {
-        console.error("Database connection error:", error);
+    if (!dbConnectionPromise) {
+        dbConnectionPromise = AppDataSource.initialize().then(ds => {
+            console.log(`--- ${config.IS_LOCAL ? 'SQLite' : 'Postgres'} Database Connected ---`);
+            return ds;
+        }).catch(err => {
+            console.error("Database connection error:", err);
+            throw err;
+        });
     }
+    await dbConnectionPromise;
 }
 
 // Routes
-app.get('/health', (req, res) => res.json({
+app.get('/api/health', (req, res) => res.json({
     status: 'ok',
     mode: config.IS_LOCAL ? 'LOCAL' : 'CLOUD',
-    db_state: isInitialized ? 'connected' : 'disconnected'
+    db_state: 'connected'
 }));
 
-app.use('/api/v1/auth', async (req, res, next) => {
-    await connectToDatabase();
-    authRouter(req, res, next);
+const apiRouter = express.Router();
+
+apiRouter.use(async (req, res, next) => {
+    try {
+        await connectToDatabase();
+        next();
+    } catch (e) {
+        res.status(500).json({ error: 'Database connection failed' });
+    }
 });
 
-app.use('/api/v1/resumes', async (req, res, next) => {
-    await connectToDatabase();
-    resumeRouter(req, res, next);
-});
+apiRouter.use('/auth', authRouter);
+apiRouter.use('/resumes', resumeRouter);
+apiRouter.use('/export', exportRouter);
 
-app.use('/api/v1/export', exportRouter);
-
-app.post('/api/v1/ai/experience', authMiddleware, async (req, res) => {
+apiRouter.post('/ai/experience', authMiddleware, async (req, res) => {
     try {
         const { text } = req.body;
         const result = await aiService.polishExperience(text);
@@ -91,7 +101,7 @@ app.post('/api/v1/ai/experience', authMiddleware, async (req, res) => {
     }
 });
 
-app.post('/api/v1/ai/assemble', authMiddleware, async (req, res) => {
+apiRouter.post('/ai/assemble', authMiddleware, async (req, res) => {
     try {
         const { blocks, template } = req.body;
         const result = await aiService.assembleResume(blocks, template);
@@ -102,7 +112,7 @@ app.post('/api/v1/ai/assemble', authMiddleware, async (req, res) => {
     }
 });
 
-app.post('/api/v1/ai/parse', authMiddleware, async (req, res) => {
+apiRouter.post('/ai/parse', authMiddleware, async (req, res) => {
     try {
         const { content } = req.body;
         const result = await aiService.parseResume(content);
@@ -113,19 +123,18 @@ app.post('/api/v1/ai/parse', authMiddleware, async (req, res) => {
     }
 });
 
-// Serve static files in production
-const distPath = path.join(__dirname, '../../../dist/client');
-app.use(express.static(distPath));
+app.use('/api/v1', apiRouter);
 
-// Auth and API routes are defined above
-
-// Handle SPA routing
-app.get('*', (req, res, next) => {
-    if (req.path.startsWith('/api')) return next();
-    res.sendFile(path.join(distPath, 'index.html'));
-});
-
+// Serve static files in production (Fallback)
 if (process.env.VITE_VERCEL !== 'true') {
+    const distPath = path.join(__dirname, '../../../dist/client');
+    app.use(express.static(distPath));
+
+    app.get('*', (req, res, next) => {
+        if (req.path.startsWith('/api')) return next();
+        res.sendFile(path.join(distPath, 'index.html'));
+    });
+
     connectToDatabase().then(() => {
         app.listen(config.PORT, () => {
             console.log(`Server running on port ${config.PORT} [${config.IS_LOCAL ? 'LOCAL MODE' : 'PRODUCTION'}]`);

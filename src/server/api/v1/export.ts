@@ -1,7 +1,6 @@
 import express from 'express';
 import { authMiddleware, AuthRequest } from '../../core/auth.js';
-import { latexService } from '../../services/latex.js';
-import fs from 'fs/promises';
+import axios from 'axios';
 
 const router = express.Router();
 
@@ -12,22 +11,24 @@ router.post('/pdf', authMiddleware, async (req: AuthRequest, res) => {
             return res.status(400).json({ error: 'LaTeX code is required' });
         }
 
-        const pdfPath = await latexService.compileToPdf(latexCode);
-
-        res.download(pdfPath, 'resume.pdf', async (err) => {
-            // Clean up the temporary directory after sending
-            try {
-                const dir = pdfPath.substring(0, pdfPath.lastIndexOf(process.platform === 'win32' ? '\\' : '/'));
-                await fs.rm(dir, { recursive: true, force: true });
-            } catch (cleanupErr) {
-                console.error('Cleanup error:', cleanupErr);
-            }
+        // Sending the LaTeX payload to an external LaTeX compilation API (latexonline.cc)
+        // Ensure you provide the raw code.
+        const pdfResponse = await axios.post('https://latexonline.cc/compile?command=pdflatex', latexCode, {
+            headers: { 'Content-Type': 'text/plain' },
+            responseType: 'arraybuffer' 
         });
+
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', 'attachment; filename=resume.pdf');
+        
+        // Pipe the buffer back to the user seamlessly
+        res.status(200).send(pdfResponse.data);
+
     } catch (error: any) {
-        console.error('PDF Export Route Error:', error);
+        console.error('PDF Export Route Error:', error.response?.data ? error.response.data.toString() : error.message);
         res.status(500).json({ 
-            error: 'PDF Compilation failed', 
-            details: error.message 
+            error: 'Serverless PDF Compilation failed via External Service. The service may be down, or the LaTeX code has compilation errors.',
+            details: error.message
         });
     }
 });
