@@ -14,7 +14,7 @@ const parseSafeJson = (text: string) => {
 };
 
 let rotationIndex = 0;
-const getRotatingModel = (modelName: string = "gemini-1.5-flash") => {
+const getRotatingModel = (modelName: string = "gemini-3.1-pro-preview") => {
     const keys = [config.GEMINI_API_KEY, ...config.GEMINI_API_KEYS].filter(Boolean);
     if (keys.length === 0) throw new Error("No Gemini API keys configured");
 

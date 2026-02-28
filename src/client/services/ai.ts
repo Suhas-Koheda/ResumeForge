@@ -11,8 +11,8 @@ import { useBuilderStore } from '../store/useBuilderStore';
 
 const getAuthHeaders = (): Record<string, string> => {
     const token = useBuilderStore.getState().token;
-    return token 
-        ? { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" } 
+    return token
+        ? { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" }
         : { "Content-Type": "application/json" };
 };
 
@@ -31,7 +31,7 @@ export const geminiService = {
                 }
             `;
             const response = await fetch(
-                `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+                `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent?key=${apiKey}`,
                 {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
@@ -123,7 +123,7 @@ If no data exists for a section, omit that section entirely.
 Return ONLY raw LaTeX.
 `;
         if (apiKey) {
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent?key=${apiKey}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
@@ -177,7 +177,7 @@ Return ONLY raw LaTeX.
                 throw new Error("File parsing requires text extraction or multimodal support (not implemented in this simplified client service). Please paste the resume or Overleaf LaTeX text.");
             }
 
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent?key=${apiKey}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
