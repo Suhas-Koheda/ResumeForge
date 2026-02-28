@@ -9,9 +9,17 @@ const __dirname  = path.dirname(__filename);
 
 // The binary is placed here by scripts/install-tectonic.sh at build time.
 // In development it falls back to "tectonic" on the host $PATH.
+// Resolve Tectonic binary path - handle both local dev and bundled cloud environments
 const TECTONIC_BIN = (() => {
-    const bundled = path.resolve(__dirname, '../../../.bin/tectonic');
-    return bundled;  // spawn will fall back to PATH if non-existent
+    const isCloud = !!process.env.VERCEL || !!process.env.NETLIFY;
+    
+    // Check locally resolved path first (works for most cases)
+    const relativePath = path.resolve(__dirname, '../../../.bin/tectonic');
+    
+    // Cloud fallback (often in the root of the function's workspace)
+    const rootPath = path.resolve(process.cwd(), '.bin/tectonic');
+    
+    return isCloud ? rootPath : relativePath;
 })();
 
 /** Run Tectonic and collect stdout/stderr */

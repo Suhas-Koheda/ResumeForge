@@ -124,7 +124,7 @@ apiRouter.post('/ai/parse', authMiddleware, async (req, res) => {
     }
 });
 
-app.use('/api/v1', apiRouter);
+app.use(['/api/v1', '/.netlify/functions/server/v1'], apiRouter);
 
 const IS_SERVERLESS = !!process.env.VERCEL || !!process.env.NETLIFY || process.env.VITE_VERCEL === 'true';
 

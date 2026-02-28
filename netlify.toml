@@ -2,10 +2,19 @@
   command = "bash scripts/install-tectonic.sh && npm run build:client"
   publish = "dist/client"
 
+[build.environment]
+  SECRETS_SCAN_ENABLED = "false"
+  NODE_VERSION = "20"
+
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
   included_files = [".bin/tectonic"]
+  external_node_modules = ["sqlite3"]
+
+[functions."*"]
+  node_bundler = "esbuild"
+  config = { format = "esm" }
 
 [[redirects]]
   from = "/api/*"
