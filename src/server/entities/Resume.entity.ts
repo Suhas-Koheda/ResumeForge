@@ -1,7 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from "typeorm";
 import { ResumeBlock } from "@shared/types.js";
 
-@Entity()
+@Entity("resumes")
 export class Resume {
     @PrimaryGeneratedColumn("uuid")
     id!: string;
@@ -12,7 +12,7 @@ export class Resume {
     @Column({ type: "varchar", default: "Untitled Resume" })
     title!: string;
 
-    @Column("simple-json", { nullable: true })
+    @Column({ type: "jsonb", nullable: true })
     canvasData: {
         nodes: ResumeBlock[];
         customTemplate?: string;

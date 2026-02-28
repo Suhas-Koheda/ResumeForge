@@ -42,7 +42,7 @@ export const AppDataSource = new DataSource(
         : {
             type: "postgres",
             url: config.MONGODB_URI.startsWith('jdbc:') ? config.MONGODB_URI.replace('jdbc:postgresql://', 'postgres://') : config.MONGODB_URI,
-            synchronize: false,
+            synchronize: true, // Set to true to auto-create tables in Neon for now
             logging: false,
             entities: [User, Resume],
             subscribers: [],
