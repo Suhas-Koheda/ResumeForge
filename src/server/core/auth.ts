@@ -7,16 +7,15 @@ export interface AuthRequest extends Request {
 }
 
 export const authMiddleware = (req: AuthRequest, res: Response, next: NextFunction) => {
-    // BYPASS for local development
-    if (config.IS_LOCAL) {
-        req.userId = 'local-dev-user';
-        return next();
-    }
-
     const authHeader = req.headers.authorization;
     const token = authHeader && authHeader.split(' ')[1];
 
     if (!token) {
+        // Fallback to local user ONLY if explicitly in local mode
+        if (config.IS_LOCAL) {
+            req.userId = 'local-dev-user';
+            return next();
+        }
         return res.status(401).json({ error: 'Authentication required' });
     }
 

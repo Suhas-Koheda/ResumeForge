@@ -5,7 +5,7 @@ import { useResumeActions } from '../../hooks/useResume';
 const API_BASE_URL = (import.meta as any).env.VITE_API_URL || '/api/v1';
 
 export const Auth = ({ onBack, onSuccess }: { onBack: () => void, onSuccess: () => void }) => {
-    const isLocal = (import.meta as any).env.VITE_IS_LOCAL !== 'false' && (import.meta as any).env.VITE_VERCEL !== 'true';
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname.startsWith('172.');
     const [isLogin, setIsLogin] = useState(true);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -17,14 +17,6 @@ export const Auth = ({ onBack, onSuccess }: { onBack: () => void, onSuccess: () 
         e.preventDefault();
         setError(null);
         setLoading(true);
-
-        // If local mode is forced/active, just bypass auth
-        if (isLocal) {
-            setToken('local-bypass');
-            setLoading(false);
-            onSuccess();
-            return;
-        }
 
         try {
             const endpoint = isLogin ? '/auth/login' : '/auth/register';
@@ -52,6 +44,11 @@ export const Auth = ({ onBack, onSuccess }: { onBack: () => void, onSuccess: () 
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleLocalBypass = () => {
+        setToken('local-bypass');
+        onSuccess();
     };
 
     return (
@@ -114,6 +111,16 @@ export const Auth = ({ onBack, onSuccess }: { onBack: () => void, onSuccess: () 
                     >
                         {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : (isLogin ? 'Sign In' : 'Create Account')}
                     </button>
+
+                    {isLocal && isLogin && (
+                        <button 
+                            type="button"
+                            onClick={handleLocalBypass}
+                            className="mt-2 w-full flex items-center justify-center gap-2 border border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:text-black dark:hover:text-white py-4 text-[10px] font-bold uppercase tracking-[0.2em] transition-all"
+                        >
+                            Skip (Local Mode)
+                        </button>
+                    )}
                 </form>
 
                 <div className="mt-6 flex justify-center border-t border-zinc-200 dark:border-zinc-800 pt-6">

@@ -1,68 +1,49 @@
-# ResumeForge Core
-A unified monorepo designed for zero-friction local development and seamless cloud deployment. No more separate frontend and backend folders—all code lives in a single source tree with shared logic.
+# 🛠️ ResumeForge
 
-## Project Structure
-- `src/client`: Frontend UI (React + Vite + Zustand + Dnd-Kit)
-- `src/server`: Backend API (Node.js + Express + TypeORM + Postgres)
-- `src/shared`: Common types and utility functions
+A professional LaTeX resume generator with an AI-powered node-based editor. Built for speed, precision, and high-impact career documents.
 
-## Unified Development Setup
+## 🚀 Deployment (Cloud Mode)
 
-Running the application locally is highly streamlined. 
+This project is optimized for deployment on **Netlify** (Frontend + Functions) and **Neon** (Postgres).
 
-### Prerequisites
-1. Ensure Node.js (v18+) is installed.
-2. Have a PostgreSQL connection string ready (e.g., Neon DB).
-3. (Optional) Get a Google Gemini AI API key.
+### 1. Database (Neon)
+- Create a project on [Neon.tech](https://neon.tech).
+- Grab your **Connection String**.
+- The schema is automatically created on first run (via TypeORM).
 
-### Getting Started
+### 2. Deployment (Netlify)
+- Connect your repo to Netlify.
+- The `netlify.toml` automatically handles:
+  - **Tectonic Installation**: Downloads the standalone TeX engine.
+  - **API Routing**: Redirects `/api/*` to serverless functions.
+  - **Verification Logs**: Check your build logs for "🚀 Tectonic verification successful" to ensure the PDF engine is ready.
+  - **Environment Variables**: Add these in Netlify:
+    - `DB_URL`: Your Neon connection string.
+    - `GEMINI_API_KEY`: Your Google AI Key for polishing.
+    - `JWT_SECRET`: Random string for Auth.
+    - `NETLIFY`: `true`
 
-1. **Install Dependencies**
-Run this from the root of the project to install both client and server packages.
-```bash
-npm install
-```
+## 💻 Local Development
 
-2. **Environment Variables**
-Create a `.env` file in the root directory:
-```env
-PORT=5000
-MONGODB_URI=postgresql://user:password@host/db  # Your Postgres connection string
-GEMINI_API_KEY=your_gemini_api_key
-JWT_SECRET=super_secret_key
-IS_LOCAL=true
-ALLOWED_ORIGINS=http://localhost:5173
-NODE_ENV=development
-```
+1. **Clone & Install**:
+   ```bash
+   npm install
+   ```
+2. **Environment Setup**:
+   Copy `.env.example` to `.env` and fill in your keys.
+3. **Run Dev**:
+   ```bash
+   npm run dev
+   ```
+   *Note: Locally, it uses SQLite and assumes `tectonic` is in your PATH. If you don't have it, PDF exports will fail but `.tex` downloads will work.*
 
-3. **Run the Application**
-This single command parallelizes the Vite builder and the Express server.
-```bash
-npm run dev
-```
+## 🏗️ Tech Stack
 
-- **Client**: `http://localhost:5173`
-- **Server**: `http://localhost:5000`
+- **Client**: React + TailwindCSS + Lucide + @dnd-kit
+- **Server**: Node.js + Express
+- **ORM**: TypeORM (Dual-support for SQLite/Postgres)
+- **Engine**: [Tectonic](https://tectonic-typesetting.github.io/) (Self-contained TeX engine)
+- **AI**: Google Gemini 1.5 Flash
 
-### Local Mode Features
-- Authentication is bypassed, allowing immediate access to the workspace.
-- The UI defaults to a high-contrast, professional, monochromatic palette.
-- Enter your Gemini API key directly into the UI Config (Settings) for fast iterations without modifying backend `.env` variables.
-
-## Production & Deployment
-
-### Build Command
-Compile both the frontend and backend for production.
-```bash
-npm run build
-```
-This generates:
-- `dist/client`: Static React application assets.
-- `dist/server`: Compiled Node.js backend.
-
-### Cloud Serving (Vercel/Heroku/Railway)
-The server is configured to serve the compiled client in production automatically:
-```bash
-npm start
-```
-Make sure to set `IS_LOCAL=false` in your production environment variables to enable Authentication and Server-side API key management.
+## 📄 License
+MIT

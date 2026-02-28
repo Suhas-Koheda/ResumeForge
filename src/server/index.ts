@@ -130,8 +130,15 @@ const IS_SERVERLESS = !!process.env.VERCEL || !!process.env.NETLIFY || process.e
 
 if (process.env.NODE_ENV !== 'production' && !IS_SERVERLESS) {
     connectToDatabase().then(() => {
+        const TECTONIC_BIN = path.resolve(process.cwd(), '.bin/tectonic');
+        const fs = require('fs');
+        const binaryStatus = fs.existsSync(TECTONIC_BIN) ? 'READY' : 'ABSENT (will use PATH)';
+        
+        console.log(`Server running on port ${config.PORT || 5000} [${config.IS_LOCAL ? 'LOCAL MODE' : 'PRODUCTION'}]`);
+        console.log(`Tectonic Engine: ${binaryStatus} at ${TECTONIC_BIN}`);
+        
         app.listen(config.PORT || 5000, () => {
-            console.log(`Server running on port ${config.PORT || 5000} [${config.IS_LOCAL ? 'LOCAL MODE' : 'PRODUCTION'}]`);
+            console.log(`--- Express Listener Active ---`);
         });
     });
 }

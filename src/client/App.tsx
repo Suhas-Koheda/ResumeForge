@@ -67,8 +67,8 @@ function App() {
                 const data = await res.json();
                 if (data.mode === 'LOCAL') {
                     setIsLocalMode(true);
-                    setToken('local-dev-token');
-                    setViewState('canvas');
+                } else {
+                    setIsLocalMode(false);
                 }
             } catch (err) {
                 console.warn("Health check failed", err);
@@ -208,12 +208,71 @@ function App() {
         <div className="h-screen h-[100dvh] w-screen flex flex-col bg-white dark:bg-[#111215] overflow-hidden font-mono selection:bg-black selection:text-white dark:selection:bg-white dark:selection:text-black">
             <header className="h-10 sm:h-12 border-b border-zinc-200 dark:border-[#2d3042] bg-white dark:bg-[#1e2028] flex items-center justify-between px-2 sm:px-4 z-20 shrink-0">
                 <div className="flex items-center gap-2 sm:gap-6">
-                    <div className="flex items-center gap-1.5 sm:gap-2">
+                    <div className="flex items-center gap-1.5 sm:gap-2 mr-2">
                         <Terminal size={12} className="text-black dark:text-white" />
                         <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-[0.15em] sm:tracking-[0.2em] text-black dark:text-white whitespace-nowrap">
                             ResumeForge<span className="hidden sm:inline">.core</span>
                         </span>
                     </div>
+
+                    {/* Profile / Auth Button on the Left */}
+                    <div className="relative">
+                        <button
+                            onClick={() => setShowProfile(!showProfile)}
+                            className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all ${
+                                showProfile 
+                                    ? 'bg-black text-white border-black dark:bg-white dark:text-black dark:border-white' 
+                                    : 'border-zinc-200 dark:border-[#2d3042] text-zinc-500 hover:border-zinc-400 dark:hover:border-zinc-500'
+                            }`}
+                        >
+                            <User size={12} />
+                            <span className="text-[10px] font-bold uppercase tracking-widest hidden sm:inline">
+                                {isLocalMode ? 'Sign_In' : 'Profile'}
+                            </span>
+                            <ChevronDown size={10} className={`transition-transform duration-200 ${showProfile ? 'rotate-180' : ''}`} />
+                        </button>
+
+                        {showProfile && (
+                            <>
+                                <div className="fixed inset-0 z-40" onClick={() => setShowProfile(false)} />
+                                <div className="absolute top-full left-0 mt-2 w-56 bg-white dark:bg-[#1e2028] border border-zinc-200 dark:border-[#2d3042] p-2 z-50 shadow-2xl rounded-lg animate-in fade-in slide-in-from-top-1">
+                                    <div className="p-3 border-b border-zinc-100 dark:border-[#2d3042] mb-1">
+                                        <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1">Identity_Status</p>
+                                        <p className="text-[11px] font-bold text-zinc-800 dark:text-zinc-200 truncate italic">
+                                            {isLocalMode ? 'Guest_Developer' : 'Active_Session'}
+                                        </p>
+                                    </div>
+                                    
+                                    {isLocalMode && (
+                                        <button 
+                                            onClick={() => { setToken(null); setViewState('auth'); }}
+                                            className="w-full flex items-center gap-3 px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/10 rounded-md transition-all"
+                                        >
+                                            <Cloud size={12} /> Switch to Cloud
+                                        </button>
+                                    )}
+
+                                    <button 
+                                        onClick={() => { setShowSettings(true); setShowProfile(false); }}
+                                        className="w-full flex items-center gap-3 px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-zinc-500 hover:text-black dark:hover:text-white hover:bg-zinc-50 dark:hover:bg-white/5 rounded-md transition-all"
+                                    >
+                                        <Settings size={12} /> System Rules
+                                    </button>
+                                    
+                                    <div className="h-px bg-zinc-100 dark:bg-[#2d3042] my-1"></div>
+
+                                    <button 
+                                        onClick={() => { if (confirm("Sign out?")) logout(); }}
+                                        className="w-full flex items-center gap-3 px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-md transition-all"
+                                    >
+                                        <LogOut size={12} /> {isLocalMode ? 'Exit Local' : 'Terminate Session'}
+                                    </button>
+                                </div>
+                            </>
+                        )}
+                    </div>
+
+                    <div className="hidden lg:block w-px h-4 bg-zinc-200 dark:bg-zinc-800"></div>
 
                     <div className="flex gap-1 bg-zinc-100 dark:bg-[#111215] p-0.5 sm:p-1 border border-zinc-200 dark:border-[#2d3042] rounded-full overflow-x-auto max-w-[120px] sm:max-w-none no-scrollbar">
                         {resumes.map((_, idx) => (
@@ -244,11 +303,11 @@ function App() {
                         <button onClick={() => addResume()} className="px-2 py-0.5 sm:py-1 text-[9px] font-bold text-zinc-400 hover:text-black dark:hover:text-white shrink-0"><Plus size={10} /></button>
                     </div>
 
-                    <div className="hidden sm:block w-px h-4 bg-zinc-200 dark:bg-zinc-800"></div>
+                    <div className="lg:hidden w-px h-4 bg-zinc-200 dark:bg-zinc-800"></div>
 
                     <button
                         onClick={() => setIsDark(!isDark)}
-                        className="text-zinc-400 hover:text-black dark:hover:text-white p-1"
+                        className="lg:hidden text-zinc-400 hover:text-black dark:hover:text-white p-1"
                         title="Toggle Theme"
                     >
                         {isDark ? <Sun size={14} /> : <Moon size={14} />}
@@ -258,6 +317,14 @@ function App() {
                 <div className="flex items-center gap-1 sm:gap-4">
                     {/* Desktop Actions */}
                     <div className="hidden lg:flex items-center gap-4">
+                        <button
+                            onClick={() => setIsDark(!isDark)}
+                            className="text-zinc-400 hover:text-black dark:hover:text-white p-1"
+                            title="Toggle Theme"
+                        >
+                            {isDark ? <Sun size={14} /> : <Moon size={14} />}
+                        </button>
+
                         <button
                             onClick={() => setIsOnboardingOpen(true)}
                             className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 hover:text-black dark:hover:text-white transition-colors flex items-center gap-2"
@@ -278,34 +345,37 @@ function App() {
                             <Trash2 size={12} />
                             Clear
                         </button>
-
-                        <div className="relative">
-                            <button
-                                onClick={() => setShowSettings(!showSettings)}
-                                className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 hover:text-black dark:hover:text-white transition-colors flex items-center gap-2"
-                            >
-                                <Settings size={12} />
-                                Config
-                            </button>
-
-                            {showSettings && (
-                                <div className="absolute top-full right-0 mt-2 w-80 bg-white dark:bg-zinc-900 border border-black dark:border-zinc-700 p-6 z-50">
-                                    <div className="flex flex-col gap-6">
-                                        <div>
-                                            <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-2 block">AI_API_KEY</label>
-                                            <input
-                                                type="password"
-                                                className="w-full bg-zinc-50 dark:bg-black border border-zinc-200 dark:border-zinc-800 px-3 py-2 text-[10px] outline-none"
-                                                value={apiKey || ''}
-                                                onChange={(e) => setApiKey(e.target.value)}
-                                            />
-                                        </div>
-                                        <button onClick={() => setShowSettings(false)} className="text-[9px] font-bold uppercase text-zinc-500 hover:text-black">Close</button>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
                     </div>
+
+                    {showSettings && (
+                        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in">
+                            <div className="w-full max-w-sm bg-white dark:bg-[#1e2028] border border-zinc-200 dark:border-[#2d3042] p-8 shadow-2xl rounded-xl">
+                                <div className="flex items-center justify-between mb-8">
+                                    <h3 className="text-[11px] font-black uppercase tracking-[0.3em]">System_Config</h3>
+                                    <button onClick={() => setShowSettings(false)} className="text-zinc-400 hover:text-black dark:hover:text-white"><X size={18} /></button>
+                                </div>
+                                <div className="flex flex-col gap-6">
+                                    <div>
+                                        <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-2 block">AI_API_KEY_OVERRIDE</label>
+                                        <input
+                                            type="password"
+                                            placeholder="Paste API key..."
+                                            className="w-full bg-zinc-50 dark:bg-black border border-zinc-200 dark:border-[#2d3042] rounded-lg px-4 py-3 text-[11px] outline-none focus:border-black dark:focus:border-white transition-colors"
+                                            value={apiKey || ''}
+                                            onChange={(e) => setApiKey(e.target.value)}
+                                        />
+                                        <p className="mt-2 text-[8px] text-zinc-400 leading-relaxed uppercase tracking-widest">Optional: Uses server default if empty</p>
+                                    </div>
+                                    <button 
+                                        onClick={() => setShowSettings(false)} 
+                                        className="w-full bg-black text-white dark:bg-white dark:text-black py-3 text-[10px] font-bold uppercase tracking-widest rounded-lg hover:opacity-90 transition-all"
+                                    >
+                                        Save & Close
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     <div className="flex items-center gap-1 border border-zinc-200 dark:border-zinc-800 p-0.5 sm:p-1">
                         <button
