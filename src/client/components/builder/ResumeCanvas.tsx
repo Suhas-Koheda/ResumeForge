@@ -3,6 +3,7 @@ import {
     DndContext,
     PointerSensor,
     KeyboardSensor,
+    TouchSensor,
     useSensor,
     useSensors,
     DragEndEvent,
@@ -88,7 +89,13 @@ const CanvasRegistry: React.FC = () => {
     const scaleRef = useRef(1);
 
     const sensors = useSensors(
-        useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+        useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+        useSensor(TouchSensor, {
+            activationConstraint: {
+                delay: 200,
+                tolerance: 8,
+            },
+        }),
         useSensor(KeyboardSensor)
     );
 

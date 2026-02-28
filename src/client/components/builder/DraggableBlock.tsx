@@ -126,7 +126,9 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = memo(({ block }) =>
                     }}
                 >
                     {/* Grip */}
-                    <GripVertical size={13} className="text-zinc-400 dark:text-zinc-600" style={{ flexShrink: 0 }} />
+                    <div className="flex items-center justify-center p-1 sm:p-0">
+                        <GripVertical size={18} className="text-zinc-400 dark:text-zinc-600 sm:w-[13px] sm:h-[13px]" style={{ flexShrink: 0 }} />
+                    </div>
 
                     {/* Icon badge */}
                     <div
