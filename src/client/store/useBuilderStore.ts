@@ -27,14 +27,7 @@ interface BuilderStore {
 
 const generateId = () => Math.random().toString(36).substring(2, 9);
 
-const INITIAL_BLOCKS = [
-    {
-        id: 'initial-exp',
-        type: 'experience' as BlockType,
-        position: { x: 100, y: 100 },
-        data: { company: 'Tech Corp', role: 'Software Engineer', duration: '2020 - Present' }
-    }
-];
+const INITIAL_BLOCKS: ResumeBlock[] = [];
 
 export const useBuilderStore = create<BuilderStore>()(
     persist(
@@ -132,7 +125,7 @@ export const useBuilderStore = create<BuilderStore>()(
             setCustomTemplate: (customTemplate) => set({ customTemplate }),
         }),
         {
-            name: 'resume-builder-storage-v2',
+            name: 'resume-builder-storage-v3',
         }
     )
 );
