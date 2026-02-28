@@ -2,8 +2,6 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { config } from "../core/config.js";
 import { ResumeBlock } from "../../shared/types.js";
 
-const genAI = new GoogleGenerativeAI(config.GEMINI_API_KEY);
-
 const parseSafeJson = (text: string) => {
     try {
         // Remove markdown code fences if present and trim whitespace
@@ -15,9 +13,22 @@ const parseSafeJson = (text: string) => {
     }
 };
 
+let rotationIndex = 0;
+const getRotatingModel = (modelName: string = "gemini-1.5-flash") => {
+    const keys = [config.GEMINI_API_KEY, ...config.GEMINI_API_KEYS].filter(Boolean);
+    if (keys.length === 0) throw new Error("No Gemini API keys configured");
+
+    // Pick key based on rotation index
+    const key = keys[rotationIndex % keys.length];
+    rotationIndex++;
+
+    const client = new GoogleGenerativeAI(key);
+    return client.getGenerativeModel({ model: modelName });
+};
+
 export const aiService = {
     async polishExperience(rawText: string) {
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        const model = getRotatingModel();
         const prompt = `
             You are an expert resume writer and LaTeX specialist. 
             Convert the following raw job experience description into professional, high-impact bullet points.
@@ -40,7 +51,7 @@ export const aiService = {
     },
 
     async assembleResume(blocks: ResumeBlock[], template: string) {
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        const model = getRotatingModel();
         const prompt = `
 You are a LaTeX resume engine.
 
@@ -109,7 +120,7 @@ Return ONLY raw LaTeX.
 
     async parseResume(content: string) {
         try {
-            const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+            const model = getRotatingModel();
             const prompt = `
                 You are a resume data extractor. 
                 Extract all information from the provided text/LaTeX and return it as a JSON array of ResumeBlock objects.

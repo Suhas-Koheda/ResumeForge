@@ -13,6 +13,7 @@ export const config = {
     DB_USERNAME: process.env.DB_USERNAME,
     DB_PASSWORD: process.env.DB_PASSWORD,
     GEMINI_API_KEY: process.env.GEMINI_API_KEY || '',
+    GEMINI_API_KEYS: process.env.GEMINI_API_KEYS ? process.env.GEMINI_API_KEYS.split(',') : [],
     JWT_SECRET: process.env.JWT_SECRET || 'dev-secret-keep-secure',
     IS_LOCAL: process.env.IS_LOCAL !== undefined
         ? process.env.IS_LOCAL === 'true'
