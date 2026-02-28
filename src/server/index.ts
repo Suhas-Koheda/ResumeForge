@@ -96,8 +96,20 @@ app.post('/api/v1/ai/assemble', authMiddleware, async (req, res) => {
         const { blocks, template } = req.body;
         const result = await aiService.assembleResume(blocks, template);
         res.send(result);
-    } catch (error) {
-        res.status(500).json({ error: 'AI assembly failed' });
+    } catch (error: any) {
+        console.error("[LOG_API_ROUTE] AI assembly failed:", error);
+        res.status(500).json({ error: 'AI assembly failed', details: error.message });
+    }
+});
+
+app.post('/api/v1/ai/parse', authMiddleware, async (req, res) => {
+    try {
+        const { content } = req.body;
+        const result = await aiService.parseResume(content);
+        res.json(JSON.parse(result));
+    } catch (error: any) {
+        console.error("[LOG_API_ROUTE] AI parsing failed:", error);
+        res.status(500).json({ error: 'AI parsing failed', details: error.message });
     }
 });
 

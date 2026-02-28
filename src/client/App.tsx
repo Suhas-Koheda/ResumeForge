@@ -17,12 +17,13 @@ import { latexServerService } from './services/latex';
 function App() {
     const {
         addBlock, apiKey, setApiKey, blocks,
-        customTemplate, setCustomTemplate
+        customTemplate, setCustomTemplate,
+        activeResumeIndex, switchResume,
+        fullLatex, setFullLatex
     } = useResumeActions();
     const [isDark, setIsDark] = useState(false);
     const [showSettings, setShowSettings] = useState(false);
     const [isAssembling, setIsAssembling] = useState(false);
-    const [fullLatex, setFullLatex] = useState<string | null>(null);
     const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
     const [pdfUrl, setPdfUrl] = useState<string | null>(null);
     const [previewMode, setPreviewMode] = useState<'code' | 'pdf'>('code');
@@ -47,6 +48,11 @@ function App() {
         else document.documentElement.classList.remove('dark');
     }, [isDark]);
 
+    React.useEffect(() => {
+        setPdfUrl(null);
+        setCompilationLog(null);
+    }, [activeResumeIndex]);
+
     const blockButtons: { type: BlockType; label: string; icon: any }[] = [
         { type: 'header', label: 'Header', icon: User },
         { type: 'experience', label: 'Experience', icon: Briefcase },
@@ -56,7 +62,8 @@ function App() {
     ];
 
     const handleManualAssemble = () => {
-        setFullLatex(null);
+        const latex = manualLatexGenerator.generate(blocks);
+        setFullLatex(latex);
         setPdfUrl(null); // Clear previous URL to refresh
         downloadPdf(false);
     };
@@ -64,26 +71,45 @@ function App() {
     const handleAssemble = async () => {
         setIsAssembling(true);
         try {
-            const latex = await geminiService.assembleFullResume(blocks, customTemplate, apiKey);
-            setFullLatex(latex);
+            console.log("[LOG_AI_ASSEMBLE] Starting AI-driven resume assembly...");
+            const sectionContent = await geminiService.assembleFullResume(blocks, customTemplate || '', apiKey);
+            console.log("[LOG_AI_ASSEMBLE] AI assembly complete. Section content generated.");
+            
+            // Wrap the AI's section-only content in the full preamble/postamble
+            const headerData = blocks.find(b => b.type === 'header')?.data || {};
+            const fullDoc = manualLatexGenerator.generatePreamble(headerData) + 
+                            sectionContent + 
+                            manualLatexGenerator.generatePostamble();
+            console.log("[LOG_AI_ASSEMBLE] Full LaTeX document constructed.");
+
+            setFullLatex(fullDoc);
             setPreviewMode('code');
             setPdfUrl(null);
         } catch (error) {
+            console.error("Assembly Error:", error);
             alert("Failed to assemble resume. Check your API key.");
         } finally {
             setIsAssembling(false);
+            console.log("[LOG_AI_ASSEMBLE] AI assembly process finished.");
         }
     };
 
     const downloadTex = () => {
-        if (!fullLatex) return;
-        const blob = new Blob([fullLatex], { type: 'text/plain' });
+        let content = fullLatex;
+        if (!content) {
+            console.log("[LOG_DOWNLOAD] No fullLatex found, generating on-the-fly...");
+            content = manualLatexGenerator.generate(blocks);
+        }
+        
+        console.log("[LOG_DOWNLOAD] Downloading .tex file...");
+        const blob = new Blob([content], { type: 'text/plain' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
         link.download = 'resume.tex';
         link.click();
         URL.revokeObjectURL(url);
+        console.log("[LOG_DOWNLOAD] .tex file download initiated.");
     };
 
     const downloadPdf = async (shouldDownload = true) => {
@@ -96,30 +122,38 @@ function App() {
             const shouldUseServer = previewMode === 'code' && !!fullLatex;
 
             if (shouldUseServer) {
-                console.log("[PDF] Requesting server-side compilation...");
+                console.log("[LOG_PDF_GEN] Requesting server-side compilation...");
                 blob = await latexServerService.compileLatexToPdf(fullLatex!);
+                console.log("[LOG_PDF_GEN] Server-side compilation successful. Blob received.");
             } else {
-                console.log("[PDF] Generating locally via React-PDF...");
+                console.log("[LOG_PDF_GEN] Starting Local React-PDF generation (FAST_GEN)...");
+                const doc = <PdfDocument blocks={blocks} />;
+                console.log("[LOG_PDF_GEN] PdfDocument component initialized for local rendering.");
+                
                 // Construct PDF blob completely locally using React-PDF
-                blob = await pdf(<PdfDocument blocks={blocks} />).toBlob();
+                blob = await pdf(doc).toBlob();
+                console.log("[LOG_PDF_GEN] Local React-PDF blob generation successful:", blob.size, "bytes");
             }
 
             const url = URL.createObjectURL(blob);
             setPdfUrl(url);
             setPreviewMode('pdf');
+            console.log("[LOG_PDF_GEN] PDF URL created and preview mode set to 'pdf'.");
 
             if (shouldDownload) {
+                console.log("[LOG_DOWNLOAD] Initiating PDF file download...");
                 const link = document.createElement('a');
                 link.href = url;
                 link.download = 'resume.pdf';
                 link.click();
+                console.log("[LOG_DOWNLOAD] PDF file download initiated.");
             }
         } catch (error: any) {
-            console.error("PDF Error:", error);
+            console.error("[LOG_CRITICAL] PDF Generation Failed:", error);
             
             // Try to extract backend error message
             let errorMessage = error.message;
-            if (error.response && error.response.data instanceof Blob) {
+            if (error?.response?.data instanceof Blob) {
                 const text = await error.response.data.text();
                 try {
                     const json = JSON.parse(text);
@@ -132,7 +166,9 @@ function App() {
             setCompilationLog(errorMessage || "Unknown error generating PDF");
             setPreviewMode('pdf'); // Switch to PDF preview to show the log
             alert("Error generating PDF. Check compilation log in preview.");
+            console.log("[LOG_PDF_GEN] PDF generation failed. Compilation log updated.");
         } finally {
+            console.log("[LOG_PDF_GEN] PDF Generation Attempt Finished.");
             setIsGeneratingPdf(false);
         }
     };
@@ -150,10 +186,28 @@ function App() {
                 <div className="flex items-center gap-4">
                     <button
                         onClick={() => setIsDark(!isDark)}
-                        className="text-zinc-400 hover:text-black dark:hover:text-white transition-colors"
+                        className="text-zinc-400 hover:text-black dark:hover:text-white transition-colors p-1"
                     >
                         {isDark ? <Sun size={14} /> : <Moon size={14} />}
                     </button>
+
+                    <div className="w-px h-4 bg-zinc-200 dark:bg-zinc-800"></div>
+
+                    <div className="flex gap-1 bg-zinc-50 dark:bg-zinc-950 p-1 border border-zinc-200 dark:border-zinc-800 rounded-sm">
+                        {[0, 1].map((idx) => (
+                            <button
+                                key={idx}
+                                onClick={() => switchResume(idx)}
+                                className={`px-2 py-1 text-[9px] font-bold uppercase tracking-widest transition-all ${
+                                    activeResumeIndex === idx 
+                                    ? 'bg-black text-white dark:bg-white dark:text-black' 
+                                    : 'text-zinc-400 hover:text-black dark:hover:text-white'
+                                }`}
+                            >
+                                R_{idx + 1}
+                            </button>
+                        ))}
+                    </div>
 
                     <div className="w-px h-4 bg-zinc-200 dark:bg-zinc-800"></div>
 
@@ -240,7 +294,7 @@ function App() {
                 <main className="flex-1 relative overflow-hidden">
                     <ResumeCanvas />
 
-                    {(fullLatex || pdfUrl) && (
+                    {(fullLatex || pdfUrl || compilationLog) && (
                         <div className="absolute inset-0 z-50 bg-white dark:bg-black flex flex-col animate-in fade-in duration-300">
                             <header className="h-12 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between px-6">
                                 <div className="flex items-center gap-8">

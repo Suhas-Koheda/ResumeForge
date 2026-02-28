@@ -22,6 +22,36 @@ export const latexService = {
         try {
             await fs.writeFile(texPath, latexCode);
 
+            // AUTO-FIX: If fontawesome5 is missing, provide a shim
+            let optimizedLatex = latexCode;
+            try {
+                await execAsync('kpsewhich fontawesome5.sty');
+            } catch {
+                console.warn("[LOG_LATEX] fontawesome5.sty not found. Injecting shim.");
+                // Replace fontawesome5 usage with marvosym fallbacks or empty shims
+                optimizedLatex = optimizedLatex.replace(/\\usepackage\{fontawesome5\}/, '% fontawesome5 missing, using shim\n\\usepackage{marvosym}');
+                
+                const shim = `
+% Fallback definitions for fontawesome5 icons
+\\providecommand{\\faPhone}{\\Telefon}
+\\providecommand{\\faEnvelope}{\\Letter}
+\\providecommand{\\faGlobe}{\\Mundus}
+\\providecommand{\\faLinkedin}{IN}
+\\providecommand{\\faGithub}{GIT}
+`;
+                optimizedLatex = optimizedLatex.replace(/\\begin\{document\}/, `${shim}\n\\begin{document}`);
+            }
+
+            // Also check for glyphtounicode.tex
+            try {
+                await execAsync('kpsewhich glyphtounicode.tex');
+            } catch {
+                console.warn("[LOG_LATEX] glyphtounicode.tex not found. Commenting out.");
+                optimizedLatex = optimizedLatex.replace(/\\input\{glyphtounicode\}/, '% \\input{glyphtounicode} % missing');
+            }
+
+            await fs.writeFile(texPath, optimizedLatex);
+
             // Execute PDFLaTeX directly. It's better to quote the paths to avoid issues with spaces.
             // Using -halt-on-error to fail fast and -interaction=nonstopmode to continue on non-fatal errors
             const cmd = `pdflatex -interaction=nonstopmode -halt-on-error -output-directory="${tempDir}" "${texPath}"`;

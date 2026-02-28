@@ -23,8 +23,12 @@ router.post('/pdf', authMiddleware, async (req: AuthRequest, res) => {
                 console.error('Cleanup error:', cleanupErr);
             }
         });
-    } catch (error) {
-        res.status(500).json({ error: 'PDF Compilation failed. Ensure LaTeX is installed on server.' });
+    } catch (error: any) {
+        console.error('PDF Export Route Error:', error);
+        res.status(500).json({ 
+            error: 'PDF Compilation failed', 
+            details: error.message 
+        });
     }
 });
 

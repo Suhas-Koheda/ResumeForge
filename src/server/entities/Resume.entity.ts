@@ -12,11 +12,11 @@ export class Resume {
     @Column({ type: "varchar", default: "Untitled Resume" })
     title!: string;
 
-    @Column("simple-json", { default: { nodes: [], customTemplate: "" } })
-    canvasData!: {
+    @Column("simple-json", { nullable: true })
+    canvasData: {
         nodes: ResumeBlock[];
         customTemplate?: string;
-    };
+    } = { nodes: [], customTemplate: "" };
 
     @CreateDateColumn()
     createdAt!: Date;

@@ -46,6 +46,12 @@ export const useResumeActions = () => {
     const customTemplate = useBuilderStore((state) => state.customTemplate);
     const setCustomTemplate = useBuilderStore((state) => state.setCustomTemplate);
 
+    const setBlocks = useBuilderStore((state) => state.setBlocks);
+    const switchResume = useBuilderStore((state) => state.switchResume);
+    const activeResumeIndex = useBuilderStore((state) => state.activeResumeIndex);
+    const setFullLatex = useBuilderStore((state) => state.setFullLatex);
+    const fullLatex = useBuilderStore((state) => state.fullLatex);
+
     return {
         blocks,
         addBlock,
@@ -54,6 +60,11 @@ export const useResumeActions = () => {
         apiKey,
         setApiKey,
         customTemplate,
-        setCustomTemplate
+        setCustomTemplate,
+        setBlocks,
+        switchResume,
+        activeResumeIndex,
+        setFullLatex,
+        fullLatex
     };
 };
