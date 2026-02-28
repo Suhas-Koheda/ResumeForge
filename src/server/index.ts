@@ -112,6 +112,16 @@ app.use(['/api/v1', '/.netlify/functions/server/v1'], apiRouter);
 
 const IS_SERVERLESS = !!process.env.VERCEL || !!process.env.NETLIFY || process.env.VITE_VERCEL === 'true';
 
+// Serve static frontend in production (Render, Heroku, etc)
+if (process.env.NODE_ENV === 'production' && !IS_SERVERLESS) {
+    const clientDist = path.join(process.cwd(), 'dist', 'client');
+    app.use(express.static(clientDist));
+
+    app.get('*', (req, res) => {
+        res.sendFile(path.join(clientDist, 'index.html'));
+    });
+}
+
 if (!IS_SERVERLESS) {
     connectToDatabase().then(() => {
         const TECTONIC_BIN = path.resolve(process.cwd(), '.bin/tectonic');
