@@ -71,7 +71,7 @@ async function connectToDatabase() {
 }
 
 // Routes
-app.get('/api/health', (req, res) => res.json({
+app.get(['/api/health', '/.netlify/functions/server/health'], (req, res) => res.json({
     status: 'ok',
     mode: config.IS_LOCAL ? 'LOCAL' : 'CLOUD',
     db_state: 'connected'
