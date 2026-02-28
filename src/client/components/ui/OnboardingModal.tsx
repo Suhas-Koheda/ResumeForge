@@ -92,20 +92,20 @@ export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }>
         const blocks: Partial<ResumeBlock>[] = [];
         
         // Header
-        const nameMatch = latex.match(/\\color\{ACCENT_COLOR\}\s*([^}]+)\}/) || latex.match(/\\Huge\s+\\scshape\s+(?:\\color\{[^}]+\}\s*)?([^\\]+?)\s*(?:\\\\|\\vspace)/) || latex.match(/\\begin\{center\}[^]*?\\Huge\s*\\scshape\s*\\color\{[^\}]+\}\s*([^\}\\]+)/);
+        const nameMatch = latex.match(/\\Huge\s+\\scshape\s+(?:\\color\{[^}]+\}\s*)?([^}\\]+)/);
         const emailMatch = latex.match(/mailto:([^}]+)/);
-        const phoneMatch = latex.match(/faPhone\\\s*([\+\d\-]+)/) || latex.match(/\\Telefon\\\s*([\+\d\-]+)/);
+        const phoneMatch = latex.match(/\\faPhone\\\s*([\+\d\-]+)/) || latex.match(/\\Telefon\\\s*([\+\d\-]+)/);
         const locationMatch = latex.match(/\\vspace\{[^}]+\}\s*([^~\\]+)/) || latex.match(/Hyderabad, India/) || latex.match(/\\begin\{center\}[^]*?([^\n,]+,\s*[^\n\\]+)[^]*?\\faPhone/);
 
-        const websiteMatch = latex.match(/\\href\{([^}]+)\}\s*\{\\faGlobe/);
-        const linkedinMatch = latex.match(/\\href\{([^}]+)\}\s*\{\\faLinkedin/);
-        const githubMatch = latex.match(/\\href\{([^}]+)\}\s*\{\\faGithub/);
+        const websiteMatch = latex.match(/\\href\{([^}]+)\}\s*\{\\faGlobe/) || latex.match(/\\href\{([^}]+)\}\s*\{\\Mundus/);
+        const linkedinMatch = latex.match(/\\href\{([^}]+)\}\s*\{\\faLinkedin/) || latex.match(/\\href\{([^}]+)\}\s*\{\\textbf\{L\}/);
+        const githubMatch = latex.match(/\\href\{([^}]+)\}\s*\{\\faGithub/) || latex.match(/\\href\{([^}]+)\}\s*\{\\textbf\{G\}/);
 
         if (nameMatch || emailMatch || phoneMatch) {
             blocks.push({
                 type: 'header',
                 data: {
-                    name: nameMatch ? (nameMatch[1] || nameMatch[2] || '').trim() : '',
+                    name: nameMatch ? nameMatch[1].trim() : '',
                     email: emailMatch ? emailMatch[1].trim() : '',
                     phone: phoneMatch ? phoneMatch[1].trim() : '',
                     location: locationMatch ? (typeof locationMatch === 'string' ? locationMatch : locationMatch[1] || locationMatch[0]).trim() : '',
