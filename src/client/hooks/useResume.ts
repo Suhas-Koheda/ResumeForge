@@ -51,6 +51,13 @@ export const useResumeActions = () => {
     const activeResumeIndex = useBuilderStore((state) => state.activeResumeIndex);
     const setFullLatex = useBuilderStore((state) => state.setFullLatex);
     const fullLatex = useBuilderStore((state) => state.fullLatex);
+    
+    // Auth
+    const token = useBuilderStore((state) => state.token);
+    const setToken = useBuilderStore((state) => state.setToken);
+    const logout = useBuilderStore((state) => state.logout);
+    const viewState = useBuilderStore((state) => state.viewState);
+    const setViewState = useBuilderStore((state) => state.setViewState);
 
     return {
         blocks,
@@ -65,6 +72,11 @@ export const useResumeActions = () => {
         switchResume,
         activeResumeIndex,
         setFullLatex,
-        fullLatex
+        fullLatex,
+        token,
+        setToken,
+        logout,
+        viewState,
+        setViewState
     };
 };

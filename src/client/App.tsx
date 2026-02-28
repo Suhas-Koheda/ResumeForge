@@ -4,10 +4,12 @@ import { useResumeActions } from './hooks/useResume';
 import {
     Plus, Settings, Layout, Sun, Moon,
     Briefcase, GraduationCap, Code, Rocket,
-    Loader2, Sparkles, X, Terminal, Copy, User, Download, FileText
+    Loader2, Sparkles, X, Terminal, Copy, User, Download, FileText, LogOut
 } from 'lucide-react';
 import { BlockType } from '@shared/types';
 import { OnboardingModal } from './components/ui/OnboardingModal';
+import { Landing } from './components/ui/Landing';
+import { Auth } from './components/ui/Auth';
 import { geminiService } from './services/ai';
 import { manualLatexGenerator } from './services/manualLatex';
 import { pdf } from '@react-pdf/renderer';
@@ -19,7 +21,9 @@ function App() {
         addBlock, apiKey, setApiKey, blocks,
         customTemplate, setCustomTemplate,
         activeResumeIndex, switchResume,
-        fullLatex, setFullLatex
+        fullLatex, setFullLatex,
+        viewState, setViewState,
+        token, logout
     } = useResumeActions();
     const [isDark, setIsDark] = useState(false);
     const [showSettings, setShowSettings] = useState(false);
@@ -33,7 +37,7 @@ function App() {
     const hasTriggeredOnboarding = React.useRef(false);
 
     React.useEffect(() => {
-        if (hasTriggeredOnboarding.current) return;
+        if (hasTriggeredOnboarding.current || viewState !== 'canvas') return;
 
         // Trigger onboarding only once per session if no header exists
         const hasHeader = blocks.some(b => b.type === 'header');
@@ -41,7 +45,7 @@ function App() {
             setIsOnboardingOpen(true);
             hasTriggeredOnboarding.current = true;
         }
-    }, [blocks, isAssembling]);
+    }, [blocks, isAssembling, viewState]);
 
     React.useEffect(() => {
         if (isDark) document.documentElement.classList.add('dark');
@@ -87,7 +91,7 @@ function App() {
             setPdfUrl(null);
         } catch (error) {
             console.error("Assembly Error:", error);
-            alert("Failed to assemble resume. Check your API key.");
+            alert("Failed to assemble resume. Check your API key or active session.");
         } finally {
             setIsAssembling(false);
             console.log("[LOG_AI_ASSEMBLE] AI assembly process finished.");
@@ -173,6 +177,19 @@ function App() {
         }
     };
 
+    if (viewState === 'landing' && !token) {
+        return <Landing onGetStarted={() => setViewState('auth')} />;
+    }
+
+    if (viewState === 'auth' && !token) {
+        return (
+            <Auth 
+                onBack={() => setViewState('landing')} 
+                onSuccess={() => setViewState('canvas')}
+            />
+        );
+    }
+
     return (
         <div className="h-screen w-screen flex flex-col bg-white dark:bg-black overflow-hidden font-mono selection:bg-black selection:text-white dark:selection:bg-white dark:selection:text-black">
             <header className="h-10 border-b border-zinc-200 dark:border-zinc-800 bg-white dark:bg-black flex items-center justify-between px-4 z-20 shrink-0">
@@ -252,6 +269,12 @@ function App() {
                                             onChange={(e) => setCustomTemplate(e.target.value)}
                                         />
                                     </div>
+                                    <button 
+                                        onClick={logout}
+                                        className="mt-4 flex items-center justify-center gap-2 w-full border border-red-500/20 text-red-500 hover:bg-red-500/10 py-2 text-[10px] font-bold uppercase tracking-widest transition-colors"
+                                    >
+                                        <LogOut size={12} /> Log Out
+                                    </button>
                                 </div>
                             </div>
                         )}

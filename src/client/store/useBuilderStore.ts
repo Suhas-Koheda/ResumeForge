@@ -23,6 +23,11 @@ interface BuilderStore {
     setApiKey: (key: string) => void;
     customTemplate: string;
     setCustomTemplate: (template: string) => void;
+    token: string | null;
+    setToken: (token: string | null) => void;
+    logout: () => void;
+    viewState: 'landing' | 'auth' | 'canvas';
+    setViewState: (viewState: 'landing' | 'auth' | 'canvas') => void;
 }
 
 const generateId = () => Math.random().toString(36).substring(2, 9);
@@ -41,6 +46,12 @@ export const useBuilderStore = create<BuilderStore>()(
             fullLatex: null,
             apiKey: '',
             customTemplate: '',
+            token: null,
+            viewState: 'landing',
+
+            setToken: (token) => set({ token, viewState: token ? 'canvas' : 'landing' }),
+            logout: () => set({ token: null, viewState: 'landing' }),
+            setViewState: (viewState) => set({ viewState }),
 
             setBlocks: (blocks) => set({ blocks }),
             setFullLatex: (fullLatex) => set({ fullLatex }),

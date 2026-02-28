@@ -7,6 +7,14 @@
 const API_BASE_URL = (import.meta as any).env.VITE_API_URL || 'http://localhost:5000/api/v1';
 
 import { ResumeBlock, BlockType } from '@shared/types';
+import { useBuilderStore } from '../store/useBuilderStore';
+
+const getAuthHeaders = (): Record<string, string> => {
+    const token = useBuilderStore.getState().token;
+    return token 
+        ? { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" } 
+        : { "Content-Type": "application/json" };
+};
 
 export const geminiService = {
     async polishExperience(rawText: string, apiKey?: string) {
@@ -42,7 +50,7 @@ export const geminiService = {
         // Cloud mode: Delegate to backend
         const response = await fetch(`${API_BASE_URL}/ai/experience`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: getAuthHeaders(),
             body: JSON.stringify({ text: rawText }),
         });
         if (!response.ok) throw new Error("Backend AI service failed");
@@ -124,7 +132,7 @@ Return ONLY raw LaTeX.
 
         const response = await fetch(`${API_BASE_URL}/ai/assemble`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: getAuthHeaders(),
             body: JSON.stringify({ blocks, template }),
         });
         if (!response.ok) throw new Error("Backend AI assembly failed");
@@ -175,7 +183,7 @@ Return ONLY raw LaTeX.
 
         const response = await fetch(`${API_BASE_URL}/ai/parse`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: getAuthHeaders(),
             body: JSON.stringify({ content, type }),
         });
         if (!response.ok) throw new Error("Backend AI parsing failed");
@@ -208,7 +216,7 @@ Return ONLY raw LaTeX.
         }
         return (await fetch(`${API_BASE_URL}/ai/${type}`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: getAuthHeaders(),
             body: JSON.stringify({ text: rawText }),
         })).json();
     }
