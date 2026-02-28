@@ -4,7 +4,7 @@ import { useResumeActions } from './hooks/useResume';
 import {
     Plus, Settings, Layout, Sun, Moon,
     Briefcase, GraduationCap, Code, Rocket, FileText, Layers,
-    Loader2, Sparkles, X, Terminal, Copy, User, Download, LogOut, Cloud, Trash2
+    Loader2, Sparkles, X, Terminal, Copy, User, Download, LogOut, Cloud, Trash2, Menu, ChevronDown
 } from 'lucide-react';
 import { BlockType } from '@shared/types';
 import { OnboardingModal } from './components/ui/OnboardingModal';
@@ -33,6 +33,7 @@ function App() {
     const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
     const [isLocalMode, setIsLocalMode] = useState(false);
     const [showProfile, setShowProfile] = useState(false);
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
     const hasTriggeredOnboarding = React.useRef(false);
 
@@ -205,19 +206,21 @@ function App() {
 
     return (
         <div className="h-screen w-screen flex flex-col bg-white dark:bg-[#111215] overflow-hidden font-mono selection:bg-black selection:text-white dark:selection:bg-white dark:selection:text-black">
-            <header className="h-10 border-b border-zinc-200 dark:border-[#2d3042] bg-white dark:bg-[#1e2028] flex items-center justify-between px-4 z-20 shrink-0">
-                <div className="flex items-center gap-6">
-                    <div className="flex items-center gap-2">
+            <header className="h-10 sm:h-12 border-b border-zinc-200 dark:border-[#2d3042] bg-white dark:bg-[#1e2028] flex items-center justify-between px-2 sm:px-4 z-20 shrink-0">
+                <div className="flex items-center gap-2 sm:gap-6">
+                    <div className="flex items-center gap-1.5 sm:gap-2">
                         <Terminal size={12} className="text-black dark:text-white" />
-                        <span className="text-[9px] font-black uppercase tracking-[0.2em] text-black dark:text-white">ResumeForge.core</span>
+                        <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-[0.15em] sm:tracking-[0.2em] text-black dark:text-white whitespace-nowrap">
+                            ResumeForge<span className="hidden sm:inline">.core</span>
+                        </span>
                     </div>
 
-                    <div className="flex gap-1 bg-zinc-100 dark:bg-[#111215] p-1 border border-zinc-200 dark:border-[#2d3042] rounded-full">
+                    <div className="flex gap-1 bg-zinc-100 dark:bg-[#111215] p-0.5 sm:p-1 border border-zinc-200 dark:border-[#2d3042] rounded-full overflow-x-auto max-w-[120px] sm:max-w-none no-scrollbar">
                         {resumes.map((_, idx) => (
-                            <div key={idx} className="relative group/pill flex items-center">
+                            <div key={idx} className="relative group/pill flex items-center shrink-0">
                                 <button
                                     onClick={() => switchResume(idx)}
-                                    className={`pl-3 pr-2 py-1 text-[9px] font-bold uppercase tracking-widest transition-all rounded-full ${
+                                    className={`px-2 sm:pl-3 sm:pr-2 py-0.5 sm:py-1 text-[8px] sm:text-[9px] font-bold uppercase tracking-widest transition-all rounded-full ${
                                         activeResumeIndex === idx
                                             ? 'bg-black text-white dark:bg-white dark:text-black shadow'
                                             : 'text-zinc-400 hover:text-black dark:hover:text-white'
@@ -231,17 +234,17 @@ function App() {
                                             e.stopPropagation();
                                             if (confirm(`Delete Resume R_${idx + 1}?`)) deleteResume(idx);
                                         }}
-                                        className="opacity-0 group-hover/pill:opacity-100 transition-opacity w-4 h-4 flex items-center justify-center rounded-full hover:bg-red-100 dark:hover:bg-red-900/40 text-zinc-400 hover:text-red-500 mr-1"
+                                        className="hidden sm:flex opacity-0 group-hover/pill:opacity-100 transition-opacity w-3 h-3 sm:w-4 sm:h-4 items-center justify-center rounded-full hover:bg-red-100 dark:hover:bg-red-900/40 text-zinc-400 hover:text-red-500 mr-1"
                                     >
                                         <X size={8} />
                                     </button>
                                 )}
                             </div>
                         ))}
-                        <button onClick={() => addResume()} className="px-2 py-1 text-[9px] font-bold text-zinc-400 hover:text-black dark:hover:text-white"><Plus size={10} /></button>
+                        <button onClick={() => addResume()} className="px-2 py-0.5 sm:py-1 text-[9px] font-bold text-zinc-400 hover:text-black dark:hover:text-white shrink-0"><Plus size={10} /></button>
                     </div>
 
-                    <div className="w-px h-4 bg-zinc-200 dark:bg-zinc-800"></div>
+                    <div className="hidden sm:block w-px h-4 bg-zinc-200 dark:bg-zinc-800"></div>
 
                     <button
                         onClick={() => setIsDark(!isDark)}
@@ -250,89 +253,152 @@ function App() {
                     >
                         {isDark ? <Sun size={14} /> : <Moon size={14} />}
                     </button>
-
-                    {!isLocalMode && token && (
-                        <button
-                            onClick={() => { if (confirm("Logout?")) logout(); }}
-                            className="text-[10px] font-bold uppercase tracking-widest text-red-500 hover:text-red-600 transition-colors flex items-center gap-2 px-2"
-                        >
-                            <LogOut size={12} />
-                            Logout
-                        </button>
-                    )}
                 </div>
 
-                <div className="flex items-center gap-4">
-                    <button
-                        onClick={() => setIsOnboardingOpen(true)}
-                        className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 hover:text-black dark:hover:text-white transition-colors flex items-center gap-2"
-                    >
-                        <User size={12} />
-                        Import
-                    </button>
-
-                    <button
-                        onClick={() => {
-                            if (confirm("Clear canvas?")) {
-                                setBlocks([]);
-                                setFullLatex(null);
-                            }
-                        }}
-                        className="text-[10px] font-bold uppercase tracking-widest text-red-500 hover:text-red-600 transition-colors flex items-center gap-2"
-                    >
-                        <Trash2 size={12} />
-                        Clear
-                    </button>
-
-                    <div className="relative">
+                <div className="flex items-center gap-1 sm:gap-4">
+                    {/* Desktop Actions */}
+                    <div className="hidden lg:flex items-center gap-4">
                         <button
-                            onClick={() => setShowSettings(!showSettings)}
+                            onClick={() => setIsOnboardingOpen(true)}
                             className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 hover:text-black dark:hover:text-white transition-colors flex items-center gap-2"
                         >
-                            <Settings size={12} />
-                            Config
+                            <User size={12} />
+                            Import
                         </button>
 
-                        {showSettings && (
-                            <div className="absolute top-full right-0 mt-2 w-80 bg-white dark:bg-zinc-900 border border-black dark:border-zinc-700 p-6 z-50">
-                                <div className="flex flex-col gap-6">
-                                    <div>
-                                        <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-2 block">AI_API_KEY</label>
-                                        <input
-                                            type="password"
-                                            className="w-full bg-zinc-50 dark:bg-black border border-zinc-200 dark:border-zinc-800 px-3 py-2 text-[10px] outline-none"
-                                            value={apiKey || ''}
-                                            onChange={(e) => setApiKey(e.target.value)}
-                                        />
+                        <button
+                            onClick={() => {
+                                if (confirm("Clear canvas?")) {
+                                    setBlocks([]);
+                                    setFullLatex(null);
+                                }
+                            }}
+                            className="text-[10px] font-bold uppercase tracking-widest text-red-500 hover:text-red-600 transition-colors flex items-center gap-2"
+                        >
+                            <Trash2 size={12} />
+                            Clear
+                        </button>
+
+                        <div className="relative">
+                            <button
+                                onClick={() => setShowSettings(!showSettings)}
+                                className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 hover:text-black dark:hover:text-white transition-colors flex items-center gap-2"
+                            >
+                                <Settings size={12} />
+                                Config
+                            </button>
+
+                            {showSettings && (
+                                <div className="absolute top-full right-0 mt-2 w-80 bg-white dark:bg-zinc-900 border border-black dark:border-zinc-700 p-6 z-50">
+                                    <div className="flex flex-col gap-6">
+                                        <div>
+                                            <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest mb-2 block">AI_API_KEY</label>
+                                            <input
+                                                type="password"
+                                                className="w-full bg-zinc-50 dark:bg-black border border-zinc-200 dark:border-zinc-800 px-3 py-2 text-[10px] outline-none"
+                                                value={apiKey || ''}
+                                                onChange={(e) => setApiKey(e.target.value)}
+                                            />
+                                        </div>
+                                        <button onClick={() => setShowSettings(false)} className="text-[9px] font-bold uppercase text-zinc-500 hover:text-black">Close</button>
                                     </div>
-                                    <button onClick={() => setShowSettings(false)} className="text-[9px] font-bold uppercase text-zinc-500 hover:text-black">Close</button>
                                 </div>
-                            </div>
-                        )}
+                            )}
+                        </div>
                     </div>
 
-                    <div className="flex items-center gap-1 border border-zinc-200 dark:border-zinc-800 p-1">
+                    <div className="flex items-center gap-1 border border-zinc-200 dark:border-zinc-800 p-0.5 sm:p-1">
                         <button
                             onClick={handleAssemble}
                             disabled={isAssembling}
-                            className="px-3 py-1.5 text-[9px] font-bold uppercase tracking-[0.2em] bg-black text-white dark:bg-white dark:text-black hover:opacity-80 disabled:opacity-30 transition-all flex items-center gap-2"
+                            className="px-2 sm:px-3 py-1 sm:py-1.5 text-[8px] sm:text-[9px] font-bold uppercase tracking-[0.1em] sm:tracking-[0.2em] bg-black text-white dark:bg-white dark:text-black hover:opacity-80 disabled:opacity-30 transition-all flex items-center gap-1 sm:gap-2"
                         >
                             {isAssembling ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />}
-                            COMPILE
+                            <span className="hidden sm:inline">COMPILE</span>
+                            <span className="sm:hidden">COMP</span>
                         </button>
                         <button
                             onClick={handleManualAssemble}
-                            className="px-3 py-1.5 text-[9px] font-bold uppercase tracking-[0.2em] border border-black dark:border-white text-black dark:text-white hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black transition-all flex items-center gap-2"
+                            className="hidden sm:flex px-3 py-1.5 text-[9px] font-bold uppercase tracking-[0.2em] border border-black dark:border-white text-black dark:text-white hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black transition-all items-center gap-2"
                         >
                             <Layout size={10} />
                             MANUAL
                         </button>
+                        
+                        {/* Mobile Menu Trigger */}
+                        <button
+                            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                            className="lg:hidden p-1.5 text-zinc-500 hover:text-black dark:hover:text-white"
+                        >
+                            <Menu size={16} />
+                        </button>
                     </div>
                 </div>
+
+                {/* Mobile Side Menu */}
+                {isMobileMenuOpen && (
+                    <div className="lg:hidden fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+                        <div className="absolute top-0 right-0 h-full w-64 bg-white dark:bg-zinc-900 border-l border-zinc-200 dark:border-zinc-800 flex flex-col p-6 animate-in slide-in-from-right duration-300">
+                            <div className="flex items-center justify-between mb-8">
+                                <h2 className="text-[10px] font-black uppercase tracking-[0.3em]">RESUMEFORGE</h2>
+                                <button onClick={() => setIsMobileMenuOpen(false)} className="text-zinc-500"><X size={18} /></button>
+                            </div>
+
+                            <div className="flex flex-col gap-6">
+                                <button
+                                    onClick={() => { setIsOnboardingOpen(true); setIsMobileMenuOpen(false); }}
+                                    className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-widest text-zinc-500"
+                                >
+                                    <User size={14} /> Import Data
+                                </button>
+                                <button
+                                    onClick={() => { 
+                                        if (confirm("Clear canvas?")) {
+                                            setBlocks([]);
+                                            setFullLatex(null);
+                                        }
+                                        setIsMobileMenuOpen(false);
+                                    }}
+                                    className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-widest text-red-500"
+                                >
+                                    <Trash2 size={14} /> Clear Canvas
+                                </button>
+                                <button
+                                    onClick={handleManualAssemble}
+                                    className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-widest text-zinc-500"
+                                >
+                                    <Layout size={14} /> Manual Compile
+                                </button>
+                                
+                                <div className="h-px bg-zinc-100 dark:bg-zinc-800 my-2"></div>
+                                
+                                <div className="space-y-3">
+                                    <label className="text-[8px] font-black text-zinc-400 uppercase tracking-widest">AI_API_KEY</label>
+                                    <input
+                                        type="password"
+                                        placeholder="API Key..."
+                                        className="w-full bg-zinc-50 dark:bg-black border border-zinc-200 dark:border-zinc-800 px-3 py-2 text-[10px] outline-none"
+                                        value={apiKey || ''}
+                                        onChange={(e) => setApiKey(e.target.value)}
+                                    />
+                                </div>
+
+                                {!isLocalMode && (
+                                    <button
+                                        onClick={() => { if (confirm("Logout?")) logout(); }}
+                                        className="mt-auto flex items-center gap-3 text-[10px] font-bold uppercase tracking-widest text-red-500"
+                                    >
+                                        <LogOut size={14} /> Logout
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                )}
             </header>
 
             <div className="flex flex-1 flex-col sm:flex-row relative overflow-hidden">
-                <aside className="w-full sm:w-16 h-16 sm:h-auto border-t sm:border-t-0 sm:border-r border-zinc-200 dark:border-[#2d3042] bg-white dark:bg-[#1e2028] flex sm:flex-col items-center justify-around sm:justify-start py-2 sm:py-6 gap-2 sm:gap-8 z-10 shrink-0 order-2 sm:order-1">
+                <aside className="w-full sm:w-16 h-14 sm:h-auto border-t sm:border-t-0 sm:border-r border-zinc-200 dark:border-[#2d3042] bg-white/80 dark:bg-[#1e2028]/80 backdrop-blur-md flex sm:flex-col items-center justify-around sm:justify-start py-2 sm:py-6 gap-2 sm:gap-8 z-10 shrink-0 order-2 sm:order-1">
                     <div className="hidden sm:block text-zinc-300 dark:text-zinc-700 mb-2">
                         <Plus size={16} />
                     </div>
@@ -343,7 +409,7 @@ function App() {
                             className="group relative flex flex-col items-center gap-1 sm:gap-2 text-zinc-400 dark:text-zinc-500 hover:text-black dark:hover:text-zinc-100 transition-all font-bold"
                             title={label}
                         >
-                            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg border border-zinc-100 dark:border-[#2d3042] flex items-center justify-center group-hover:border-black dark:group-hover:border-zinc-500 group-hover:bg-zinc-50 dark:group-hover:bg-[#2d3042] transition-all">
+                            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg border border-zinc-100 dark:border-[#2d3042] flex items-center justify-center group-hover:border-black dark:group-hover:border-zinc-500 group-hover:bg-zinc-50 dark:group-hover:bg-[#2d3042] transition-all">
                                 <Icon size={16} strokeWidth={1.5} />
                             </div>
                         </button>
@@ -355,17 +421,17 @@ function App() {
 
                     {(fullLatex || pdfUrl || compilationLog) && (
                         <div className="absolute inset-0 z-50 bg-white dark:bg-black flex flex-col animate-in fade-in duration-300">
-                            <header className="h-12 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between px-6">
-                                <div className="flex items-center gap-8">
-                                    <div className="flex items-center gap-3">
+                            <header className="h-12 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between px-2 sm:px-6">
+                                <div className="flex items-center gap-2 sm:gap-8">
+                                    <div className="flex items-center gap-2 sm:gap-3">
                                         <div className="w-2 h-2 rounded-full bg-black dark:bg-white animate-pulse"></div>
-                                        <h2 className="text-[10px] font-bold uppercase tracking-[0.3em]">Build_Output</h2>
+                                        <h2 className="text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.2em] sm:tracking-[0.3em]">Build_Output</h2>
                                     </div>
                                     <div className="flex border border-zinc-100 dark:border-zinc-800 p-0.5">
                                         {fullLatex && (
                                             <button
                                                 onClick={() => setPreviewMode('code')}
-                                                className={`px-4 py-1.5 text-[9px] font-bold uppercase tracking-widest transition-all ${previewMode === 'code' ? 'bg-black text-white dark:bg-white dark:text-black' : 'text-zinc-400'}`}
+                                                className={`px-2 sm:px-4 py-1 sm:py-1.5 text-[8px] sm:text-[9px] font-bold uppercase tracking-widest transition-all ${previewMode === 'code' ? 'bg-black text-white dark:bg-white dark:text-black' : 'text-zinc-400'}`}
                                             >
                                                 Source
                                             </button>
@@ -375,13 +441,13 @@ function App() {
                                                 if (!pdfUrl) downloadPdf(false);
                                                 else setPreviewMode('pdf');
                                             }}
-                                            className={`px-4 py-1.5 text-[9px] font-bold uppercase tracking-widest transition-all ${previewMode === 'pdf' ? 'bg-black text-white dark:bg-white dark:text-black' : 'text-zinc-400'}`}
+                                            className={`px-2 sm:px-4 py-1 sm:py-1.5 text-[8px] sm:text-[9px] font-bold uppercase tracking-widest transition-all ${previewMode === 'pdf' ? 'bg-black text-white dark:bg-white dark:text-black' : 'text-zinc-400'}`}
                                         >
                                             Preview
                                         </button>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-4">
+                                <div className="flex items-center gap-1 sm:gap-4">
                                     <button
                                         onClick={() => {
                                             if (fullLatex) {
@@ -389,51 +455,52 @@ function App() {
                                                 alert("Copied.");
                                             }
                                         }}
-                                        className="text-[9px] font-bold uppercase tracking-widest text-zinc-500 hover:text-black flex items-center gap-2"
+                                        className="text-[9px] font-bold uppercase tracking-widest text-zinc-500 hover:text-black flex items-center gap-1 sm:gap-2 px-1"
                                     >
-                                        <Copy size={12} /> Copy
+                                        <Copy size={12} /> <span className="hidden sm:inline">Copy</span>
                                     </button>
                                     <button
                                         onClick={() => downloadPdf(true)}
                                         disabled={isGeneratingPdf}
-                                        className="bg-black text-white dark:bg-white dark:text-black px-4 py-2 text-[9px] font-bold uppercase tracking-widest hover:opacity-80 disabled:opacity-30"
+                                        className="bg-black text-white dark:bg-white dark:text-black px-2 sm:px-4 py-1 sm:py-2 text-[8px] sm:text-[9px] font-bold uppercase tracking-widest hover:opacity-80 disabled:opacity-30 flex items-center gap-1 sm:gap-2"
                                     >
-                                        {isGeneratingPdf ? <Loader2 size={16} className="animate-spin" /> : <FileText size={16} />}
-                                        {isGeneratingPdf ? "COMPILING..." : "EXP_PDF"}
+                                        {isGeneratingPdf ? <Loader2 size={12} className="animate-spin" /> : <FileText size={12} />}
+                                        <span className="hidden sm:inline">{isGeneratingPdf ? "COMPILING..." : "EXP_PDF"}</span>
+                                        <span className="sm:hidden">{isGeneratingPdf ? "..." : "PDF"}</span>
                                     </button>
                                     <button
                                         onClick={downloadTex}
-                                        className="flex items-center gap-2 px-4 py-2 text-[9px] font-bold uppercase tracking-widest text-zinc-500 hover:text-black transition-all"
+                                        className="flex items-center gap-1 px-2 py-1 text-[8px] sm:text-[9px] font-bold uppercase tracking-widest text-zinc-500 hover:text-black transition-all"
                                     >
-                                        <Download size={12} /> .TEX
+                                        <Download size={12} /> <span className="hidden sm:inline">.TEX</span>
                                     </button>
                                     <button
                                         onClick={() => { setFullLatex(null); setPdfUrl(null); }}
-                                        className="text-zinc-400 hover:text-black"
+                                        className="text-zinc-400 hover:text-black p-1"
                                     >
                                         <X size={16} />
                                     </button>
                                 </div>
                             </header>
-                            <div className="flex-1 overflow-hidden p-12 bg-zinc-50 dark:bg-zinc-950 flex justify-center">
-                                <div className="w-full max-w-5xl bg-white dark:bg-black border border-zinc-200 dark:border-zinc-800 flex flex-col shadow-2xl">
+                            <div className="flex-1 overflow-hidden p-2 sm:p-12 bg-zinc-50 dark:bg-zinc-950 flex justify-center">
+                                <div className="w-full max-w-5xl bg-white dark:bg-black border border-zinc-200 dark:border-zinc-800 flex flex-col shadow-2xl overflow-hidden">
                                     {previewMode === 'code' ? (
-                                        <pre className="flex-1 p-12 text-[11px] font-mono overflow-auto leading-relaxed text-zinc-800 dark:text-zinc-300">
+                                        <pre className="flex-1 p-4 sm:p-12 text-[10px] sm:text-[11px] font-mono overflow-auto leading-relaxed text-zinc-800 dark:text-zinc-300">
                                             {fullLatex}
                                         </pre>
                                     ) : (
                                         <div className="flex-1 relative bg-zinc-100 dark:bg-zinc-900 flex items-center justify-center">
                                             {isGeneratingPdf ? (
                                                 <div className="flex flex-col items-center gap-4">
-                                                    <Loader2 size={24} className="animate-spin text-black" />
-                                                    <p className="text-[8px] font-bold tracking-[0.4em] uppercase">System.Compiling</p>
+                                                    <Loader2 size={24} className="animate-spin text-black dark:text-white" />
+                                                    <p className="text-[8px] font-bold tracking-[0.4em] uppercase text-black dark:text-white">System.Compiling</p>
                                                 </div>
                                             ) : pdfUrl ? (
                                                 <iframe src={pdfUrl || undefined} className="w-full h-full border-none" title="PDF" />
                                             ) : compilationLog ? (
-                                                <div className="flex-1 w-full p-8 overflow-auto font-mono text-[10px] text-red-500 bg-zinc-50">
+                                                <div className="flex-1 w-full p-4 sm:p-8 overflow-auto font-mono text-[9px] sm:text-[10px] text-red-500 bg-zinc-50 dark:bg-zinc-900">
                                                     <p className="font-bold mb-4 uppercase tracking-widest underline">Critical Compilation Error</p>
-                                                    <pre>{compilationLog}</pre>
+                                                    <pre className="whitespace-pre-wrap">{compilationLog}</pre>
                                                 </div>
                                             ) : null}
                                         </div>

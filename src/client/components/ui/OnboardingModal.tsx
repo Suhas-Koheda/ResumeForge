@@ -193,22 +193,25 @@ export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }>
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-            <div className="bg-white dark:bg-black border border-zinc-200 dark:border-zinc-800 w-full max-w-xl shadow-2xl animate-in zoom-in-95 duration-200">
-                <div className="p-10">
-                    <div className="flex justify-between items-start mb-10">
+            <div className="bg-white dark:bg-black border border-zinc-200 dark:border-zinc-800 w-full max-w-xl shadow-2xl animate-in zoom-in-95 duration-200 overflow-y-auto max-h-[90vh] no-scrollbar">
+                <div className="p-6 sm:p-10">
+                    <div className="flex justify-between items-start mb-6 sm:mb-10">
                         <div>
-                            <h2 className="text-[14px] font-black uppercase tracking-[0.5em] text-black dark:text-white">System_Initialization</h2>
-                            <div className="h-0.5 w-12 bg-black dark:bg-white mt-3"></div>
-                            <p className="text-[9px] text-zinc-400 mt-6 uppercase tracking-[0.2em] leading-relaxed max-w-[350px]">
+                            <h2 className="text-[12px] sm:text-[14px] font-black uppercase tracking-[0.3em] sm:tracking-[0.5em] text-black dark:text-white">System_Initialization</h2>
+                            <div className="h-0.5 w-12 bg-black dark:bg-white mt-2 sm:mt-3"></div>
+                            <p className="hidden sm:block text-[9px] text-zinc-400 mt-6 uppercase tracking-[0.2em] leading-relaxed max-w-[350px]">
                                 Configure your identity parameters or import historical data to prime the engine.
                             </p>
+                            <p className="sm:hidden text-[8px] text-zinc-400 mt-4 uppercase tracking-[0.15em] leading-relaxed">
+                                Configure identity or import data.
+                            </p>
                         </div>
-                        <button onClick={onClose} className="text-zinc-300 hover:text-black transition-colors">
+                        <button onClick={onClose} className="text-zinc-300 hover:text-black transition-colors p-2">
                             <X size={16} />
                         </button>
                     </div>
 
-                    <div className="flex gap-4 mb-8 border-b border-zinc-100 dark:border-zinc-900">
+                    <div className="flex gap-4 mb-6 sm:mb-8 border-b border-zinc-100 dark:border-zinc-900">
                         <button 
                             onClick={() => setTab('profile')}
                             className={`pb-4 text-[10px] font-bold uppercase tracking-widest transition-all ${tab === 'profile' ? 'text-black dark:text-white border-b-2 border-black dark:border-white' : 'text-zinc-300'}`}
@@ -240,7 +243,7 @@ export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }>
                                         />
                                     </div>
 
-                                    <div className="grid grid-cols-2 gap-6">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                                         <div className="space-y-2">
                                             <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-2">
                                                 <Mail size={10} /> Email Registry
@@ -267,7 +270,7 @@ export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }>
                                         </div>
                                     </div>
 
-                                    <div className="grid grid-cols-2 gap-6">
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                                         <div className="space-y-2">
                                             <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-2">
                                                 <MapPin size={10} /> Location
@@ -345,17 +348,17 @@ export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }>
                         )}
                     </div>
 
-                    <div className="mt-12 flex items-center justify-between">
+                    <div className="mt-8 sm:mt-12 flex flex-col sm:flex-row items-center justify-between gap-4">
                         <button
                             onClick={onClose}
-                            className="text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-400 hover:text-black transition-colors"
+                            className="text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-400 hover:text-black transition-colors order-2 sm:order-1"
                         >
                             Skip_Setup
                         </button>
                         {tab === 'profile' ? (
                             <button
                                 onClick={handleSave}
-                                className="bg-black dark:bg-white text-white dark:text-black px-10 py-4 text-[10px] font-bold uppercase tracking-[0.4em] flex items-center gap-3 hover:opacity-80 transition-all border border-black dark:border-white shadow-lg"
+                                className="w-full sm:w-auto bg-black dark:bg-white text-white dark:text-black px-6 sm:px-10 py-3 sm:py-4 text-[10px] font-bold uppercase tracking-[0.3em] sm:tracking-[0.4em] flex items-center justify-center gap-3 hover:opacity-80 transition-all border border-black dark:border-white shadow-lg order-1 sm:order-2"
                             >
                                 <Sparkles size={14} />
                                 Deploy_Node
@@ -364,10 +367,10 @@ export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }>
                             <button
                                 onClick={handleImport}
                                 disabled={isImporting || !importText.trim()}
-                                className="bg-black dark:bg-white text-white dark:text-black px-10 py-4 text-[10px] font-bold uppercase tracking-[0.4em] flex items-center gap-3 hover:opacity-80 disabled:opacity-30 transition-all border border-black dark:border-white shadow-lg"
+                                className="w-full sm:w-auto bg-black dark:bg-white text-white dark:text-black px-6 sm:px-10 py-3 sm:py-4 text-[10px] font-bold uppercase tracking-[0.3em] sm:tracking-[0.4em] flex items-center justify-center gap-3 hover:opacity-80 disabled:opacity-30 transition-all border border-black dark:border-white shadow-lg order-1 sm:order-2"
                             >
                                 {isImporting ? <Loader2 size={14} className="animate-spin" /> : <Rocket size={14} />}
-                                {isImporting ? "Parsing_Source..." : "Import_Digest"}
+                                {isImporting ? "Parsing..." : "Import_Digest"}
                             </button>
                         )}
                     </div>
