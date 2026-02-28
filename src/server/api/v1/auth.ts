@@ -9,6 +9,14 @@ const router = express.Router();
 
 router.post('/register', async (req, res) => {
     try {
+        console.log("=== DIAGNOSTIC LOG ===");
+        console.log("DB URL (config.MONGODB_URI):", config.MONGODB_URI);
+        console.log("DB USERNAME:", config.DB_USERNAME);
+        console.log("DB PASSWORD:", config.DB_PASSWORD ? 'SET' : 'NOT SET');
+        console.log("JWT SECRET:", config.JWT_SECRET ? 'SET' : 'NOT SET');
+        console.log("process.env.DB_URL:", process.env.DB_URL);
+        console.log("======================");
+        
         const { email, password } = req.body;
         const userRepo = AppDataSource.getRepository(User);
 

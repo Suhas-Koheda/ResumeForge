@@ -21,6 +21,13 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
+console.log("=== DIAGNOSTIC LOG (SERVER STARTUP) ===");
+console.log("DB URL (config.MONGODB_URI):", config.MONGODB_URI);
+console.log("DB USERNAME:", config.DB_USERNAME);
+console.log("DB PASSWORD:", config.DB_PASSWORD ? 'SET' : 'NOT SET');
+console.log("JWT SECRET:", config.JWT_SECRET ? 'SET' : 'NOT SET');
+console.log("process.env.DB_URL:", process.env.DB_URL);
+console.log("=======================================");
 // Middleware
 app.use(cors({
     origin: (origin, callback) => {
