@@ -74,12 +74,12 @@ function App() {
             console.log("[LOG_AI_ASSEMBLE] Starting AI-driven resume assembly...");
             const sectionContent = await geminiService.assembleFullResume(blocks, customTemplate || '', apiKey);
             console.log("[LOG_AI_ASSEMBLE] AI assembly complete. Section content generated.");
-            
+
             // Wrap the AI's section-only content in the full preamble/postamble
             const headerData = blocks.find(b => b.type === 'header')?.data || {};
-            const fullDoc = manualLatexGenerator.generatePreamble(headerData) + 
-                            sectionContent + 
-                            manualLatexGenerator.generatePostamble();
+            const fullDoc = manualLatexGenerator.generatePreamble(headerData) +
+                sectionContent +
+                manualLatexGenerator.generatePostamble();
             console.log("[LOG_AI_ASSEMBLE] Full LaTeX document constructed.");
 
             setFullLatex(fullDoc);
@@ -100,7 +100,7 @@ function App() {
             console.log("[LOG_DOWNLOAD] No fullLatex found, generating on-the-fly...");
             content = manualLatexGenerator.generate(blocks);
         }
-        
+
         console.log("[LOG_DOWNLOAD] Downloading .tex file...");
         const blob = new Blob([content], { type: 'text/plain' });
         const url = URL.createObjectURL(blob);
@@ -129,7 +129,7 @@ function App() {
                 console.log("[LOG_PDF_GEN] Starting Local React-PDF generation (FAST_GEN)...");
                 const doc = <PdfDocument blocks={blocks} />;
                 console.log("[LOG_PDF_GEN] PdfDocument component initialized for local rendering.");
-                
+
                 // Construct PDF blob completely locally using React-PDF
                 blob = await pdf(doc).toBlob();
                 console.log("[LOG_PDF_GEN] Local React-PDF blob generation successful:", blob.size, "bytes");
@@ -150,7 +150,7 @@ function App() {
             }
         } catch (error: any) {
             console.error("[LOG_CRITICAL] PDF Generation Failed:", error);
-            
+
             // Try to extract backend error message
             let errorMessage = error.message;
             if (error?.response?.data instanceof Blob) {
@@ -198,11 +198,10 @@ function App() {
                             <button
                                 key={idx}
                                 onClick={() => switchResume(idx)}
-                                className={`px-2 py-1 text-[9px] font-bold uppercase tracking-widest transition-all ${
-                                    activeResumeIndex === idx 
-                                    ? 'bg-black text-white dark:bg-white dark:text-black' 
-                                    : 'text-zinc-400 hover:text-black dark:hover:text-white'
-                                }`}
+                                className={`px-2 py-1 text-[9px] font-bold uppercase tracking-widest transition-all ${activeResumeIndex === idx
+                                        ? 'bg-black text-white dark:bg-white dark:text-black'
+                                        : 'text-zinc-400 hover:text-black dark:hover:text-white'
+                                    }`}
                             >
                                 R_{idx + 1}
                             </button>
@@ -210,6 +209,15 @@ function App() {
                     </div>
 
                     <div className="w-px h-4 bg-zinc-200 dark:bg-zinc-800"></div>
+
+                    <button
+                        onClick={() => setIsOnboardingOpen(true)}
+                        className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 hover:text-black dark:hover:text-white transition-colors flex items-center gap-2"
+                        title="Import/Setup Identity"
+                    >
+                        <User size={12} />
+                        Import Resume
+                    </button>
 
                     <div className="relative">
                         <button

@@ -71,9 +71,32 @@ export const useBuilderStore = create<BuilderStore>()(
             addBlock: (type) => {
                 const id = generateId();
                 set((state) => {
-                    const lastBlock = state.blocks[state.blocks.length - 1];
-                    const newX = lastBlock ? lastBlock.position.x + 40 : 100;
-                    const newY = lastBlock ? lastBlock.position.y + 40 : 100;
+                    const blocksOfType = state.blocks.filter(b => b.type === type);
+                    
+                    const BASE_X: Record<string, number> = {
+                        header: 100,
+                        experience: 600,
+                        education: 1100,
+                        project: 1600,
+                        skills: 2100,
+                    };
+                    
+                    const startX = BASE_X[type as keyof typeof BASE_X] || 100;
+                    const startY = 100;
+
+                    let newX = startX;
+                    let newY = startY;
+
+                    if (blocksOfType.length > 0) {
+                        const lastBlock = blocksOfType[blocksOfType.length - 1];
+                        newX = lastBlock.position.x;
+                        newY = lastBlock.position.y + 400; // offset by rough typical block height
+                    } else if (state.blocks.length > 0 && !BASE_X[type]) {
+                        // Fallback if type not recognized, append to general end
+                        const lastBlock = state.blocks[state.blocks.length - 1];
+                        newX = lastBlock.position.x;
+                        newY = lastBlock.position.y + 400;
+                    }
 
                     const newBlock: ResumeBlock = {
                         id,

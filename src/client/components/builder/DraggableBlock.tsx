@@ -11,15 +11,49 @@ interface DraggableBlockProps {
 }
 
 const getBlockMeta = (type: string) => {
-    // Monochromatic, professional palette
-    const baseStyle = { color: 'text-zinc-600 dark:text-zinc-400', bg: 'bg-zinc-100 dark:bg-zinc-800', border: 'border-zinc-200 dark:border-zinc-700' };
     switch (type) {
-        case 'experience': return { icon: Briefcase, ...baseStyle };
-        case 'education': return { icon: GraduationCap, ...baseStyle };
-        case 'skills': return { icon: Code, ...baseStyle };
-        case 'project': return { icon: Rocket, ...baseStyle };
-        case 'header': return { icon: User, ...baseStyle };
-        default: return { icon: Briefcase, ...baseStyle };
+        case 'header': return { 
+            icon: User, 
+            color: 'text-blue-600 dark:text-blue-400', 
+            bg: 'bg-blue-50 dark:bg-blue-900/30', 
+            border: 'border-blue-200 dark:border-blue-800/50',
+            band: 'bg-blue-500'
+        };
+        case 'experience': return { 
+            icon: Briefcase, 
+            color: 'text-emerald-600 dark:text-emerald-400', 
+            bg: 'bg-emerald-50 dark:bg-emerald-900/30', 
+            border: 'border-emerald-200 dark:border-emerald-800/50',
+            band: 'bg-emerald-500'
+        };
+        case 'education': return { 
+            icon: GraduationCap, 
+            color: 'text-violet-600 dark:text-violet-400', 
+            bg: 'bg-violet-50 dark:bg-violet-900/30', 
+            border: 'border-violet-200 dark:border-violet-800/50',
+            band: 'bg-violet-500'
+        };
+        case 'skills': return { 
+            icon: Code, 
+            color: 'text-amber-600 dark:text-amber-400', 
+            bg: 'bg-amber-50 dark:bg-amber-900/30', 
+            border: 'border-amber-200 dark:border-amber-800/50',
+            band: 'bg-amber-500'
+        };
+        case 'project': return { 
+            icon: Rocket, 
+            color: 'text-rose-600 dark:text-rose-400', 
+            bg: 'bg-rose-50 dark:bg-rose-900/30', 
+            border: 'border-rose-200 dark:border-rose-800/50',
+            band: 'bg-rose-500'
+        };
+        default: return { 
+            icon: Briefcase, 
+            color: 'text-zinc-600 dark:text-zinc-400', 
+            bg: 'bg-zinc-50 dark:bg-zinc-900/30', 
+            border: 'border-zinc-200 dark:border-zinc-800/50',
+            band: 'bg-zinc-500'
+        };
     }
 }
 
@@ -51,15 +85,17 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = memo(({ block }) =>
         <div
             ref={setNodeRef}
             style={style}
-            className={`nodrag bg-white dark:bg-zinc-900 transition-all duration-200 flex items-stretch border ${isDragging
+            className={`nodrag bg-white dark:bg-zinc-900 transition-all duration-200 flex items-stretch border relative overflow-hidden ${isDragging
                 ? 'shadow-2xl opacity-90 border-black dark:border-white z-50 scale-[1.02] cursor-grabbing'
                 : 'shadow-sm border-zinc-200 dark:border-zinc-800 hover:border-zinc-400 dark:hover:border-zinc-600'
                 }`}
         >
+            <div className={`absolute top-0 left-0 bottom-0 w-1 ${meta.band}`} />
+            
             <div
                 {...attributes}
                 {...listeners}
-                className="w-8 flex items-center justify-center cursor-grab active:cursor-grabbing text-zinc-300 dark:text-zinc-600 hover:text-zinc-900 dark:hover:text-zinc-100 border-r border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950/50 transition-colors"
+                className="w-8 ml-1 flex items-center justify-center cursor-grab active:cursor-grabbing text-zinc-300 dark:text-zinc-600 hover:text-zinc-900 dark:hover:text-zinc-100 border-r border-zinc-100 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950/50 transition-colors"
                 title="Drag"
             >
                 <GripVertical size={14} />
