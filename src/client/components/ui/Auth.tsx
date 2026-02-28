@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { ArrowLeft, Loader2, Key } from 'lucide-react';
 import { useResumeActions } from '../../hooks/useResume';
 
-const API_BASE_URL = (import.meta as any).env.VITE_API_URL || 'http://localhost:5000/api/v1';
+const API_BASE_URL = (import.meta as any).env.VITE_API_URL || '/api/v1';
 
 export const Auth = ({ onBack, onSuccess }: { onBack: () => void, onSuccess: () => void }) => {
     const isLocal = (import.meta as any).env.VITE_IS_LOCAL !== 'false' && (import.meta as any).env.VITE_VERCEL !== 'true';

@@ -2,6 +2,7 @@ import React, { useRef, useCallback } from 'react';
 import {
     DndContext,
     PointerSensor,
+    MouseSensor,
     KeyboardSensor,
     TouchSensor,
     useSensor,
@@ -89,15 +90,21 @@ const CanvasRegistry: React.FC = () => {
     const scaleRef = useRef(1);
 
     const sensors = useSensors(
-        useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+        useSensor(MouseSensor, { activationConstraint: { distance: 10 } }),
         useSensor(TouchSensor, {
             activationConstraint: {
-                delay: 200,
-                tolerance: 8,
+                delay: 250,
+                tolerance: 5,
             },
         }),
         useSensor(KeyboardSensor)
     );
+
+    const handleDragStart = useCallback(() => {
+        if (window.navigator.vibrate) {
+            window.navigator.vibrate(8);
+        }
+    }, []);
 
     const handleDragEnd = useCallback((event: DragEndEvent) => {
         const { active, delta } = event;
@@ -236,6 +243,7 @@ const CanvasRegistry: React.FC = () => {
                             >
                                 <DndContext
                                     sensors={sensors}
+                                    onDragStart={handleDragStart}
                                     onDragEnd={handleDragEnd}
                                 >
                                     {/* Bezier connectors between cluster columns */}

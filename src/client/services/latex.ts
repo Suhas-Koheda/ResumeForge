@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { useBuilderStore } from '../store/useBuilderStore';
 
-const API_URL = (import.meta as any).env.VITE_API_URL || 'http://localhost:5000/api/v1';
+const API_URL = (import.meta as any).env.VITE_API_URL || '/api/v1';
 
 export const latexServerService = {
     async compileLatexToPdf(latexCode: string): Promise<Blob> {

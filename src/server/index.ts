@@ -126,7 +126,9 @@ apiRouter.post('/ai/parse', authMiddleware, async (req, res) => {
 
 app.use('/api/v1', apiRouter);
 
-if (process.env.NODE_ENV !== 'production' || process.env.VITE_VERCEL !== 'true') {
+const IS_SERVERLESS = !!process.env.VERCEL || !!process.env.NETLIFY || process.env.VITE_VERCEL === 'true';
+
+if (process.env.NODE_ENV !== 'production' && !IS_SERVERLESS) {
     connectToDatabase().then(() => {
         app.listen(config.PORT || 5000, () => {
             console.log(`Server running on port ${config.PORT || 5000} [${config.IS_LOCAL ? 'LOCAL MODE' : 'PRODUCTION'}]`);

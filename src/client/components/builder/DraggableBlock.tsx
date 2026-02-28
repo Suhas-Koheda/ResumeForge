@@ -1,4 +1,4 @@
-import React, { memo, useRef, useEffect } from 'react';
+import React, { memo, useRef, useEffect, useState } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { GripVertical, Briefcase, GraduationCap, Code, Rocket, Trash2, User, Power } from 'lucide-react';
@@ -42,6 +42,7 @@ const Port: React.FC<{ side: 'left' | 'right'; accent: string }> = ({ side, acce
 
 export const DraggableBlock: React.FC<DraggableBlockProps> = memo(({ block }) => {
     const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: block.id });
+    const [isTapping, setIsTapping] = useState(false);
     const { remove, toggle } = useBlock(block.id);
     const meta = getBlockMeta(block.type);
     const Icon = meta.icon;
@@ -102,29 +103,41 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = memo(({ block }) =>
                         : undefined,
                     boxShadow: isDragging
                         ? `0 0 24px ${meta.accent}44, 0 16px 40px rgba(0,0,0,0.3)`
-                        : '0 2px 12px rgba(0,0,0,0.1)',
+                        : isTapping
+                            ? `0 0 12px ${meta.accent}33, 0 4px 12px rgba(0,0,0,0.1)`
+                            : '0 2px 12px rgba(0,0,0,0.1)',
                     borderWidth: isDragging ? undefined : '1.5px',
                     borderStyle: 'solid',
                     overflow: 'hidden',
-                    transform: isDragging ? 'scale(1.02)' : 'scale(1)',
-                    transition: 'transform 0.15s, box-shadow 0.15s, border-color 0.15s',
+                    transform: isDragging 
+                        ? 'scale(1.02)' 
+                        : isTapping 
+                            ? 'scale(0.98)' 
+                            : 'scale(1)',
+                    transition: 'transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s, border-color 0.2s',
+                    opacity: isDragging ? 0.9 : 1,
                 }}
             >
                 {/* ── Node header (n8n-style coloured bar) ─────────────── */}
                 <div
                     {...attributes}
                     {...listeners}
-                    style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 10,
-                        padding: '10px 14px',
-                        background: `linear-gradient(135deg, ${meta.accent}22, ${meta.accent}08)`,
-                        borderBottom: `1px solid ${meta.accent}30`,
-                        cursor: isDragging ? 'grabbing' : 'grab',
-                        userSelect: 'none',
-                    }}
-                >
+                onPointerDown={() => setIsTapping(true)}
+                onPointerUp={() => setIsTapping(false)}
+                onPointerLeave={() => setIsTapping(false)}
+                style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    padding: '10px 14px',
+                    background: `linear-gradient(135deg, ${meta.accent}22, ${meta.accent}08)`,
+                    borderBottom: `1px solid ${meta.accent}30`,
+                    cursor: isDragging ? 'grabbing' : 'grab',
+                    userSelect: 'none',
+                    touchAction: 'none',
+                    WebkitUserSelect: 'none',
+                }}
+            >
                     {/* Grip */}
                     <div className="flex items-center justify-center p-1 sm:p-0">
                         <GripVertical size={18} className="text-zinc-400 dark:text-zinc-600 sm:w-[13px] sm:h-[13px]" style={{ flexShrink: 0 }} />

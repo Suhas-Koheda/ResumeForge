@@ -14,8 +14,14 @@ export const config = {
     MONGODB_URI: process.env.DB_URL || process.env.MONGODB_URI || 'postgres://localhost:5432/resumeforge',
     GEMINI_API_KEY: process.env.GEMINI_API_KEY || '',
     JWT_SECRET: process.env.JWT_SECRET || 'dev-secret-keep-secure',
-    // IS_LOCAL is true if not explicitly set to 'false' or if NODE_ENV is development
-    IS_LOCAL: process.env.IS_LOCAL === 'false' ? false : true,
+    // IS_LOCAL is true if not explicitly set to 'false' or if not in a cloud environment
+    IS_LOCAL: (
+        process.env.IS_LOCAL === 'false' || 
+        process.env.NODE_ENV === 'production' || 
+        !!process.env.VERCEL || 
+        !!process.env.NETLIFY || 
+        !!process.env.RENDER
+    ) ? false : true,
     ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS
         ? process.env.ALLOWED_ORIGINS.split(',')
         : ['http://localhost:5173', 'http://localhost:3000']

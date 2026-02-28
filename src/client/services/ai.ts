@@ -4,7 +4,7 @@
  * In local mode, it can use the user-provided API key directly.
  */
 
-const API_BASE_URL = (import.meta as any).env.VITE_API_URL || 'http://localhost:5000/api/v1';
+const API_BASE_URL = (import.meta as any).env.VITE_API_URL || '/api/v1';
 
 import { ResumeBlock, BlockType } from '@shared/types';
 import { useBuilderStore } from '../store/useBuilderStore';
