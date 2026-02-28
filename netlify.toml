@@ -14,7 +14,7 @@
 
 [functions."*"]
   node_bundler = "esbuild"
-  config = { format = "esm" }
+  config = { format = "cjs" }
 
 [[redirects]]
   from = "/api/*"
