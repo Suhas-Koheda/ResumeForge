@@ -112,7 +112,7 @@ app.use(['/api/v1', '/.netlify/functions/server/v1'], apiRouter);
 
 const IS_SERVERLESS = !!process.env.VERCEL || !!process.env.NETLIFY || process.env.VITE_VERCEL === 'true';
 
-if (process.env.NODE_ENV !== 'production' && !IS_SERVERLESS) {
+if (!IS_SERVERLESS) {
     connectToDatabase().then(() => {
         const TECTONIC_BIN = path.resolve(process.cwd(), '.bin/tectonic');
         const binaryStatus = fs.existsSync(TECTONIC_BIN) ? 'READY' : 'ABSENT (will use PATH)';
