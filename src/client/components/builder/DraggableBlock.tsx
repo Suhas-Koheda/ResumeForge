@@ -107,8 +107,15 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = memo(({ block }) =>
                         <div className={`w-8 h-8 rounded shrink-0 flex items-center justify-center ${meta.bg} dark:bg-zinc-800/50 border ${meta.border} dark:border-zinc-700 ${meta.color}`}>
                             <Icon size={16} />
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-col">
                             <span className="text-[10px] font-bold text-zinc-900 dark:text-zinc-100 tracking-[0.2em]">{nodeName}</span>
+                            <span className="text-[9px] text-zinc-400 font-medium truncate max-w-[200px]">
+                                {block.type === 'header' && block.data?.name}
+                                {block.type === 'experience' && block.data?.company}
+                                {block.type === 'education' && block.data?.school}
+                                {block.type === 'project' && (block.data?.projectName || block.data?.title)}
+                                {block.type === 'skills' && block.data?.category}
+                            </span>
                         </div>
                     </div>
 
