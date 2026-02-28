@@ -71,9 +71,11 @@ export const manualLatexGenerator = {
     ${this.escapeLatex(header.location || 'Location')} ~~
     \\faPhone\\ ${this.escapeLatex(header.phone || 'Phone')} ~~
     \\href{mailto:${header.email || ''}}{\\faEnvelope\\ \\underline{${this.escapeLatex(header.email || '')}}} \\\\
-    ${header.website ? `\\href{https://${header.website.replace('https://', '').replace('http://', '')}}{\\faGlobe\\ \\underline{${this.escapeLatex(header.website)}}}` : ''}
-    ${header.linkedin ? `${header.website ? ' ~~ ' : ''}\\href{https://${header.linkedin.replace('https://', '').replace('http://', '')}}{\\faLinkedin\\ \\underline{${this.escapeLatex(header.linkedin)}}}` : ''}
-    ${header.github ? `${(header.website || header.linkedin) ? ' ~~ ' : ''}\\href{https://${header.github.replace('https://', '').replace('http://', '')}}{\\faGithub\\ \\underline{${this.escapeLatex(header.github)}}}` : ''}
+    ${[
+        header.website ? `\\href{https://${header.website.replace('https://', '').replace('http://', '')}}{\\faGlobe\\ \\underline{${this.escapeLatex(header.website)}}}` : null,
+        header.linkedin ? `\\href{https://${header.linkedin.replace('https://', '').replace('http://', '')}}{\\faLinkedin\\ \\underline{${this.escapeLatex(header.linkedin)}}}` : null,
+        header.github ? `\\href{https://${header.github.replace('https://', '').replace('http://', '')}}{\\faGithub\\ \\underline{${this.escapeLatex(header.github)}}}` : null
+    ].filter(Boolean).join(" ~~\n    ")}
 \\end{center}
 `;
     },
