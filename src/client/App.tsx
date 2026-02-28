@@ -205,7 +205,7 @@ function App() {
     }
 
     return (
-        <div className="h-screen w-screen flex flex-col bg-white dark:bg-[#111215] overflow-hidden font-mono selection:bg-black selection:text-white dark:selection:bg-white dark:selection:text-black">
+        <div className="h-screen h-[100dvh] w-screen flex flex-col bg-white dark:bg-[#111215] overflow-hidden font-mono selection:bg-black selection:text-white dark:selection:bg-white dark:selection:text-black">
             <header className="h-10 sm:h-12 border-b border-zinc-200 dark:border-[#2d3042] bg-white dark:bg-[#1e2028] flex items-center justify-between px-2 sm:px-4 z-20 shrink-0">
                 <div className="flex items-center gap-2 sm:gap-6">
                     <div className="flex items-center gap-1.5 sm:gap-2">
@@ -398,7 +398,7 @@ function App() {
             </header>
 
             <div className="flex flex-1 flex-col sm:flex-row relative overflow-hidden">
-                <aside className="w-full sm:w-16 h-14 sm:h-auto border-t sm:border-t-0 sm:border-r border-zinc-200 dark:border-[#2d3042] bg-white/80 dark:bg-[#1e2028]/80 backdrop-blur-md flex sm:flex-col items-center justify-around sm:justify-start py-2 sm:py-6 gap-2 sm:gap-8 z-10 shrink-0 order-2 sm:order-1">
+                <aside className="w-full sm:w-16 h-14 sm:h-auto border-b sm:border-b-0 sm:border-r border-zinc-200 dark:border-[#2d3042] bg-white/95 dark:bg-[#1e2028]/95 backdrop-blur-md flex sm:flex-col items-center justify-start sm:justify-start py-2 sm:py-6 gap-2 sm:gap-8 z-10 shrink-0 shadow-[0_4px_12px_rgba(0,0,0,0.05)] dark:shadow-none px-4 sm:px-0 overflow-x-auto no-scrollbar">
                     <div className="hidden sm:block text-zinc-300 dark:text-zinc-700 mb-2">
                         <Plus size={16} />
                     </div>
@@ -406,17 +406,17 @@ function App() {
                         <button
                             key={type}
                             onClick={() => addBlock(type)}
-                            className="group relative flex flex-col items-center gap-1 sm:gap-2 text-zinc-400 dark:text-zinc-500 hover:text-black dark:hover:text-zinc-100 transition-all font-bold"
+                            className="group relative flex flex-col items-center gap-1 sm:gap-2 text-zinc-400 dark:text-zinc-500 hover:text-black dark:hover:text-zinc-100 transition-all font-bold shrink-0"
                             title={label}
                         >
-                            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg border border-zinc-100 dark:border-[#2d3042] flex items-center justify-center group-hover:border-black dark:group-hover:border-zinc-500 group-hover:bg-zinc-50 dark:group-hover:bg-[#2d3042] transition-all">
+                            <div className="w-10 h-10 sm:w-10 sm:h-10 rounded-lg border border-zinc-100 dark:border-[#2d3042] flex items-center justify-center group-hover:border-black dark:group-hover:border-zinc-500 group-hover:bg-zinc-50 dark:group-hover:bg-[#2d3042] transition-all">
                                 <Icon size={16} strokeWidth={1.5} />
                             </div>
                         </button>
                     ))}
                 </aside>
 
-                <main className="flex-1 relative overflow-hidden order-1 sm:order-2">
+                <main className="flex-1 relative overflow-hidden">
                     <ResumeCanvas />
 
                     {(fullLatex || pdfUrl || compilationLog) && (
