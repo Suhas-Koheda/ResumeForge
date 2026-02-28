@@ -1,12 +1,10 @@
 import dotenv from 'dotenv';
-import path from 'path';
-import { fileURLToPath } from 'url';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Load .env from the backend root
-dotenv.config({ path: path.join(__dirname, '../../../.env') });
+try {
+    dotenv.config();
+} catch (e) {
+    // Ignore dotenv errors in production serverless
+}
 
 export const config = {
     PORT: process.env.PORT || 5000,

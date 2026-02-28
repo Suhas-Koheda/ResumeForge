@@ -13,11 +13,7 @@ import { Resume } from './entities/Resume.entity.js';
 import { AppDataSource, connectToDatabase } from './core/database.js';
 
 import path from 'path';
-import { fileURLToPath } from 'url';
 import fs from 'fs';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const app = express();
 
@@ -131,7 +127,7 @@ if (process.env.NODE_ENV !== 'production' && !IS_SERVERLESS) {
         console.log(`Server running on port ${config.PORT || 5000} [${config.IS_LOCAL ? 'LOCAL MODE' : 'PRODUCTION'}]`);
         console.log(`Tectonic Engine: ${binaryStatus} at ${TECTONIC_BIN}`);
 
-        app.listen(config.PORT || 5000, '0.0.0.0', () => {
+        app.listen(Number(config.PORT || 5000), '0.0.0.0', () => {
             console.log(`--- Express Listener Active ---`);
         });
     });

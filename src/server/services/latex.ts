@@ -3,11 +3,6 @@ import fs from 'fs/promises';
 import fsSync from 'fs';
 import path from 'path';
 import os from 'os';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname  = path.dirname(__filename);
-
 // The binary is placed here by scripts/install-tectonic.sh at build time.
 // In development it falls back to "tectonic" on the host $PATH.
 // Resolve Tectonic binary path - handle both local dev and bundled cloud environments
@@ -16,9 +11,9 @@ const TECTONIC_BIN = (() => {
     const rootPath = path.resolve(process.cwd(), '.bin/tectonic');
     if (fsSync.existsSync(rootPath)) return rootPath;
 
-    // 2. Try relative path from the compiled service (Legacy cloud/bundle structure)
-    const relativePath = path.resolve(__dirname, '../../../.bin/tectonic');
-    if (fsSync.existsSync(relativePath)) return relativePath;
+    // 2. Try process.env.LAMBDA_TASK_ROOT or standard Netlify bundle path
+    const fallbackPath = path.resolve(process.env.LAMBDA_TASK_ROOT || process.cwd(), '.bin/tectonic');
+    if (fsSync.existsSync(fallbackPath)) return fallbackPath;
 
     // 3. Fallback to path-based search (requires tectonic to be in system $PATH)
     return 'tectonic';
@@ -73,8 +68,8 @@ export const latexService = {
      */
     async compileToPdf(latexCode: string): Promise<Buffer> {
         const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'latex-'));
-        const texPath  = path.join(tempDir, 'resume.tex');
-        const pdfPath  = path.join(tempDir, 'resume.pdf');
+        const texPath = path.join(tempDir, 'resume.tex');
+        const pdfPath = path.join(tempDir, 'resume.pdf');
 
         try {
             // ---------------------------------------------------------------
@@ -144,7 +139,7 @@ export const latexService = {
 
         } finally {
             // Always clean up – don't await, fire and forget
-            fs.rm(tempDir, { recursive: true, force: true }).catch(() => {});
+            fs.rm(tempDir, { recursive: true, force: true }).catch(() => { });
         }
     },
 };
