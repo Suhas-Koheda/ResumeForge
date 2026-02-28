@@ -1,5 +1,5 @@
 import express from 'express';
-import { AppDataSource } from '../../index.js';
+import { AppDataSource } from '../../core/database.js';
 import { Resume } from '../../entities/Resume.entity.js';
 import { authMiddleware, AuthRequest } from '../../core/auth.js';
 

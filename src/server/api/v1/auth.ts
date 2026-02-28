@@ -1,7 +1,7 @@
 import express from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { AppDataSource } from '../../index.js';
+import { AppDataSource } from '../../core/database.js';
 import { User } from '../../entities/User.entity.js';
 import { config } from '../../core/config.js';
 

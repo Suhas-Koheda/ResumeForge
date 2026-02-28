@@ -1,5 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from "typeorm";
-import { ResumeBlock } from "@shared/types.js";
+import { ResumeBlock } from "../../shared/types.js";
 
 @Entity("resumes")
 export class Resume {

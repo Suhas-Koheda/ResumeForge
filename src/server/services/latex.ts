@@ -1,5 +1,6 @@
 import { spawn } from 'child_process';
 import fs from 'fs/promises';
+import fsSync from 'fs';
 import path from 'path';
 import os from 'os';
 import { fileURLToPath } from 'url';
@@ -11,15 +12,16 @@ const __dirname  = path.dirname(__filename);
 // In development it falls back to "tectonic" on the host $PATH.
 // Resolve Tectonic binary path - handle both local dev and bundled cloud environments
 const TECTONIC_BIN = (() => {
-    const isCloud = !!process.env.VERCEL || !!process.env.NETLIFY;
-    
-    // Check locally resolved path first (works for most cases)
-    const relativePath = path.resolve(__dirname, '../../../.bin/tectonic');
-    
-    // Cloud fallback (often in the root of the function's workspace)
+    // 1. Try absolute path from process.cwd (Root-based path)
     const rootPath = path.resolve(process.cwd(), '.bin/tectonic');
-    
-    return isCloud ? rootPath : relativePath;
+    if (fsSync.existsSync(rootPath)) return rootPath;
+
+    // 2. Try relative path from the compiled service (Legacy cloud/bundle structure)
+    const relativePath = path.resolve(__dirname, '../../../.bin/tectonic');
+    if (fsSync.existsSync(relativePath)) return relativePath;
+
+    // 3. Fallback to path-based search (requires tectonic to be in system $PATH)
+    return 'tectonic';
 })();
 
 /** Run Tectonic and collect stdout/stderr */
@@ -81,17 +83,21 @@ export const latexService = {
             // ---------------------------------------------------------------
             let source = latexCode;
 
-            // \pdfgentounicode=1  – pdflatex only, controls ToUnicode CMap generation
-            source = source.replace(/\\pdfgentounicode\s*=\s*\d+/g, '% pdfgentounicode stripped for Tectonic');
+            // \pdfgentounicode=1  – pdflatex only
+            source = source.replace(/\\pdfgentounicode\s*=\s*\d+/gi, '');
 
             // \pdfglyphtounicode{...}{...}  – pdflatex only
-            source = source.replace(/\\pdfglyphtounicode\s*\{[^}]*\}\s*\{[^}]*\}/g, '');
+            source = source.replace(/\\pdfglyphtounicode\s*\{[^}]*\}\s*\{[^}]*\}/gi, '');
 
-            // \input{glyphtounicode} – loads pdflatex-specific unicode mapping file
-            source = source.replace(/\\input\{glyphtounicode\}/g, '% glyphtounicode stripped for Tectonic');
+            // \input{glyphtounicode} – pdflatex specific
+            source = source.replace(/\\input\s*\{glyphtounicode\}/gi, '');
 
-            // \pdfminorversion, \pdfcompresslevel, \pdfobjcompresslevel – pdf driver primitives
-            source = source.replace(/\\pdf(minorversion|compresslevel|objcompresslevel)\s*=\s*\d+/g, '');
+            // \pdf primitives
+            source = source.replace(/\\pdf(minorversion|compresslevel|objcompresslevel)\s*=\s*\d+/gi, '');
+
+            // Packages not needed for Tectonic/XeTeX
+            source = source.replace(/\\usepackage\s*(\[[^\]]*\])?\s*\{inputenc\}/gi, '% stripped inputenc');
+            source = source.replace(/\\usepackage\s*(\[[^\]]*\])?\s*\{fontenc\}/gi, '% stripped fontenc');
 
             await fs.writeFile(texPath, source, 'utf8');
 
@@ -104,18 +110,23 @@ export const latexService = {
                     texPath,
                     '--outdir', tempDir,
                     '--keep-logs',
-                    '--print',          // prints log to stderr so we capture it
+                    '--print',
                 ]);
             } catch (tecErr: any) {
-                // Try to read the .log for a better error message
+                // Try to read BOTH .log and the captured stderr for a better error message
                 let logContent = '';
                 try {
                     logContent = await fs.readFile(path.join(tempDir, 'resume.log'), 'utf8');
                 } catch { /* no log produced */ }
 
+                // Extract a human-readable snippet from the log or stderr
+                const errorSnippet = (logContent || tecErr.message).split('\n')
+                    .filter((l: string) => l.startsWith('!') || l.includes('error:'))
+                    .join('\n');
+
                 throw new Error(
-                    `LaTeX compilation failed:\n${tecErr.message}` +
-                    (logContent ? `\n\n--- TEX LOG (last 2000 chars) ---\n${logContent.slice(-2000)}` : '')
+                    `LaTeX compilation failed.\n${errorSnippet || tecErr.message}` +
+                    (logContent ? `\n\n--- FULL LOG (Tail) ---\n${logContent.slice(-1000)}` : '')
                 );
             }
 

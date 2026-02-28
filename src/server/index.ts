@@ -10,9 +10,11 @@ import { aiService } from './services/ai.js';
 import { authMiddleware } from './core/auth.js';
 import { User } from './entities/User.entity.js';
 import { Resume } from './entities/Resume.entity.js';
+import { AppDataSource, connectToDatabase } from './core/database.js';
 
 import path from 'path';
 import { fileURLToPath } from 'url';
+import fs from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -21,61 +23,47 @@ const app = express();
 
 // Middleware
 app.use(cors({
-    origin: process.env.VITE_VERCEL === 'true' ? ['https://resumeforge.vercel.app', 'http://localhost:5173'] : config.ALLOWED_ORIGINS,
+    origin: (origin, callback) => {
+        if (config.IS_LOCAL) return callback(null, true);
+        if (process.env.VITE_VERCEL === 'true' && origin && (origin.includes('vercel.app') || origin.includes('localhost'))) return callback(null, true);
+        if (!origin || config.ALLOWED_ORIGINS.indexOf(origin) !== -1) {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
 }));
 app.use(express.json());
 
-// TypeORM Data Source for Serverless PostgreSQL
-export const AppDataSource = new DataSource(
-    config.IS_LOCAL
-        ? {
-            type: "sqlite",
-            database: "local_dev.sqlite",
-            synchronize: true,
-            logging: true,
-            entities: [User, Resume],
-            subscribers: [],
-            migrations: [],
-        }
-        : {
-            type: "postgres",
-            url: config.MONGODB_URI.startsWith('jdbc:') ? config.MONGODB_URI.replace('jdbc:postgresql://', 'postgres://') : config.MONGODB_URI,
-            synchronize: true, // Set to true to auto-create tables in Neon for now
-            logging: false,
-            entities: [User, Resume],
-            subscribers: [],
-            migrations: [],
-            ssl: { rejectUnauthorized: false },
-            extra: {
-                max: 5, // Connection pool size limit for Serverless environments
-                idleTimeoutMillis: 30000,
-                connectionTimeoutMillis: 5000
-            }
-        }
-);
-
-let dbConnectionPromise: Promise<DataSource> | null = null;
-async function connectToDatabase() {
-    if (!dbConnectionPromise) {
-        dbConnectionPromise = AppDataSource.initialize().then(ds => {
-            console.log(`--- ${config.IS_LOCAL ? 'SQLite' : 'Postgres'} Database Connected ---`);
-            return ds;
-        }).catch(err => {
-            console.error("Database connection error:", err);
-            throw err;
-        });
+// Request logging
+app.use((req, res, next) => {
+    if (config.IS_LOCAL) {
+        console.log(`[LOG_REQUEST] ${req.method} ${req.url}`);
     }
-    await dbConnectionPromise;
-}
+    next();
+});
+
+// DB and Server Lifecycle is handled by individual handlers (Serverless) or below (Local)
 
 // Routes
-app.get(['/api/health', '/.netlify/functions/server/health'], (req, res) => res.json({
-    status: 'ok',
-    mode: config.IS_LOCAL ? 'LOCAL' : 'CLOUD',
-    db_state: 'connected'
-}));
+app.get(['/api/health', '/.netlify/functions/server/health'], async (req, res) => {
+    try {
+        await connectToDatabase(); // Truly check connection
+        return res.json({
+            status: 'ok',
+            mode: config.IS_LOCAL ? 'LOCAL' : 'CLOUD',
+            db_state: 'connected'
+        });
+    } catch (e: any) {
+        return res.status(500).json({
+            status: 'error',
+            message: 'Database check failed',
+            details: e.message
+        });
+    }
+});
 
 const apiRouter = express.Router();
 
@@ -131,7 +119,6 @@ const IS_SERVERLESS = !!process.env.VERCEL || !!process.env.NETLIFY || process.e
 if (process.env.NODE_ENV !== 'production' && !IS_SERVERLESS) {
     connectToDatabase().then(() => {
         const TECTONIC_BIN = path.resolve(process.cwd(), '.bin/tectonic');
-        const fs = require('fs');
         const binaryStatus = fs.existsSync(TECTONIC_BIN) ? 'READY' : 'ABSENT (will use PATH)';
         
         console.log(`Server running on port ${config.PORT || 5000} [${config.IS_LOCAL ? 'LOCAL MODE' : 'PRODUCTION'}]`);

@@ -31,7 +31,11 @@ function App() {
     const [previewMode, setPreviewMode] = useState<'code' | 'pdf'>('code');
     const [compilationLog, setCompilationLog] = useState<string | null>(null);
     const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
-    const [isLocalMode, setIsLocalMode] = useState(false);
+    const [isLocalMode, setIsLocalMode] = useState(() => {
+        // Synchronous initial check to prevent render flicker
+        return typeof window !== 'undefined' && 
+               (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+    });
     const [showProfile, setShowProfile] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -59,6 +63,11 @@ function App() {
     }, [activeResumeIndex]);
 
     React.useEffect(() => {
+        // Instant check for localhost
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+            setIsLocalMode(true);
+        }
+
         const checkMode = async () => {
             try {
                 const API_URL = (import.meta as any).env.VITE_API_URL || '/api/v1';
@@ -67,8 +76,6 @@ function App() {
                 const data = await res.json();
                 if (data.mode === 'LOCAL') {
                     setIsLocalMode(true);
-                } else {
-                    setIsLocalMode(false);
                 }
             } catch (err) {
                 console.warn("Health check failed", err);
@@ -76,6 +83,12 @@ function App() {
         };
         checkMode();
     }, []);
+
+    React.useEffect(() => {
+        if (isLocalMode && viewState !== 'canvas') {
+            setViewState('canvas');
+        }
+    }, [isLocalMode, viewState, setViewState]);
 
     const blockButtons: { type: BlockType; label: string; icon: any }[] = [
         { type: 'header', label: 'Header', icon: User },
@@ -175,7 +188,7 @@ function App() {
                 const text = await error.response.data.text();
                 try {
                     const json = JSON.parse(text);
-                    errorMessage = json.error || errorMessage;
+                    errorMessage = json.details || json.error || errorMessage;
                 } catch {
                     errorMessage = text;
                 }
@@ -191,11 +204,11 @@ function App() {
         }
     };
 
-    if (viewState === 'landing' && !token) {
+    if (!isLocalMode && viewState === 'landing' && !token) {
         return <Landing onGetStarted={() => setViewState('auth')} />;
     }
 
-    if (viewState === 'auth' && !token) {
+    if (!isLocalMode && viewState === 'auth' && !token) {
         return (
             <Auth 
                 onBack={() => setViewState('landing')} 

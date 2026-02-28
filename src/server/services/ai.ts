@@ -1,6 +1,6 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { config } from "../core/config.js";
-import { ResumeBlock } from "@shared/types";
+import { ResumeBlock } from "../../shared/types.js";
 
 const genAI = new GoogleGenerativeAI(config.GEMINI_API_KEY);
 
