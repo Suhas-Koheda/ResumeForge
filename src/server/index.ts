@@ -125,19 +125,10 @@ apiRouter.post('/ai/parse', authMiddleware, async (req, res) => {
 
 app.use('/api/v1', apiRouter);
 
-// Serve static files in production (Fallback)
-if (process.env.VITE_VERCEL !== 'true') {
-    const distPath = path.join(__dirname, '../../../dist/client');
-    app.use(express.static(distPath));
-
-    app.get('*', (req, res, next) => {
-        if (req.path.startsWith('/api')) return next();
-        res.sendFile(path.join(distPath, 'index.html'));
-    });
-
+if (process.env.NODE_ENV !== 'production' || process.env.VITE_VERCEL !== 'true') {
     connectToDatabase().then(() => {
-        app.listen(config.PORT, () => {
-            console.log(`Server running on port ${config.PORT} [${config.IS_LOCAL ? 'LOCAL MODE' : 'PRODUCTION'}]`);
+        app.listen(config.PORT || 5000, () => {
+            console.log(`Server running on port ${config.PORT || 5000} [${config.IS_LOCAL ? 'LOCAL MODE' : 'PRODUCTION'}]`);
         });
     });
 }

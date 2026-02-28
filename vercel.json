@@ -2,20 +2,21 @@
   "version": 2,
   "buildCommand": "npm run vercel-build",
   "outputDirectory": "dist/client",
-  "framework": "vite",
   "builds": [
     {
       "src": "src/server/index.ts",
-      "use": "@vercel/node"
+      "use": "@vercel/node",
+      "config": { "includeFiles": ["dist/**"] }
     },
     {
       "src": "package.json",
-      "use": "@vercel/static-build"
+      "use": "@vercel/static-build",
+      "config": { "distDir": "dist/client" }
     }
   ],
   "routes": [
     { "src": "/api/(.*)", "dest": "/src/server/index.ts" },
     { "handle": "filesystem" },
-    { "src": "/(.*)", "dest": "/" }
+    { "src": "/(.*)", "dest": "/index.html" }
   ]
 }
