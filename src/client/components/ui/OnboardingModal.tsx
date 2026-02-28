@@ -38,7 +38,7 @@ export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }>
     const handleImport = async () => {
         if (!importText.trim()) return;
         if (localKey) setApiKey(localKey);
-        
+
         setIsImporting(true);
         try {
             const isLatex = importText.includes('\\documentclass');
@@ -47,27 +47,48 @@ export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }>
             if (isLatex && !useAiForLatex) {
                 // IMMEDIATE STORE: No AI usage for LaTeX
                 setFullLatex(importText);
-                
-                // PARSE BLOCKS for UI (Regex-based)
-                const extracted = parseLatexBlocks(importText);
-                if (extracted.length > 0) {
-                    setBlocks([]); // Clear for fresh start
-                    for (const b of extracted) {
-                        if (b.type && b.data) {
-                            const id = addBlock(b.type);
-                            if (id) {
-                                // Small delay to ensure block is added before data update
-                                setTimeout(() => updateData(id, b.data), 10);
+
+                try {
+                    const res = await fetch('/api/v1/import/latex', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ latexCode: importText })
+                    });
+
+                    if (!res.ok) throw new Error('Failed to parse LaTeX');
+
+                    const data = await res.json();
+                    const extracted = data.blocks || [];
+
+                    if (extracted.length > 0) {
+                        setBlocks([]); // Clear for fresh start
+                        for (const b of extracted) {
+                            if (b.type && b.data) {
+                                const id = addBlock(b.type);
+                                if (id) {
+                                    // Small delay to ensure block is added before data update
+                                    setTimeout(() => updateData(id, b.data), 10);
+                                }
                             }
                         }
+                        if (data.metadata?.warnings?.length > 0) {
+                            console.warn("AST Parse Warnings:", data.metadata.warnings);
+                            alert("AST Parsing completed with warnings: " + data.metadata.warnings.join(", "));
+                        } else {
+                            alert("Template Detected: " + (data.metadata?.template_detected || 'Custom') + ". Canvas synced.");
+                        }
+                    } else {
+                        alert("Our parser couldn't find any structural blocks. Try enabling AI parsing fallback.");
                     }
+                } catch (e: any) {
+                    console.error(e);
+                    alert("Local parser failed. " + e.message);
                 }
-                
-                alert("LaTeX Source imported via Direct Channel. Canvas synced.");
+
                 onClose();
             } else {
                 if (isLatex) setFullLatex(importText);
-                
+
                 // AI reconstruction
                 const extractedBlocks = await geminiService.parseResume(importText, 'text', localKey || apiKey);
                 setBlocks([]); // Clear for fresh start
@@ -90,7 +111,7 @@ export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }>
     // Robust Regex-based parser for Udoy Saha LaTeX Template
     const parseLatexBlocks = (latex: string): Partial<ResumeBlock>[] => {
         const blocks: Partial<ResumeBlock>[] = [];
-        
+
         // Header
         const nameMatch = latex.match(/\\Huge\s+\\scshape\s+(?:\\color\{[^}]+\}\s*)?([^}\\]+)/);
         const emailMatch = latex.match(/mailto:([^}]+)/);
@@ -164,10 +185,10 @@ export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }>
                 const titleMatch = pRaw.match(/\\textbf\{([^\}]+)\}/);
                 const techMatch = pRaw.match(/\\emph\{([^\}]+)\}/);
                 const highlights = (pRaw.match(/\\customItem\{([^\}]+)\}/g) || []).map(mi => mi.replace(/\\customItem\{|\}/g, '').trim());
-                
+
                 const liveLinkMatch = pRaw.match(/\\href\{([^}]+)\}\s*\{[^}]*?(?:Live|Link)[^}]*\}/i);
                 const codeLinkMatch = pRaw.match(/\\href\{([^}]+)\}\s*\{[^}]*?Code[^}]*\}/i);
-                
+
                 let duration = "";
                 const quadMatch = pRaw.match(/\\quad\s*([^\}\n]+)/);
                 if (quadMatch) duration = quadMatch[1].replace('}', '').trim();
@@ -212,13 +233,13 @@ export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }>
                     </div>
 
                     <div className="flex gap-4 mb-6 sm:mb-8 border-b border-zinc-100 dark:border-zinc-900">
-                        <button 
+                        <button
                             onClick={() => setTab('profile')}
                             className={`pb-4 text-[10px] font-bold uppercase tracking-widest transition-all ${tab === 'profile' ? 'text-black dark:text-white border-b-2 border-black dark:border-white' : 'text-zinc-300'}`}
                         >
                             01_IDENTITY
                         </button>
-                        <button 
+                        <button
                             onClick={() => setTab('import')}
                             className={`pb-4 text-[10px] font-bold uppercase tracking-widest transition-all ${tab === 'import' ? 'text-black dark:text-white border-b-2 border-black dark:border-white' : 'text-zinc-300'}`}
                         >
@@ -301,21 +322,21 @@ export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }>
                         ) : (
                             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
                                 <div className="space-y-2">
-                                     <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-2">
-                                         <Sparkles size={10} /> AI_ENGINE_KEY (Optional)
-                                     </label>
-                                     <input
-                                         type="password"
-                                         className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-800 p-3 text-[11px] outline-none focus:border-black dark:focus:border-white transition-all font-mono text-zinc-900 dark:text-zinc-300"
-                                         placeholder="sk-..."
-                                         value={localKey}
-                                         onChange={e => setLocalKey(e.target.value)}
-                                     />
-                                 </div>
-                                 <div className="space-y-2">
-                                     <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-2">
-                                         <Rocket size={12} /> Source Digest (Resume Text / Overleaf LaTeX)
-                                     </label>
+                                    <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-2">
+                                        <Sparkles size={10} /> AI_ENGINE_KEY (Optional)
+                                    </label>
+                                    <input
+                                        type="password"
+                                        className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-800 p-3 text-[11px] outline-none focus:border-black dark:focus:border-white transition-all font-mono text-zinc-900 dark:text-zinc-300"
+                                        placeholder="sk-..."
+                                        value={localKey}
+                                        onChange={e => setLocalKey(e.target.value)}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-2">
+                                        <Rocket size={12} /> Source Digest (Resume Text / Overleaf LaTeX)
+                                    </label>
                                     <textarea
                                         className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-800 p-4 text-[10px] outline-none focus:border-black dark:focus:border-white transition-all font-mono text-zinc-900 dark:text-zinc-300 min-h-[220px] leading-relaxed"
                                         placeholder="Paste your existing resume text or raw Overleaf LaTeX source here. Our AI will parse and reconstruct it on the canvas."
@@ -323,13 +344,13 @@ export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }>
                                         onChange={e => setImportText(e.target.value)}
                                     />
                                 </div>
-                                
+
                                 {importText.includes('\\documentclass') && (
                                     <div className="flex items-center gap-2">
-                                        <input 
-                                            type="checkbox" 
-                                            id="useAiForLatex" 
-                                            checked={useAiForLatex} 
+                                        <input
+                                            type="checkbox"
+                                            id="useAiForLatex"
+                                            checked={useAiForLatex}
                                             onChange={(e) => setUseAiForLatex(e.target.checked)}
                                             className="w-3 h-3 accent-black dark:accent-white"
                                         />
