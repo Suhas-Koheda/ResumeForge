@@ -4,7 +4,7 @@ import { useResumeActions } from './hooks/useResume';
 import {
     Plus, Settings, Layout, Sun, Moon,
     Briefcase, GraduationCap, Code, Rocket,
-    Loader2, Sparkles, X, Terminal, Copy, User, Download, FileText, LogOut, Cloud
+    Loader2, Sparkles, X, Terminal, Copy, User, Download, FileText, LogOut, Cloud, Trash2
 } from 'lucide-react';
 import { BlockType } from '@shared/types';
 import { OnboardingModal } from './components/ui/OnboardingModal';
@@ -23,7 +23,7 @@ function App() {
         activeResumeIndex, switchResume,
         fullLatex, setFullLatex,
         viewState, setViewState,
-        token, logout
+        token, logout, setToken, setBlocks
     } = useResumeActions();
     const [isDark, setIsDark] = useState(false);
     const [showSettings, setShowSettings] = useState(false);
@@ -33,6 +33,7 @@ function App() {
     const [previewMode, setPreviewMode] = useState<'code' | 'pdf'>('code');
     const [compilationLog, setCompilationLog] = useState<string | null>(null);
     const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
+    const [isLocalMode, setIsLocalMode] = useState(false);
 
     const hasTriggeredOnboarding = React.useRef(false);
 
@@ -56,6 +57,25 @@ function App() {
         setPdfUrl(null);
         setCompilationLog(null);
     }, [activeResumeIndex]);
+
+    React.useEffect(() => {
+        const checkMode = async () => {
+            try {
+                const API_URL = (import.meta as any).env.VITE_API_URL || 'http://localhost:5000/api/v1';
+                const healthUrl = API_URL.replace('/api/v1', '/api/health');
+                const res = await fetch(healthUrl);
+                const data = await res.json();
+                if (data.mode === 'LOCAL') {
+                    setIsLocalMode(true);
+                    setToken('local-dev-token');
+                    setViewState('canvas');
+                }
+            } catch (err) {
+                console.warn("Health check failed", err);
+            }
+        };
+        checkMode();
+    }, []);
 
     const blockButtons: { type: BlockType; label: string; icon: any }[] = [
         { type: 'header', label: 'Header', icon: User },
@@ -236,7 +256,21 @@ function App() {
                         Import Resume
                     </button>
 
-                    {token && (
+                    <button
+                        onClick={() => {
+                            if (confirm("Are you sure you want to completely clear the canvas?")) {
+                                setBlocks([]);
+                                setFullLatex(null);
+                            }
+                        }}
+                        className="text-[10px] font-bold uppercase tracking-widest text-red-500 hover:text-red-600 transition-colors flex items-center gap-2"
+                        title="Clear Canvas"
+                    >
+                        <Trash2 size={12} />
+                        Clear Canvas
+                    </button>
+
+                    {!isLocalMode && token && (
                         <button
                             onClick={() => {
                                 // For now, mock a sync since we just need the button and action placeholder. 

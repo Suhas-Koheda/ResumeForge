@@ -92,19 +92,26 @@ export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }>
         const blocks: Partial<ResumeBlock>[] = [];
         
         // Header
-        const nameMatch = latex.match(/\\color\{ACCENT_COLOR\}\s*([^}]+)\}/) || latex.match(/\\Huge\s+\\scshape\s+([^\\]+?)\s*(?:\\\\|\\vspace)/);
+        const nameMatch = latex.match(/\\color\{ACCENT_COLOR\}\s*([^}]+)\}/) || latex.match(/\\Huge\s+\\scshape\s+(?:\\color\{[^}]+\}\s*)?([^\\]+?)\s*(?:\\\\|\\vspace)/) || latex.match(/\\begin\{center\}[^]*?\\Huge\s*\\scshape\s*\\color\{[^\}]+\}\s*([^\}\\]+)/);
         const emailMatch = latex.match(/mailto:([^}]+)/);
         const phoneMatch = latex.match(/faPhone\\\s*([\+\d\-]+)/) || latex.match(/\\Telefon\\\s*([\+\d\-]+)/);
-        const locationMatch = latex.match(/Hyderabad, India/) || latex.match(/\\begin\{center\}[^]*?([^\n,]+,\s*[^\n\\]+)[^]*?\\faPhone/);
+        const locationMatch = latex.match(/\\vspace\{[^}]+\}\s*([^~\\]+)/) || latex.match(/Hyderabad, India/) || latex.match(/\\begin\{center\}[^]*?([^\n,]+,\s*[^\n\\]+)[^]*?\\faPhone/);
+
+        const websiteMatch = latex.match(/\\href\{([^}]+)\}\s*\{\\faGlobe/);
+        const linkedinMatch = latex.match(/\\href\{([^}]+)\}\s*\{\\faLinkedin/);
+        const githubMatch = latex.match(/\\href\{([^}]+)\}\s*\{\\faGithub/);
 
         if (nameMatch || emailMatch || phoneMatch) {
             blocks.push({
                 type: 'header',
                 data: {
-                    name: nameMatch ? (nameMatch[1] || '').trim() : '',
+                    name: nameMatch ? (nameMatch[1] || nameMatch[2] || '').trim() : '',
                     email: emailMatch ? emailMatch[1].trim() : '',
                     phone: phoneMatch ? phoneMatch[1].trim() : '',
-                    location: locationMatch ? (typeof locationMatch === 'string' ? locationMatch : locationMatch[0]).trim() : '',
+                    location: locationMatch ? (typeof locationMatch === 'string' ? locationMatch : locationMatch[1] || locationMatch[0]).trim() : '',
+                    website: websiteMatch ? websiteMatch[1].trim() : '',
+                    linkedin: linkedinMatch ? linkedinMatch[1].trim() : '',
+                    github: githubMatch ? githubMatch[1].trim() : ''
                 }
             });
         }
@@ -152,22 +159,33 @@ export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }>
         // Projects
         const projSectionMatch = latex.match(/\\section\{PROJECTS?\}([^]*?)(?=\\section|\\end\{document\}|$)/i);
         if (projSectionMatch) {
-            const projItemRegex = /\\customProject\s*\{([^\}]+)\}\s*\{([^\}]+)\}([^]*?)(?=\\customProject|\\customSubHeadingContentEnd|$)/g;
-            let m;
-            while ((m = projItemRegex.exec(projSectionMatch[1])) !== null) {
-                const titleMatch = m[1].match(/\\textbf\{([^\}]+)\}/);
-                const techMatch = m[1].match(/\\emph\{([^\}]+)\}/);
-                const highlights = (m[3].match(/\\customItem\{([^\}]+)\}/g) || []).map(mi => mi.replace(/\\customItem\{|\}/g, '').trim());
-                blocks.push({
-                    type: 'project',
-                    data: {
-                        title: titleMatch ? titleMatch[1] : m[1],
-                        technologies: techMatch ? techMatch[1] : '',
-                        duration: m[2].split('|').pop()?.trim() || '',
-                        highlights
-                    }
-                });
-            }
+            const projectsRaw = projSectionMatch[1].split(/\\customProject\b/).filter(s => s.trim().length > 0 && !s.includes('ContentStart'));
+            projectsRaw.forEach(pRaw => {
+                const titleMatch = pRaw.match(/\\textbf\{([^\}]+)\}/);
+                const techMatch = pRaw.match(/\\emph\{([^\}]+)\}/);
+                const highlights = (pRaw.match(/\\customItem\{([^\}]+)\}/g) || []).map(mi => mi.replace(/\\customItem\{|\}/g, '').trim());
+                
+                const liveLinkMatch = pRaw.match(/\\href\{([^}]+)\}\s*\{[^}]*?(?:Live|Link)[^}]*\}/i);
+                const codeLinkMatch = pRaw.match(/\\href\{([^}]+)\}\s*\{[^}]*?Code[^}]*\}/i);
+                
+                let duration = "";
+                const quadMatch = pRaw.match(/\\quad\s*([^\}\n]+)/);
+                if (quadMatch) duration = quadMatch[1].replace('}', '').trim();
+
+                if (titleMatch || techMatch || highlights.length > 0) {
+                    blocks.push({
+                        type: 'project',
+                        data: {
+                            title: titleMatch ? titleMatch[1] : '',
+                            technologies: techMatch ? techMatch[1] : '',
+                            liveLink: liveLinkMatch ? liveLinkMatch[1] : '',
+                            githubLink: codeLinkMatch ? codeLinkMatch[1] : '',
+                            duration: duration,
+                            highlights
+                        }
+                    });
+                }
+            });
         }
 
         return blocks;

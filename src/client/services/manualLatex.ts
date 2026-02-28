@@ -23,7 +23,6 @@ export const manualLatexGenerator = {
 \\usepackage[english]{babel}
 \\usepackage{tabularx}
 \\usepackage{multicol}
-\\input{glyphtounicode}
 \\usepackage{xcolor}
 
 \\definecolor{ACCENT_COLOR}{RGB}{0,51,102}
@@ -40,8 +39,6 @@ export const manualLatexGenerator = {
 \\titleformat{\\section}{
 \\vspace{-4pt}\\scshape\\raggedright\\large\\bfseries\\color{ACCENT_COLOR}
 }{}{0em}{}[\\color{ACCENT_COLOR}\\titlerule \\vspace{-5pt}]
-
-\\pdfgentounicode=1
 
 \\newcommand{\\customItem}[1]{\\item\\small{#1}}
 \\newcommand{\\customSubHeading}[4]{
