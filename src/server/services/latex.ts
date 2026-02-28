@@ -19,14 +19,44 @@ const TECTONIC_BIN = (() => {
     return 'tectonic';
 })();
 
+let readyTectonicBin = TECTONIC_BIN;
+let isBinPrepared = false;
+
+async function prepareTectonicBin() {
+    if (isBinPrepared) return readyTectonicBin;
+    if (TECTONIC_BIN === 'tectonic') {
+        isBinPrepared = true;
+        return readyTectonicBin;
+    }
+
+    try {
+        const tmpBin = path.join(os.tmpdir(), 'tectonic-bin');
+        try {
+            await fs.access(tmpBin, fsSync.constants.X_OK);
+        } catch {
+            await fs.copyFile(TECTONIC_BIN, tmpBin);
+            await fs.chmod(tmpBin, 0o755);
+        }
+        readyTectonicBin = tmpBin;
+    } catch (e) {
+        console.warn('Failed to prepare Tectonic binary in /tmp:', e);
+        // Fallback to the original path, might still work or fail with EACCES
+    }
+
+    isBinPrepared = true;
+    return readyTectonicBin;
+}
+
 /** Run Tectonic and collect stdout/stderr */
-function runTectonic(args: string[]): Promise<{ stdout: string; stderr: string }> {
+async function runTectonic(args: string[]): Promise<{ stdout: string; stderr: string }> {
+    const binToRun = await prepareTectonicBin();
+
     return new Promise((resolve, reject) => {
         const env = {
             ...process.env,
             TECTONIC_CACHE_DIR: path.join(os.tmpdir(), 'tectonic-cache')
         };
-        const child = spawn(TECTONIC_BIN, args, {
+        const child = spawn(binToRun, args, {
             stdio: ['ignore', 'pipe', 'pipe'],
             env
         });
@@ -37,8 +67,7 @@ function runTectonic(args: string[]): Promise<{ stdout: string; stderr: string }
         child.stderr.on('data', (d: Buffer) => (stderr += d.toString()));
 
         child.on('error', (err) => {
-            // If the bundled binary is absent, try the $PATH version
-            if ((err as any).code === 'ENOENT') {
+            if ((err as any).code === 'ENOENT' || (err as any).code === 'EACCES') {
                 const fallback = spawn('tectonic', args, {
                     stdio: ['ignore', 'pipe', 'pipe'],
                     env
@@ -46,9 +75,9 @@ function runTectonic(args: string[]): Promise<{ stdout: string; stderr: string }
                 let fs2 = '', fe2 = '';
                 fallback.stdout.on('data', (d: Buffer) => (fs2 += d.toString()));
                 fallback.stderr.on('data', (d: Buffer) => (fe2 += d.toString()));
-                fallback.on('error', () =>
-                    reject(new Error('Tectonic is not installed on this server. Please download the .TEX file instead.'))
-                );
+                fallback.on('error', (fallbackErr) => {
+                    reject(new Error(`Tectonic is not installed or accessible on this server. Direct run err: ${err.message}. Fallback err: ${fallbackErr.message}.`));
+                });
                 fallback.on('close', code =>
                     code === 0
                         ? resolve({ stdout: fs2, stderr: fe2 })
