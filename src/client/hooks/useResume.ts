@@ -61,6 +61,8 @@ export const useResumeActions = () => {
     // Auth & Persistence
     const token = useBuilderStore((state) => state.token);
     const userEmail = useBuilderStore((state) => state.userEmail);
+    const isVerified = useBuilderStore((state) => state.isVerified);
+    const setIsVerified = useBuilderStore((state) => state.setIsVerified);
     const setToken = useBuilderStore((state) => state.setToken);
     const logout = useBuilderStore((state) => state.logout);
     const viewState = useBuilderStore((state) => state.viewState);
@@ -88,7 +90,9 @@ export const useResumeActions = () => {
         fullLatex,
         token,
         userEmail,
+        isVerified,
         setToken,
+        setIsVerified,
         logout,
         viewState,
         setViewState,

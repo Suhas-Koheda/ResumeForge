@@ -13,6 +13,8 @@ interface ProjectBlockProps {
 export const ProjectBlock: React.FC<ProjectBlockProps> = memo(({ id }) => {
     const { data, updateData } = useBlock(id);
     const apiKey = useBuilderStore(state => state.apiKey);
+    const isVerified = useBuilderStore(state => state.isVerified);
+    const isLocalMode = (import.meta as any).env.IS_LOCAL === 'true';
     const [isPolishing, setIsPolishing] = useState(false);
     const [showLatex, setShowLatex] = useState(false);
     const [rawInput, setRawInput] = useState('');
@@ -123,8 +125,9 @@ export const ProjectBlock: React.FC<ProjectBlockProps> = memo(({ id }) => {
                 />
                 <button
                     onClick={handleAiPolish}
-                    disabled={isPolishing || !rawInput.trim()}
+                    disabled={isPolishing || !rawInput.trim() || (!isVerified && !isLocalMode)}
                     className="bg-black dark:bg-white text-white dark:text-black py-2.5 text-[9px] font-bold uppercase tracking-[0.22em] hover:opacity-80 transition-all disabled:opacity-30 disabled:grayscale flex items-center justify-center gap-2"
+                    title={(!isVerified && !isLocalMode) ? 'Verify your email to use AI' : ''}
                 >
                     {isPolishing ? <Loader2 size={12} className="animate-spin" /> : null}
                     {isPolishing ? "Analyzing" : "Generate Highlights"}

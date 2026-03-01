@@ -31,10 +31,12 @@ interface BuilderStore {
     setCustomTemplate: (template: string) => void;
     token: string | null;
     userEmail: string | null;
-    setToken: (token: string | null, email?: string) => void;
+    isVerified: boolean;
+    setToken: (token: string | null, email?: string, isVerified?: boolean) => void;
+    setIsVerified: (isVerified: boolean) => void;
     logout: () => void;
-    viewState: 'landing' | 'auth' | 'canvas';
-    setViewState: (viewState: 'landing' | 'auth' | 'canvas') => void;
+    viewState: 'landing' | 'auth' | 'canvas' | 'verify';
+    setViewState: (viewState: 'landing' | 'auth' | 'canvas' | 'verify') => void;
     loadResumes: (resumes: any[]) => void;
 }
 
@@ -55,17 +57,21 @@ export const useBuilderStore = create<BuilderStore>()(
             customTemplate: '',
             token: null,
             userEmail: null,
+            isVerified: false,
             viewState: 'landing',
 
-            setToken: (token, email) => set({ 
+            setToken: (token, email, isVerified) => set({ 
                 token, 
                 userEmail: email || (token === 'local-bypass' ? 'local-dev@host.local' : null),
+                isVerified: isVerified ?? (token === 'local-bypass'),
                 viewState: token ? 'canvas' : 'landing' 
             }),
+            setIsVerified: (isVerified) => set({ isVerified }),
             logout: () => {
                 set({ 
                     token: null, 
                     userEmail: null,
+                    isVerified: false,
                     viewState: 'landing',
                     resumes: [{ blocks: INITIAL_BLOCKS, fullLatex: null }],
                     activeResumeIndex: 0,

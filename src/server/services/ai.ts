@@ -211,5 +211,31 @@ CORE INSTRUCTIONS:
             const parsed = parseSafeJson(textResponse);
             return JSON.stringify(parsed);
         });
+    },
+
+    async optimizeForJD(blocks: ResumeBlock[], jobDescription: string) {
+        return executeWithRotation(async (model) => {
+            const prompt = `
+                You are an expert resume optimizer. 
+                Your task is to take the current resume blocks (JSON) and a Job Description (JD) text.
+                Modify the content of each block to better align with the requirements, keywords, and tone of the JD.
+                
+                CRITICAL RULES:
+                1. DO NOT invent fake experiences or credentials. 
+                2. Rephrase existing bullets to highlight relevant skills. 
+                3. Prioritize keywords from the JD in the 'skills', 'experience', and 'summary' sections.
+                4. Maintain the exact same JSON structure.
+                5. Return ONLY a valid JSON array of objects representing the optimized blocks.
+                
+                JOB DESCRIPTION:
+                ${jobDescription}
+                
+                RESUME BLOCKS:
+                ${JSON.stringify(blocks)}
+            `;
+            const result = await model.generateContent(prompt);
+            const textResponse = result.response.text();
+            return JSON.stringify(parseSafeJson(textResponse));
+        });
     }
 };

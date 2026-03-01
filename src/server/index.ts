@@ -12,6 +12,7 @@ import importRouter from './api/v1/import.js';
 import templateRouter from './api/v1/template.js';
 import { aiService } from './services/ai.js';
 import { authMiddleware, AuthRequest } from './core/auth.js';
+import { verificationMiddleware } from './core/verification.js';
 import { User } from './entities/User.entity.js';
 import { Resume } from './entities/Resume.entity.js';
 import { AppDataSource, connectToDatabase } from './core/database.js';
@@ -88,12 +89,12 @@ apiRouter.use(async (req, res, next) => {
 });
 
 apiRouter.use('/auth', authRouter);
-apiRouter.use('/resumes', resumeRouter);
-apiRouter.use('/export', exportRouter);
-apiRouter.use('/import', importRouter);
+apiRouter.use('/resumes', authMiddleware, verificationMiddleware, resumeRouter);
+apiRouter.use('/export', authMiddleware, verificationMiddleware, exportRouter);
+apiRouter.use('/import', authMiddleware, verificationMiddleware, importRouter);
 apiRouter.use('/templates', authMiddleware, templateRouter);
 
-apiRouter.post('/ai/experience', authMiddleware, async (req, res) => {
+apiRouter.post('/ai/experience', authMiddleware, verificationMiddleware, async (req, res) => {
     try {
         const { text } = req.body;
         const result = await aiService.polishExperience(text);
@@ -103,7 +104,7 @@ apiRouter.post('/ai/experience', authMiddleware, async (req, res) => {
     }
 });
 
-apiRouter.post('/ai/assemble', authMiddleware, async (req, res) => {
+apiRouter.post('/ai/assemble', authMiddleware, verificationMiddleware, async (req, res) => {
     try {
         const { blocks, template } = req.body;
         const result = await aiService.assembleResume(blocks, template);
@@ -114,7 +115,7 @@ apiRouter.post('/ai/assemble', authMiddleware, async (req, res) => {
     }
 });
 
-apiRouter.post('/ai/parse', authMiddleware, async (req: AuthRequest, res) => {
+apiRouter.post('/ai/parse', authMiddleware, verificationMiddleware, async (req: AuthRequest, res) => {
     try {
         const { content, autoSave, title } = req.body;
         const resultText = await aiService.parseResume(content);
@@ -149,7 +150,7 @@ apiRouter.post('/ai/parse', authMiddleware, async (req: AuthRequest, res) => {
     }
 });
 
-apiRouter.post('/ai/skills', authMiddleware, async (req, res) => {
+apiRouter.post('/ai/skills', authMiddleware, verificationMiddleware, async (req, res) => {
     try {
         const { text } = req.body;
         const result = await aiService.polishSkills(text);
@@ -159,7 +160,7 @@ apiRouter.post('/ai/skills', authMiddleware, async (req, res) => {
     }
 });
 
-apiRouter.post('/ai/project', authMiddleware, async (req, res) => {
+apiRouter.post('/ai/project', authMiddleware, verificationMiddleware, async (req, res) => {
     try {
         const { text } = req.body;
         const result = await aiService.polishProject(text);
@@ -169,13 +170,24 @@ apiRouter.post('/ai/project', authMiddleware, async (req, res) => {
     }
 });
 
-apiRouter.post('/ai/education', authMiddleware, async (req, res) => {
+apiRouter.post('/ai/education', authMiddleware, verificationMiddleware, async (req, res) => {
     try {
         const { text } = req.body;
         const result = await aiService.polishEducation(text);
         res.json(JSON.parse(result));
     } catch (error) {
         res.status(500).json({ error: 'AI processing failed' });
+    }
+});
+
+apiRouter.post('/ai/optimize', authMiddleware, verificationMiddleware, async (req, res) => {
+    try {
+        const { blocks, jd } = req.body;
+        const resultText = await aiService.optimizeForJD(blocks, jd);
+        res.json(JSON.parse(resultText));
+    } catch (error: any) {
+        console.error("[LOG_API_ROUTE] AI optimization failed:", error);
+        res.status(500).json({ error: 'AI optimization failed', details: error.message });
     }
 });
 
