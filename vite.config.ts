@@ -4,7 +4,7 @@ import path from 'path';
 
 export default defineConfig({
   plugins: [react()],
-  envPrefix: ['VITE_', 'GEMINI_'],
+  envPrefix: ['VITE_', 'GEMINI_', 'IS_LOCAL'],
   resolve: {
     alias: {
       '@shared': path.resolve(__dirname, './src/shared'),

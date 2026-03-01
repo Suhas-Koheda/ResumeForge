@@ -4,7 +4,7 @@ import { useResumeActions } from './hooks/useResume';
 import {
     Plus, Settings as SettingsIcon, Layout, Sun, Moon,
     Briefcase, GraduationCap, Code, Rocket, FileText, Layers,
-    Loader2, Sparkles, X, Terminal, Copy, User, Download, LogOut, Cloud, Trash2, Menu, ChevronDown, Map, Save, Key, RefreshCw
+    Loader2, Sparkles, X, Terminal, Copy, User, Download, LogOut, Cloud, Trash2, Menu, ChevronDown, Map, Save, Key, RefreshCw, FileUp, FileDown, Type
 } from 'lucide-react';
 import { ResumeBlock, BlockType } from '@shared/types';
 import { OnboardingModal } from './components/ui/OnboardingModal';
@@ -36,26 +36,37 @@ function App() {
     const [compilationLog, setCompilationLog] = useState<string | null>(null);
     const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
     const [isLocalMode, setIsLocalMode] = useState(() => {
-        return typeof window !== 'undefined' &&
-            (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+        return (import.meta as any).env.IS_LOCAL === 'true';
     });
     const [showProfile, setShowProfile] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const [showExportMenu, setShowExportMenu] = useState(false);
+    const [hasLoadedFromServer, setHasLoadedFromServer] = useState(false);
+
+    // 0. Auto-bypass local mode on startup for seamless LAN experience
+    useEffect(() => {
+        if (isLocalMode && !token) {
+            console.log("[LOG_APP] Local dev mode detected. Bypassing auth...");
+            setToken('local-bypass', 'local-host@dev.local');
+            setViewState('canvas');
+        }
+    }, [isLocalMode, token, setToken, setViewState]);
 
     // 1. Init: Fetch resumes from backend when token becomes available (login)
     useEffect(() => {
         if (token && viewState === 'canvas') {
             const fetchResumes = async () => {
                 try {
-                    console.log("[LOG_APP] Fetching resumes from cloud...");
+                    console.log("[LOG_APP] Syncing with local SQLite...");
                     const url = `${(import.meta as any).env.VITE_API_URL || '/api/v1'}/resumes`;
                     const response = await fetch(url, {
                         headers: { 'Authorization': `Bearer ${token}` }
                     });
                     if (response.ok) {
                         const data = await response.json();
-                        console.log(`[LOG_APP] Successfully loaded ${data.length} resumes from cloud`);
+                        console.log(`[LOG_APP] Successfully pulled ${data.length} resumes from SQLite`);
                         loadResumes(data);
+                        setHasLoadedFromServer(true);
                     }
                 } catch (e) {
                     console.error("[LOG_APP] Failed to fetch resumes:", e);
@@ -114,6 +125,15 @@ function App() {
     const syncToCloud = async (isManual = false) => {
         if (!blocks.length && !fullLatex) return;
         if (!token && !isLocalMode) return;
+
+        // CRITICAL FOR LOCAL SYNC: Skip auto-syncing if we are in local mode
+        // but haven't successfully pulled from the SQLite server yet.
+        // This prevents the local device (mobile) from overwriting 
+        // the server with its empty/stale localStorage on first load.
+        if (isLocalMode && !hasLoadedFromServer && !isManual) {
+            console.log("[LOG_APP] Delaying sync until SQLite pull completes...");
+            return;
+        }
         
         try {
             setIsSaving(true);
@@ -253,11 +273,14 @@ function App() {
         setIsGeneratingPdf(true);
         setCompilationLog(null);
         try {
+            // CRITICAL: If we are in visual mode (pdf preview), regenerate from visual blocks 
+            // to ensure latest edits (like AI polish) are included.
             let content = fullLatex;
-            if (!content) {
+            if (previewMode === 'pdf' || !content) {
                 content = manualLatexGenerator.generate(blocks);
                 setFullLatex(content);
             }
+            
             const blob = await latexServerService.compileLatexToPdf(content);
             const url = URL.createObjectURL(blob);
             setPdfUrl(url);
@@ -289,6 +312,59 @@ function App() {
         URL.revokeObjectURL(url);
     };
 
+    const downloadJson = () => {
+        const currentResume = resumes[activeResumeIndex];
+        const exportData = {
+            version: "1.0",
+            source: "ResumeForge",
+            timestamp: new Date().toISOString(),
+            title: currentResume?.title || "My Resume",
+            canvasData: {
+                nodes: blocks,
+                customTemplate,
+                fullLatex
+            }
+        };
+        const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${(currentResume?.title || 'resume').replace(/\s+/g, '_')}.rf.json`;
+        link.click();
+        URL.revokeObjectURL(url);
+    };
+
+    const handleImportJson = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            try {
+                const json = JSON.parse(event.target?.result as string);
+                if (json.source !== "ResumeForge") {
+                    alert("Invalid file format. Please upload a valid ResumeForge JSON.");
+                    return;
+                }
+                
+                const { nodes, customTemplate: importedTemplate, fullLatex: importedLatex } = json.canvasData;
+                
+                // Update current state
+                setBlocks(nodes || []);
+                setCustomTemplate(importedTemplate || null);
+                setFullLatex(importedLatex || null);
+                
+                alert("Resume imported successfully.");
+            } catch (err) {
+                console.error("Import error:", err);
+                alert("Failed to parse JSON file.");
+            }
+        };
+        reader.readAsText(file);
+        // Reset input
+        e.target.value = '';
+    };
+
     if (!isLocalMode && viewState === 'landing' && !token) {
         return <Landing onGetStarted={() => setViewState('auth')} />;
     }
@@ -318,7 +394,7 @@ function App() {
                         >
                             <User size={12} />
                             <span className="text-[10px] font-bold uppercase tracking-widest hidden sm:inline">
-                                {isLocalMode ? 'Sign_In' : (userEmail?.split('@')[0] || 'User')}
+                                {isLocalMode ? 'Local_Host' : (userEmail?.split('@')[0] || 'User')}
                             </span>
                             <ChevronDown size={10} className={`transition-transform duration-200 ${showProfile ? 'rotate-180' : ''}`} />
                         </button>
@@ -329,16 +405,30 @@ function App() {
                                 <div className="absolute top-full left-0 mt-2 w-56 bg-white dark:bg-[#1e2028] border border-zinc-200 dark:border-[#2d3042] p-2 z-50 shadow-2xl rounded-lg animate-in fade-in slide-in-from-top-1">
                                     <div className="p-3 border-b border-zinc-100 dark:border-[#2d3042] mb-1">
                                         <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-1">Identity_Status</p>
-                                        <p className="text-[11px] font-bold text-zinc-800 dark:text-zinc-200 truncate italic">{isLocalMode ? 'Guest_Developer' : (userEmail || 'Active_Session')}</p>
+                                        <p className="text-[11px] font-bold text-zinc-800 dark:text-zinc-200 truncate italic">{isLocalMode ? 'Offline_Mode' : (userEmail || 'Active_Session')}</p>
                                     </div>
                                     <button 
-                                        onClick={() => { syncToCloud(true); setShowProfile(false); }} 
-                                        className="w-full flex items-center gap-3 px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/10 rounded-md transition-all"
+                                        onClick={() => { setIsOnboardingOpen(true); setShowProfile(false); }} 
+                                        className="w-full flex items-center gap-3 px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-900/10 rounded-md transition-all text-left"
                                     >
-                                        <RefreshCw size={12} className={isSaving ? "animate-spin" : ""} /> Sync with Cloud
+                                        <FileUp size={12} /> Sync Historical (AI)
                                     </button>
-                                    <button onClick={() => { if (confirm("Sign out?")) logout(); }} className="w-full flex items-center gap-3 px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-md transition-all">
-                                        <LogOut size={12} /> {isLocalMode ? 'Exit Local' : 'Terminate Session'}
+                                    <button 
+                                        onClick={() => { document.getElementById('json-import-input')?.click(); setShowProfile(false); }} 
+                                        className="w-full flex items-center gap-3 px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-900/10 rounded-md transition-all text-left"
+                                    >
+                                        <Download size={12} className="rotate-180" /> Import JSON Data
+                                    </button>
+                                    {!isLocalMode && (
+                                        <button 
+                                            onClick={() => { syncToCloud(true); setShowProfile(false); }} 
+                                            className="w-full flex items-center gap-3 px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/10 rounded-md transition-all text-left"
+                                        >
+                                            <RefreshCw size={12} className={isSaving ? "animate-spin" : ""} /> Sync with Cloud
+                                        </button>
+                                    )}
+                                    <button onClick={() => { if (confirm(isLocalMode ? "Exit offline mode?" : "Sign out?")) logout(); }} className="w-full flex items-center gap-3 px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-md transition-all text-left">
+                                        <LogOut size={12} /> {isLocalMode ? 'Exit Dev' : 'Terminate Session'}
                                     </button>
                                 </div>
                             </>
@@ -379,12 +469,66 @@ function App() {
                 <div className="flex items-center gap-1 sm:gap-4">
                     <div className="hidden lg:flex items-center gap-4">
                         {isSaving && <div className="flex items-center gap-2 text-[8px] font-bold text-zinc-400 uppercase tracking-widest animate-pulse"><Cloud size={10} /> Syncing...</div>}
+                        <button 
+                            onClick={() => {
+                                // If opening the editor to show source code, 
+                                // always sync from current blocks first to avoid overwriting 
+                                // visual edits with stale LaTeX source.
+                                if (!showBuildOutput && previewMode === 'code') {
+                                    const freshLatex = manualLatexGenerator.generate(blocks);
+                                    setFullLatex(freshLatex);
+                                }
+                                setShowBuildOutput(!showBuildOutput);
+                            }}
+                            className={`text-zinc-400 hover:text-black dark:hover:text-white p-1 transition-all ${showBuildOutput ? 'text-black dark:text-white' : ''}`}
+                            title="Open Editor"
+                        >
+                            <Terminal size={14} />
+                        </button>
                         <button onClick={() => setIsDark(!isDark)} className="text-zinc-400 hover:text-black dark:hover:text-white p-1" title="Toggle Theme">
                             {isDark ? <Sun size={14} /> : <Moon size={14} />}
                         </button>
                     </div>
 
-                    <div className="flex items-center gap-1 border border-zinc-200 dark:border-zinc-800 p-0.5 sm:p-1">
+                    <div className="flex items-center gap-1 border border-zinc-200 dark:border-zinc-800 p-0.5 sm:p-1 relative">
+                        <button
+                            onClick={() => setShowExportMenu(!showExportMenu)}
+                            className="px-3 py-1.5 text-[9px] font-bold uppercase tracking-[0.2em] bg-black dark:bg-white text-white dark:text-black hover:opacity-90 transition-all flex items-center gap-2"
+                        >
+                            <Download size={10} />
+                            EXPORT
+                            <ChevronDown size={8} className={`transition-transform duration-200 ${showExportMenu ? 'rotate-180' : ''}`} />
+                        </button>
+
+                        {showExportMenu && (
+                            <>
+                                <div className="fixed inset-0 z-[60]" onClick={() => setShowExportMenu(false)} />
+                                <div className="absolute top-full right-0 mt-2 w-56 bg-white dark:bg-[#1e2028] border border-zinc-200 dark:border-[#2d3042] p-1 z-[70] shadow-2xl rounded shadow-black/20">
+                                    <div className="p-2 border-b border-zinc-100 dark:border-[#2d3042] mb-1">
+                                        <p className="text-[8px] font-black text-zinc-400 uppercase tracking-widest">Download_Vector</p>
+                                    </div>
+                                    <button 
+                                        onClick={() => { downloadPdf(); setShowExportMenu(false); }}
+                                        className="w-full flex items-center gap-3 px-3 py-2 text-[9px] font-bold uppercase tracking-widest text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-900/20 rounded transition-all text-left"
+                                    >
+                                        <FileText size={12} /> Export PDF (.pdf)
+                                    </button>
+                                    <button 
+                                        onClick={() => { downloadTex(); setShowExportMenu(false); }}
+                                        className="w-full flex items-center gap-3 px-3 py-2 text-[9px] font-bold uppercase tracking-widest text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-900/20 rounded transition-all text-left"
+                                    >
+                                        <Type size={12} /> Export LaTeX (.tex)
+                                    </button>
+                                    <button 
+                                        onClick={() => { downloadJson(); setShowExportMenu(false); }}
+                                        className="w-full flex items-center gap-3 px-3 py-2 text-[9px] font-bold uppercase tracking-widest text-zinc-800 dark:text-zinc-100 bg-zinc-50 dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded transition-all text-left border-t border-zinc-100 dark:border-zinc-800 mt-1"
+                                    >
+                                        <Layers size={12} /> Export JSON (.rf.json)
+                                    </button>
+                                </div>
+                            </>
+                        )}
+
                         <button
                             onClick={handleManualAssemble}
                             className="hidden sm:flex px-3 py-1.5 text-[9px] font-bold uppercase tracking-[0.2em] border border-black dark:border-white text-black dark:text-white hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black transition-all items-center gap-2"
@@ -395,6 +539,13 @@ function App() {
                         <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="lg:hidden p-1.5 text-zinc-500 hover:text-black dark:hover:text-white"><Menu size={16} /></button>
                     </div>
                 </div>
+                <input 
+                    id="json-import-input"
+                    type="file" 
+                    accept=".json"
+                    className="hidden" 
+                    onChange={handleImportJson}
+                />
             </header>
 
             <div className="flex flex-1 flex-col sm:flex-row relative overflow-hidden">
@@ -436,6 +587,71 @@ function App() {
                 </main>
             </div>
             <OnboardingModal isOpen={isOnboardingOpen} onClose={() => setIsOnboardingOpen(false)} />
+            
+            {/* ── Mobile Navigation Drawer ─────────────────────────────────── */}
+            {isMobileMenuOpen && (
+                <div className="fixed inset-0 z-[100] lg:hidden animate-in fade-in duration-200">
+                    <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)} />
+                    <div className="absolute right-0 top-0 bottom-0 w-[280px] bg-white dark:bg-[#1e2028] border-l border-zinc-200 dark:border-[#2d3042] shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+                        <div className="h-14 border-b border-zinc-100 dark:border-[#2d3042] flex items-center justify-between px-6">
+                            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Mobile_Toolbar</h3>
+                            <button onClick={() => setIsMobileMenuOpen(false)} className="text-zinc-500 hover:text-black">
+                                <X size={18} />
+                            </button>
+                        </div>
+                        
+                        <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-6">
+                            {/* Theme Toggle */}
+                            <div className="flex flex-col gap-3">
+                                <p className="text-[8px] font-bold text-zinc-400 uppercase tracking-widest">Interface_Mode</p>
+                                <button onClick={() => setIsDark(!isDark)} className="w-full flex items-center justify-between p-4 bg-zinc-50 dark:bg-zinc-900/50 rounded-xl border border-zinc-100 dark:border-[#2d3042]">
+                                    <span className="text-[10px] font-bold uppercase tracking-widest">{isDark ? 'SITH_DARK' : 'SKY_LIGHT'}</span>
+                                    {isDark ? <Moon size={16} /> : <Sun size={16} />}
+                                </button>
+                            </div>
+
+                            {/* Resume Tabs (duplicated for mobile access) */}
+                            <div className="flex flex-col gap-3">
+                                <p className="text-[8px] font-bold text-zinc-400 uppercase tracking-widest">Active_Registers</p>
+                                <div className="grid grid-cols-2 gap-2">
+                                    {resumes.map((_, idx) => (
+                                        <button 
+                                            key={idx} 
+                                            onClick={() => { switchResume(idx); setIsMobileMenuOpen(false); }}
+                                            className={`p-4 rounded-xl border font-bold text-[10px] uppercase tracking-widest transition-all ${activeResumeIndex === idx ? 'bg-black text-white dark:bg-white dark:text-black border-black' : 'bg-transparent text-zinc-500 border-zinc-100 dark:border-[#2d3042]'}`}
+                                        >
+                                            R_{idx + 1}
+                                        </button>
+                                    ))}
+                                    <button onClick={() => addResume()} className="p-4 rounded-xl border border-dashed border-zinc-300 dark:border-zinc-700 text-zinc-400 flex items-center justify-center"><Plus size={16} /></button>
+                                </div>
+                            </div>
+
+                            {/* Export Quick Links */}
+                            <div className="flex flex-col gap-3">
+                                <p className="text-[8px] font-bold text-zinc-400 uppercase tracking-widest">Core_Functions</p>
+                                <div className="flex flex-col gap-2">
+                                    <button onClick={() => { downloadPdf(); setIsMobileMenuOpen(false); }} className="w-full h-12 flex items-center gap-4 px-4 bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-100 dark:border-[#2d3042] rounded-xl text-[10px] font-bold uppercase tracking-widest">
+                                        <FileText size={16} /> Export PDF (.pdf)
+                                    </button>
+                                    <button onClick={() => { downloadJson(); setIsMobileMenuOpen(false); }} className="w-full h-12 flex items-center gap-4 px-4 bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-100 dark:border-[#2d3042] rounded-xl text-[10px] font-bold uppercase tracking-widest">
+                                        <Layers size={16} /> Export JSON (.rf.json)
+                                    </button>
+                                    <button onClick={() => { handleManualAssemble(); setIsMobileMenuOpen(false); }} className="w-full h-12 flex items-center gap-4 px-4 bg-black dark:bg-white text-white dark:text-black rounded-xl text-[10px] font-bold uppercase tracking-widest">
+                                        <Sparkles size={16} /> Compile System
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="p-6 border-t border-zinc-100 dark:border-[#2d3042]">
+                            <button onClick={() => { if (confirm(isLocalMode ? "Exit offline mode?" : "Sign out?")) logout(); }} className="w-full p-4 flex items-center justify-center gap-3 text-red-500 font-bold text-[10px] uppercase tracking-[0.2em] border border-red-100 dark:border-red-900/30 rounded-xl hover:bg-red-50 transition-all">
+                                <LogOut size={16} /> {isLocalMode ? 'Exit Dev' : 'Logout'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

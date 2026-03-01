@@ -77,6 +77,7 @@ export const useBuilderStore = create<BuilderStore>()(
             setViewState: (viewState) => set({ viewState }),
 
             loadResumes: (backendResumes) => {
+                const state = get();
                 const formattedResumes: ResumeStorage[] = backendResumes.map(r => ({
                     id: r.id,
                     title: r.title,
@@ -85,11 +86,16 @@ export const useBuilderStore = create<BuilderStore>()(
                 }));
 
                 if (formattedResumes.length > 0) {
+                    // Try to preserve active index if possible, otherwise default to 0
+                    const newIndex = state.activeResumeIndex < formattedResumes.length 
+                        ? state.activeResumeIndex 
+                        : 0;
+                    
                     set({
                         resumes: formattedResumes,
-                        activeResumeIndex: 0,
-                        blocks: formattedResumes[0].blocks,
-                        fullLatex: formattedResumes[0].fullLatex,
+                        activeResumeIndex: newIndex,
+                        blocks: formattedResumes[newIndex].blocks,
+                        fullLatex: formattedResumes[newIndex].fullLatex,
                     });
                 }
             },

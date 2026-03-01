@@ -100,6 +100,24 @@ const CanvasRegistry: React.FC = () => {
         useSensor(KeyboardSensor)
     );
 
+    // Auto-position blocks that haven't been placed yet (position === 0,0)
+    // They get stacked in their cluster column
+    const renderTypeCounters: Record<string, number> = {};
+    const positionedBlocks = blocks.map((b: ResumeBlock) => {
+        const isUnplaced = b.position.x === 0 && b.position.y === 0;
+        if (!isUnplaced) return b;
+        const idx = renderTypeCounters[b.type] ?? 0;
+        renderTypeCounters[b.type] = idx + 1;
+        const colX = CLUSTER_COLUMNS[b.type] ?? (300 + Object.keys(renderTypeCounters).length * 550);
+        return {
+            ...b,
+            position: {
+                x: colX,
+                y: idx * (NODE_HEIGHT + NODE_VGAP),
+            },
+        };
+    });
+
     const handleDragStart = useCallback(() => {
         if (window.navigator.vibrate) {
             window.navigator.vibrate(8);
@@ -108,7 +126,7 @@ const CanvasRegistry: React.FC = () => {
 
     const handleDragEnd = useCallback((event: DragEndEvent) => {
         const { active, delta } = event;
-        const block = blocks.find((b: ResumeBlock) => b.id === active.id);
+        const block = positionedBlocks.find((b: ResumeBlock) => b.id === active.id);
         if (block) {
             const s = scaleRef.current || 1;
             updateBlockPosition(active.id as string,
@@ -116,7 +134,7 @@ const CanvasRegistry: React.FC = () => {
                 block.position.y + delta.y / s,
             );
         }
-    }, [blocks, updateBlockPosition]);
+    }, [positionedBlocks, updateBlockPosition]);
 
     /**
      * Realign: snap every block back into its cluster column without removing data.
@@ -140,23 +158,6 @@ const CanvasRegistry: React.FC = () => {
         }, {}
     );
 
-    // Auto-position blocks that haven't been placed yet (position === 0,0)
-    // They get stacked in their cluster column
-    const typeCounters: Record<string, number> = {};
-    const positionedBlocks = blocks.map((b: ResumeBlock) => {
-        const isUnplaced = b.position.x === 0 && b.position.y === 0;
-        if (!isUnplaced) return b;
-        const idx = typeCounters[b.type] ?? 0;
-        typeCounters[b.type] = idx + 1;
-        const colX = CLUSTER_COLUMNS[b.type] ?? (300 + Object.keys(typeCounters).length * 550);
-        return {
-            ...b,
-            position: {
-                x: colX,
-                y: idx * (NODE_HEIGHT + NODE_VGAP),
-            },
-        };
-    });
 
     return (
         <div className="absolute inset-0 overflow-hidden outline-none bg-zinc-50 dark:bg-[#111215]">

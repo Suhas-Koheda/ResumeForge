@@ -5,7 +5,7 @@ import { useResumeActions } from '../../hooks/useResume';
 const API_BASE_URL = (import.meta as any).env.VITE_API_URL || '/api/v1';
 
 export const Auth = ({ onBack, onSuccess }: { onBack: () => void, onSuccess: () => void }) => {
-    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname.startsWith('172.');
+    const isLocal = (import.meta as any).env.IS_LOCAL === 'true';
     const [isLogin, setIsLogin] = useState(true);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
