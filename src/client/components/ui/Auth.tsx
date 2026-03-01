@@ -12,7 +12,43 @@ export const Auth = ({ onBack, onSuccess }: { onBack: () => void, onSuccess: () 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
+    const [isVerifying, setIsVerifying] = useState(false);
     const { setToken } = useResumeActions();
+
+    // Handle verification on mount if token is present in URL
+    React.useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const verifyToken = params.get('token');
+        const isVerifyPath = window.location.pathname.includes('/verify');
+
+        if (verifyToken || isVerifyPath) {
+            handleVerify(verifyToken);
+        }
+    }, []);
+
+    const handleVerify = async (token: string | null) => {
+        if (!token) {
+            setError("Missing verification token.");
+            return;
+        }
+
+        setIsVerifying(true);
+        try {
+            const res = await fetch(`${API_BASE_URL}/auth/verify?token=${token}`);
+            const data = await res.json();
+
+            if (!res.ok) throw new Error(data.error || "Verification failed");
+
+            setSuccessMessage("Email verified! You can now sign in.");
+            setIsLogin(true);
+            // Clean up URL
+            window.history.replaceState({}, document.title, window.location.pathname.split('/verify')[0] || '/');
+        } catch (err: any) {
+            setError(err.message);
+        } finally {
+            setIsVerifying(false);
+        }
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -38,8 +74,13 @@ export const Auth = ({ onBack, onSuccess }: { onBack: () => void, onSuccess: () 
             if (data.token) {
                 setToken(data.token, email);
                 setSuccessMessage(isLogin ? "Welcome back!" : "Account established. Data uplink active.");
-                setTimeout(() => onSuccess(), 1000); // Small delay to let user see green message
-            } 
+                setTimeout(() => onSuccess(), 1000);
+            } else if (!isLogin) {
+                setSuccessMessage("Initialization sequence started. Check your mail for the verification link.");
+                setIsLogin(true); // Switch to login after registration success
+                setEmail('');
+                setPassword('');
+            }
         } catch (err: any) {
             setError(err.message);
         } finally {
@@ -54,7 +95,7 @@ export const Auth = ({ onBack, onSuccess }: { onBack: () => void, onSuccess: () 
 
     return (
         <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-black dark:text-white flex flex-col font-mono items-center justify-center p-4">
-            <button 
+            <button
                 onClick={onBack}
                 className="absolute top-8 left-8 flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-zinc-500 hover:text-black dark:hover:text-white transition-colors"
             >
@@ -87,11 +128,11 @@ export const Auth = ({ onBack, onSuccess }: { onBack: () => void, onSuccess: () 
                             {successMessage}
                         </div>
                     )}
-                    
+
                     <div className="flex flex-col gap-1">
                         <label className="text-[9px] uppercase font-bold tracking-widest text-zinc-500">Email Vector</label>
-                        <input 
-                            type="email" 
+                        <input
+                            type="email"
                             required
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
@@ -99,10 +140,10 @@ export const Auth = ({ onBack, onSuccess }: { onBack: () => void, onSuccess: () 
                             placeholder="user@domain.com"
                         />
                     </div>
-                    
+
                     <div className="flex flex-col gap-1">
                         <label className="text-[9px] uppercase font-bold tracking-widest text-zinc-500">Access Key</label>
-                        <input 
+                        <input
                             type="password"
                             required
                             value={password}
@@ -112,16 +153,16 @@ export const Auth = ({ onBack, onSuccess }: { onBack: () => void, onSuccess: () 
                         />
                     </div>
 
-                    <button 
+                    <button
                         type="submit"
-                        disabled={loading}
+                        disabled={loading || isVerifying}
                         className="mt-4 w-full flex items-center justify-center gap-2 bg-black text-white dark:bg-white dark:text-black py-4 text-[10px] font-bold uppercase tracking-[0.2em] hover:opacity-90 transition-opacity disabled:opacity-50"
                     >
-                        {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : (isLogin ? 'Sign In' : 'Create Account')}
+                        {isVerifying ? 'Verifying...' : loading ? <Loader2 className="w-4 h-4 animate-spin" /> : (isLogin ? 'Sign In' : 'Create Account')}
                     </button>
 
                     {isLocal && isLogin && (
-                        <button 
+                        <button
                             type="button"
                             onClick={handleLocalBypass}
                             className="mt-2 w-full flex items-center justify-center gap-2 border border-zinc-200 dark:border-zinc-800 text-zinc-500 hover:text-black dark:hover:text-white py-4 text-[10px] font-bold uppercase tracking-[0.2em] transition-all"
@@ -132,7 +173,7 @@ export const Auth = ({ onBack, onSuccess }: { onBack: () => void, onSuccess: () 
                 </form>
 
                 <div className="mt-6 flex justify-center border-t border-zinc-200 dark:border-zinc-800 pt-6">
-                    <button 
+                    <button
                         type="button"
                         onClick={() => { setIsLogin(!isLogin); setError(null); setSuccessMessage(null); }}
                         className="text-[10px] uppercase font-bold tracking-widest text-zinc-500 hover:text-black dark:hover:text-white transition-colors"

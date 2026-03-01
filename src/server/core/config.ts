@@ -30,5 +30,15 @@ export const config = {
         : (!process.env.VERCEL && !process.env.NETLIFY && !process.env.RENDER && process.env.NODE_ENV !== 'production'),
     ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS
         ? process.env.ALLOWED_ORIGINS.split(',')
-        : ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175', 'http://localhost:3000', 'http://127.0.0.1:5173', 'http://127.0.0.1:5174']
+        : ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175', 'http://localhost:3000', 'http://127.0.0.1:5173', 'http://127.0.0.1:5174'],
+    
+    // Email (Resend)
+    EMAIL: {
+        SMTP_HOST: process.env.SMTP_HOST || 'smtp.resend.com',
+        SMTP_PORT: Number(process.env.SMTP_PORT) || 465,
+        SMTP_USER: process.env.SMTP_USER || 'resend',
+        SMTP_PASS: process.env.SMTP_PASS,
+        SMTP_FROM: process.env.SMTP_FROM || '"ResumeForge" <onboarding@resend.dev>',
+    },
+    APP_URL: process.env.APP_URL || 'http://localhost:5173'
 };

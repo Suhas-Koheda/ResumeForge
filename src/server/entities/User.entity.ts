@@ -11,6 +11,12 @@ export class User {
     @Column({ type: "varchar" })
     password!: string;
 
+    @Column({ type: "boolean", default: false })
+    isVerified!: boolean;
+
+    @Column({ type: "varchar", nullable: true })
+    verificationToken?: string;
+
     @CreateDateColumn()
     createdAt!: Date;
 }
