@@ -36,8 +36,8 @@ function App() {
     const [showBuildOutput, setShowBuildOutput] = useState(false);
     const [compilationLog, setCompilationLog] = useState<string | null>(null);
     const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
-    const [isLocalMode, setIsLocalMode] = useState(() => {
-        return (import.meta as any).env.IS_LOCAL === 'true';
+    const [isLocalMode] = useState(() => {
+        return (import.meta as any).env.VITE_IS_LOCAL === 'true' || (import.meta as any).env.IS_LOCAL === 'true';
     });
     const [showProfile, setShowProfile] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -49,12 +49,14 @@ function App() {
 
     // 0. Auto-bypass local mode on startup for seamless LAN experience
     useEffect(() => {
-        if (isLocalMode && !token) {
-            console.log("[LOG_APP] Local dev mode detected. Bypassing auth...");
-            setToken('local-bypass', 'local-host@dev.local');
+        if (isLocalMode && (viewState !== 'canvas')) {
+            console.log("[LOG_APP] Local dev mode detected. Forcing canvas access...");
+            if (!token) {
+                setToken('local-bypass', 'local-host@dev.local');
+            }
             setViewState('canvas');
         }
-    }, [isLocalMode, token, setToken, setViewState]);
+    }, [isLocalMode, token, setToken, setViewState, viewState]);
 
     // 1. Init: Fetch resumes from backend when token becomes available (login)
     useEffect(() => {

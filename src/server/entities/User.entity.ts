@@ -20,7 +20,7 @@ export class User {
     @Column({ type: "varchar", nullable: true })
     resetPasswordToken?: string;
 
-    @Column({ type: "timestamp", nullable: true })
+    @Column({ type: "datetime", nullable: true })
     resetPasswordExpires?: Date;
 
     @CreateDateColumn()

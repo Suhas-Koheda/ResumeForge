@@ -25,9 +25,7 @@ export const config = {
         return val.split(',').map(k => k.trim()).filter(Boolean);
     })(),
     JWT_SECRET: process.env.JWT_SECRET || 'dev-secret-keep-secure',
-    IS_LOCAL: process.env.IS_LOCAL !== undefined
-        ? process.env.IS_LOCAL === 'true'
-        : (!process.env.VERCEL && !process.env.NETLIFY && !process.env.RENDER && process.env.NODE_ENV !== 'production'),
+    IS_LOCAL: process.env.IS_LOCAL === 'true' || process.env.VITE_IS_LOCAL === 'true',
     ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS
         ? process.env.ALLOWED_ORIGINS.split(',')
         : ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175', 'http://localhost:3000', 'http://127.0.0.1:5173', 'http://127.0.0.1:5174'],

@@ -62,7 +62,7 @@ export const useBuilderStore = create<BuilderStore>()(
 
             setToken: (token, email, isVerified) => set({ 
                 token, 
-                userEmail: email || (token === 'local-bypass' ? 'local-dev@host.local' : null),
+                userEmail: email || (token === 'local-bypass' ? 'local-host@dev.local' : null),
                 isVerified: isVerified ?? (token === 'local-bypass'),
                 viewState: token ? 'canvas' : 'landing' 
             }),
