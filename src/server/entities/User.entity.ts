@@ -20,7 +20,14 @@ export class User {
     @Column({ type: "varchar", nullable: true })
     resetPasswordToken?: string;
 
-    @Column({ type: process.env.IS_LOCAL === 'true' ? "datetime" : "timestamp", nullable: true })
+    @Column({
+        type: "varchar",
+        nullable: true,
+        transformer: {
+            to: (value?: Date) => value?.toISOString(),
+            from: (value?: string) => value ? new Date(value) : null
+        }
+    })
     resetPasswordExpires?: Date;
 
     @CreateDateColumn()
