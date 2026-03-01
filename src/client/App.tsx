@@ -375,7 +375,7 @@ function App() {
     }
 
     return (
-        <div className="h-screen h-[100dvh] w-screen flex flex-col bg-white dark:bg-[#111215] overflow-hidden font-mono selection:bg-black selection:text-white dark:selection:bg-white dark:selection:text-black">
+        <div className="h-screen h-[100dvh] w-screen flex flex-col bg-white dark:bg-[#111215] text-zinc-900 dark:text-zinc-100 overflow-hidden font-mono selection:bg-black selection:text-white dark:selection:bg-white dark:selection:text-black">
             <Toaster position="bottom-right" />
             <header className="h-10 sm:h-12 border-b border-zinc-200 dark:border-[#2d3042] bg-white dark:bg-[#1e2028] flex items-center justify-between px-2 sm:px-4 z-[60] relative shrink-0">
                 <div className="flex items-center gap-2 sm:gap-6">
@@ -391,7 +391,7 @@ function App() {
                             onClick={() => setShowProfile(!showProfile)}
                             className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all ${showProfile
                                 ? 'bg-black text-white border-black dark:bg-white dark:text-black dark:border-white'
-                                : 'border-zinc-200 dark:border-[#2d3042] text-zinc-500 hover:border-zinc-400 dark:hover:border-zinc-500'
+                                : 'border-zinc-200 dark:border-[#2d3042] text-zinc-500 dark:text-zinc-400 hover:border-zinc-400 dark:hover:border-zinc-500 dark:hover:text-zinc-300'
                                 }`}
                         >
                             <User size={12} />
@@ -538,7 +538,7 @@ function App() {
                             <Sparkles size={10} />
                             COMPILE
                         </button>
-                        <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="lg:hidden p-1.5 text-zinc-500 hover:text-black dark:hover:text-white"><Menu size={16} /></button>
+                        <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="lg:hidden p-1.5 text-zinc-500 dark:text-zinc-400 hover:text-black dark:hover:text-white"><Menu size={16} /></button>
                     </div>
                 </div>
                 <input 
@@ -597,7 +597,7 @@ function App() {
                     <div className="absolute right-0 top-0 bottom-0 w-[280px] bg-white dark:bg-[#1e2028] border-l border-zinc-200 dark:border-[#2d3042] shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
                         <div className="h-14 border-b border-zinc-100 dark:border-[#2d3042] flex items-center justify-between px-6">
                             <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Mobile_Toolbar</h3>
-                            <button onClick={() => setIsMobileMenuOpen(false)} className="text-zinc-500 hover:text-black">
+                            <button onClick={() => setIsMobileMenuOpen(false)} className="text-zinc-500 dark:text-zinc-400 hover:text-black dark:hover:text-white">
                                 <X size={18} />
                             </button>
                         </div>
