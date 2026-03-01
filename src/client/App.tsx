@@ -489,10 +489,10 @@ function App() {
 
                     <button 
                         onClick={() => setIsOnboardingOpen(true)} 
-                        className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full border border-black dark:border-white bg-black dark:bg-white text-white dark:text-black hover:opacity-80 transition-all font-bold"
+                        className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full border border-black dark:border-white bg-black dark:bg-white text-white dark:text-black hover:opacity-80 transition-all font-bold whitespace-nowrap"
                     >
-                        <Sparkles size={12} />
-                        <span className="text-[10px] font-black uppercase tracking-widest">INITIALISE</span>
+                        <Sparkles size={10} className="sm:w-3 sm:h-3" />
+                        <span className="text-[8px] sm:text-[10px] font-black uppercase tracking-widest">INITIALISE</span>
                     </button>
 
                     <div className="hidden lg:block w-px h-4 bg-zinc-200 dark:bg-zinc-800"></div>
