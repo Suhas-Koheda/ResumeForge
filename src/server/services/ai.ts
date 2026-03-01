@@ -4,9 +4,23 @@ import { ResumeBlock } from "../../shared/types.js";
 
 const parseSafeJson = (text: string) => {
     try {
-        // Remove markdown code fences if present and trim whitespace
-        const cleaned = text.replace(/```json\n?|```\n?/g, "").trim();
-        return JSON.parse(cleaned);
+        // Try to find a JSON array or object in the response first
+        const arrayMatch = text.match(/\[[\s\S]*\]/);
+        const objectMatch = text.match(/\{[\s\S]*\}/);
+        
+        // Use the match that appears first/is larger, or fallback to cleaned
+        let jsonStr = text;
+        if (arrayMatch && objectMatch) {
+            jsonStr = arrayMatch[0].length > objectMatch[0].length ? arrayMatch[0] : objectMatch[0];
+        } else if (arrayMatch) {
+            jsonStr = arrayMatch[0];
+        } else if (objectMatch) {
+            jsonStr = objectMatch[0];
+        } else {
+            jsonStr = text.replace(/```json\n?|```\n?/g, "").trim();
+        }
+        
+        return JSON.parse(jsonStr);
     } catch (e) {
         console.error("[LOG_AI_BACKEND] Failed to parse AI JSON. Raw Output:", text);
         throw new Error(`AI response was not valid JSON: ${e instanceof Error ? e.message : 'Invalid format'}`);
