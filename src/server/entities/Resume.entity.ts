@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ValueTransformer, Unique } from "typeorm";
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ValueTransformer } from "typeorm";
 import { ResumeBlock } from "../../shared/types.js";
 import { encryptionService } from "../core/encryption.js";
 
@@ -21,7 +21,6 @@ const EncryptionTransformer: ValueTransformer = {
 };
 
 @Entity("resumes")
-@Unique(["userId", "title"])
 export class Resume {
     @PrimaryGeneratedColumn("uuid")
     id!: string;
