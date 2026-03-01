@@ -9,14 +9,6 @@ const router = express.Router();
 
 router.post('/register', async (req, res) => {
     try {
-        console.log("=== DIAGNOSTIC LOG ===");
-        console.log("DB URL (config.MONGODB_URI):", config.MONGODB_URI);
-        console.log("DB USERNAME:", config.DB_USERNAME);
-        console.log("DB PASSWORD:", config.DB_PASSWORD ? 'SET' : 'NOT SET');
-        console.log("JWT SECRET:", config.JWT_SECRET ? 'SET' : 'NOT SET');
-        console.log("process.env.DB_URL:", process.env.DB_URL);
-        console.log("======================");
-        
         const { email, password } = req.body;
         const userRepo = AppDataSource.getRepository(User);
 
@@ -27,8 +19,11 @@ router.post('/register', async (req, res) => {
         const user = userRepo.create({ email, password: hashedPassword });
         await userRepo.save(user);
 
-        res.status(201).json({ message: 'User created' });
+        // Generate token immediately on registration
+        const token = jwt.sign({ userId: user.id }, config.JWT_SECRET, { expiresIn: '7d' });
+        res.status(201).json({ message: 'User created successfully', token });
     } catch (error) {
+        console.error("[AUTH] Registration error:", error);
         res.status(500).json({ error: 'Registration failed' });
     }
 });
@@ -46,6 +41,7 @@ router.post('/login', async (req, res) => {
         const token = jwt.sign({ userId: user.id }, config.JWT_SECRET, { expiresIn: '7d' });
         res.json({ token });
     } catch (error) {
+        console.error("[AUTH] Login error:", error);
         res.status(500).json({ error: 'Login failed' });
     }
 });

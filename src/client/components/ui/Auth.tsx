@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Loader2, Key } from 'lucide-react';
+import { ArrowLeft, Loader2, Key, CheckCircle } from 'lucide-react';
 import { useResumeActions } from '../../hooks/useResume';
 
 const API_BASE_URL = (import.meta as any).env.VITE_API_URL || '/api/v1';
@@ -11,11 +11,13 @@ export const Auth = ({ onBack, onSuccess }: { onBack: () => void, onSuccess: () 
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [successMessage, setSuccessMessage] = useState<string | null>(null);
     const { setToken } = useResumeActions();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError(null);
+        setSuccessMessage(null);
         setLoading(true);
 
         try {
@@ -32,13 +34,12 @@ export const Auth = ({ onBack, onSuccess }: { onBack: () => void, onSuccess: () 
                 throw new Error(data.error || 'Authentication failed');
             }
 
-            if (isLogin && data.token) {
-                setToken(data.token, email); // Pass email here
-                onSuccess();
-            } else if (!isLogin) {
-                setIsLogin(true); // Switch to login after register
-                setError("Account created successfully. Please login.");
-            }
+            // SUCCESS FLOW
+            if (data.token) {
+                setToken(data.token, email);
+                setSuccessMessage(isLogin ? "Welcome back!" : "Account established. Data uplink active.");
+                setTimeout(() => onSuccess(), 1000); // Small delay to let user see green message
+            } 
         } catch (err: any) {
             setError(err.message);
         } finally {
@@ -77,6 +78,13 @@ export const Auth = ({ onBack, onSuccess }: { onBack: () => void, onSuccess: () 
                     {error && (
                         <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900 text-red-600 dark:text-red-400 text-[10px] uppercase font-bold tracking-wider p-3 text-center">
                             {error}
+                        </div>
+                    )}
+
+                    {successMessage && (
+                        <div className="bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-900 text-green-600 dark:text-green-400 text-[10px] uppercase font-bold tracking-wider p-3 text-center flex items-center justify-center gap-2">
+                            <CheckCircle size={10} />
+                            {successMessage}
                         </div>
                     )}
                     
