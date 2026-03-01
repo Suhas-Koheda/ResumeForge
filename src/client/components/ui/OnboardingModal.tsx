@@ -9,7 +9,7 @@ export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }>
     const [tab, setTab] = useState<'profile' | 'import'>('profile');
     const [importText, setImportText] = useState('');
     const [isImporting, setIsImporting] = useState(false);
-    const { addBlock, blocks, updateData, apiKey, setApiKey, setFullLatex, setBlocks } = useResumeActions();
+    const { addBlock, blocks, updateData, apiKey, setApiKey, setFullLatex, setBlocks, token, setResumeId, activeResumeIndex } = useResumeActions();
     const [localKey, setLocalKey] = useState(apiKey || '');
     const [useAiForLatex, setUseAiForLatex] = useState(true);
 
@@ -61,7 +61,6 @@ export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }>
                             enabled: true
                         }));
                         setBlocks(newBlocks);
-                        alert("Template Detected. Canvas synced offline.");
                     } else {
                         alert("Our parser couldn't find any structural blocks. Try enabling AI parsing fallback.");
                     }
@@ -69,26 +68,40 @@ export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }>
                     console.error(e);
                     alert("Local parser failed. " + e.message);
                 }
-
                 onClose();
             } else {
                 if (isLatex) setFullLatex(importText);
 
-                // AI reconstruction
-                const extractedBlocks = await geminiService.parseResume(importText, 'text', localKey || apiKey);
-                const newBlocks: ResumeBlock[] = extractedBlocks.filter((b: any) => b.type && b.data).map((b: any) => ({
+                // AI reconstruction with AutoSave support
+                const result = await geminiService.parseResume(
+                    importText, 
+                    'text', 
+                    localKey || apiKey, 
+                    !!token, // autoSave only if logged in
+                    "Imported Resume"
+                );
+                
+                // If backend saved it, it will return { data: ..., resumeId: ... }
+                const parsedBlocks = result.data || result;
+                const resumeId = result.resumeId;
+
+                const newBlocks: ResumeBlock[] = parsedBlocks.filter((b: any) => b.type && b.data).map((b: any) => ({
                     id: Math.random().toString(36).substring(7),
                     type: b.type,
                     position: { x: 0, y: 0 },
                     data: b.data || {},
                     enabled: true
                 }));
+                
                 setBlocks(newBlocks);
+                if (resumeId) {
+                    setResumeId(activeResumeIndex, resumeId);
+                }
                 onClose();
             }
         } catch (error: any) {
             console.error("Import Error:", error);
-            alert("Failed to parse source. If using raw text, an AI Key might be required (Quota Exceeded on shared key).");
+            alert("Failed to parse source. If using raw text, an AI Key might be required.");
         } finally {
             setIsImporting(false);
         }
@@ -241,12 +254,6 @@ export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }>
                                         </label>
                                     </div>
                                 )}
-
-                                <div className="p-4 bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-100 dark:border-zinc-800 rounded-sm">
-                                    <p className="text-[8px] text-zinc-400 uppercase tracking-widest leading-normal">
-                                        Tip: For Overleaf, copy all text from the main .tex file. For PDF/Word, copy-paste the text content directly.
-                                    </p>
-                                </div>
                             </div>
                         )}
                     </div>
@@ -261,7 +268,7 @@ export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }>
                         {tab === 'profile' ? (
                             <button
                                 onClick={handleSave}
-                                className="w-full sm:w-auto bg-black dark:bg-white text-white dark:text-black px-6 sm:px-10 py-3 sm:py-4 text-[10px] font-bold uppercase tracking-[0.3em] sm:tracking-[0.4em] flex items-center justify-center gap-3 hover:opacity-80 transition-all border border-black dark:border-white shadow-lg order-1 sm:order-2"
+                                className="w-full sm:w-auto bg-black dark:bg-white text-white dark:text-black px-6 sm:px-10 py-3 sm:py-4 text-[10px] font-bold uppercase tracking-[0.3em] flex items-center justify-center gap-3 hover:opacity-80 transition-all border border-black dark:border-white shadow-lg order-1 sm:order-2"
                             >
                                 <Sparkles size={14} />
                                 Deploy_Node
@@ -270,7 +277,7 @@ export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }>
                             <button
                                 onClick={handleImport}
                                 disabled={isImporting || !importText.trim()}
-                                className="w-full sm:w-auto bg-black dark:bg-white text-white dark:text-black px-6 sm:px-10 py-3 sm:py-4 text-[10px] font-bold uppercase tracking-[0.3em] sm:tracking-[0.4em] flex items-center justify-center gap-3 hover:opacity-80 disabled:opacity-30 transition-all border border-black dark:border-white shadow-lg order-1 sm:order-2"
+                                className="w-full sm:w-auto bg-black dark:bg-white text-white dark:text-black px-6 sm:px-10 py-3 sm:py-4 text-[10px] font-bold uppercase tracking-[0.3em] flex items-center justify-center gap-3 hover:opacity-80 disabled:opacity-30 transition-all border border-black dark:border-white shadow-lg order-1 sm:order-2"
                             >
                                 {isImporting ? <Loader2 size={14} className="animate-spin" /> : <Rocket size={14} />}
                                 {isImporting ? "Parsing..." : "Import_Digest"}

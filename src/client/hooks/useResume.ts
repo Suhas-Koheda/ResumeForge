@@ -58,13 +58,15 @@ export const useResumeActions = () => {
     const resumes = useBuilderStore((state) => state.resumes);
     const fullLatex = useBuilderStore((state) => state.fullLatex);
 
-    // Auth
+    // Auth & Persistence
     const token = useBuilderStore((state) => state.token);
+    const userEmail = useBuilderStore((state) => state.userEmail);
     const setToken = useBuilderStore((state) => state.setToken);
     const logout = useBuilderStore((state) => state.logout);
     const viewState = useBuilderStore((state) => state.viewState);
     const setViewState = useBuilderStore((state) => state.setViewState);
     const setResumeId = useBuilderStore((state) => state.setResumeId);
+    const loadResumes = useBuilderStore((state) => state.loadResumes);
 
     return {
         blocks,
@@ -85,10 +87,12 @@ export const useResumeActions = () => {
         resumes,
         fullLatex,
         token,
+        userEmail,
         setToken,
         logout,
         viewState,
         setViewState,
-        setResumeId
+        setResumeId,
+        loadResumes
     };
 };

@@ -4,6 +4,7 @@ import { ResumeBlock, BlockType } from '@shared/types';
 
 interface ResumeStorage {
     id?: string;
+    title?: string;
     blocks: ResumeBlock[];
     fullLatex: string | null;
 }
@@ -13,6 +14,7 @@ interface BuilderStore {
     activeResumeIndex: number;
     blocks: ResumeBlock[];
     fullLatex: string | null;
+    customTemplate: string;
     setResumeId: (index: number, id: string) => void;
     addBlock: (type: BlockType) => string;
     updateBlock: (id: string, data: any) => void;
@@ -22,17 +24,18 @@ interface BuilderStore {
     setBlocks: (blocks: ResumeBlock[]) => void;
     setFullLatex: (latex: string | null) => void;
     switchResume: (index: number) => void;
-    addResume: () => void;
+    addResume: (data?: Partial<ResumeStorage>) => void;
     deleteResume: (index: number) => void;
     apiKey: string;
     setApiKey: (key: string) => void;
-    customTemplate: string;
     setCustomTemplate: (template: string) => void;
     token: string | null;
-    setToken: (token: string | null) => void;
+    userEmail: string | null;
+    setToken: (token: string | null, email?: string) => void;
     logout: () => void;
     viewState: 'landing' | 'auth' | 'canvas';
     setViewState: (viewState: 'landing' | 'auth' | 'canvas') => void;
+    loadResumes: (resumes: any[]) => void;
 }
 
 const generateId = () => Math.random().toString(36).substring(2, 9);
@@ -43,8 +46,7 @@ export const useBuilderStore = create<BuilderStore>()(
     persist(
         (set, get) => ({
             resumes: [
-                { blocks: INITIAL_BLOCKS, fullLatex: null },
-                { blocks: [], fullLatex: null }
+                { blocks: INITIAL_BLOCKS, fullLatex: null }
             ],
             activeResumeIndex: 0,
             blocks: INITIAL_BLOCKS,
@@ -52,11 +54,45 @@ export const useBuilderStore = create<BuilderStore>()(
             apiKey: '',
             customTemplate: '',
             token: null,
+            userEmail: null,
             viewState: 'landing',
 
-            setToken: (token) => set({ token, viewState: token ? 'canvas' : 'landing' }),
-            logout: () => set({ token: null, viewState: 'landing' }),
+            setToken: (token, email) => set({ 
+                token, 
+                userEmail: email || (token === 'local-bypass' ? 'local-dev@host.local' : null),
+                viewState: token ? 'canvas' : 'landing' 
+            }),
+            logout: () => {
+                set({ 
+                    token: null, 
+                    userEmail: null,
+                    viewState: 'landing',
+                    resumes: [{ blocks: INITIAL_BLOCKS, fullLatex: null }],
+                    activeResumeIndex: 0,
+                    blocks: INITIAL_BLOCKS,
+                    fullLatex: null
+                });
+                localStorage.removeItem('resume-builder-storage-v5');
+            },
             setViewState: (viewState) => set({ viewState }),
+
+            loadResumes: (backendResumes) => {
+                const formattedResumes: ResumeStorage[] = backendResumes.map(r => ({
+                    id: r.id,
+                    title: r.title,
+                    blocks: r.canvasData?.nodes || [],
+                    fullLatex: r.canvasData?.fullLatex || null
+                }));
+
+                if (formattedResumes.length > 0) {
+                    set({
+                        resumes: formattedResumes,
+                        activeResumeIndex: 0,
+                        blocks: formattedResumes[0].blocks,
+                        fullLatex: formattedResumes[0].fullLatex,
+                    });
+                }
+            },
 
             setResumeId: (index, id) => set((state) => {
                 const newResumes = [...state.resumes];
@@ -87,10 +123,16 @@ export const useBuilderStore = create<BuilderStore>()(
                 const state = get();
                 // Save current to index
                 const newResumes = [...state.resumes];
-                newResumes[state.activeResumeIndex] = { blocks: state.blocks, fullLatex: state.fullLatex };
+                newResumes[state.activeResumeIndex] = { 
+                    ...newResumes[state.activeResumeIndex],
+                    blocks: state.blocks, 
+                    fullLatex: state.fullLatex 
+                };
 
                 // Load new from index
-                const target = newResumes[index] || { blocks: [], fullLatex: null };
+                const target = newResumes[index];
+                if (!target) return;
+                
                 set({
                     activeResumeIndex: index,
                     blocks: target.blocks,
@@ -99,18 +141,32 @@ export const useBuilderStore = create<BuilderStore>()(
                 });
             },
 
-            addResume: () => {
+            addResume: (data) => {
                 const state = get();
                 const newResumes = [...state.resumes];
-                newResumes[state.activeResumeIndex] = { blocks: state.blocks, fullLatex: state.fullLatex };
-                newResumes.push({ blocks: [], fullLatex: null });
+                
+                // Save current state to current active index first
+                newResumes[state.activeResumeIndex] = { 
+                    ...newResumes[state.activeResumeIndex],
+                    blocks: state.blocks, 
+                    fullLatex: state.fullLatex 
+                };
+                
+                // Create new resume entry
+                const newResume: ResumeStorage = { 
+                    id: data?.id,
+                    title: data?.title || `Resume R_${newResumes.length + 1}`,
+                    blocks: data?.blocks || [], 
+                    fullLatex: data?.fullLatex || null 
+                };
+                newResumes.push(newResume);
 
                 const newIndex = newResumes.length - 1;
                 set({
                     resumes: newResumes,
                     activeResumeIndex: newIndex,
-                    blocks: [],
-                    fullLatex: null
+                    blocks: newResume.blocks,
+                    fullLatex: newResume.fullLatex
                 });
             },
 
@@ -206,7 +262,7 @@ export const useBuilderStore = create<BuilderStore>()(
             setCustomTemplate: (customTemplate) => set({ customTemplate }),
         }),
         {
-            name: 'resume-builder-storage-v3',
+            name: 'resume-builder-storage-v5',
         }
     )
 );

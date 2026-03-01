@@ -12,7 +12,7 @@ export const config = {
     MONGODB_URI: process.env.DB_URL || process.env.MONGODB_URI || 'postgres://localhost:5432/resumeforge',
     DB_USERNAME: process.env.DB_USERNAME,
     DB_PASSWORD: process.env.DB_PASSWORD,
-    GEMINI_API_KEY: process.env.GEMINI_API_KEY || '',
+    GEMINI_MODEL_NAME: process.env.GEMINI_MODEL_NAME || 'gemini-3.1-pro-preview',
     GEMINI_API_KEYS: process.env.GEMINI_API_KEYS ? process.env.GEMINI_API_KEYS.split(',') : [],
     JWT_SECRET: process.env.JWT_SECRET || 'dev-secret-keep-secure',
     IS_LOCAL: process.env.IS_LOCAL !== undefined

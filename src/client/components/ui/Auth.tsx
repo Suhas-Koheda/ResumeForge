@@ -33,7 +33,7 @@ export const Auth = ({ onBack, onSuccess }: { onBack: () => void, onSuccess: () 
             }
 
             if (isLogin && data.token) {
-                setToken(data.token);
+                setToken(data.token, email); // Pass email here
                 onSuccess();
             } else if (!isLogin) {
                 setIsLogin(true); // Switch to login after register
@@ -47,7 +47,7 @@ export const Auth = ({ onBack, onSuccess }: { onBack: () => void, onSuccess: () 
     };
 
     const handleLocalBypass = () => {
-        setToken('local-bypass');
+        setToken('local-bypass', 'local-dev@host.local');
         onSuccess();
     };
 

@@ -5,6 +5,7 @@
  */
 
 const API_BASE_URL = (import.meta as any).env.VITE_API_URL || '/api/v1';
+const GEMINI_MODEL_NAME = (import.meta as any).env.GEMINI_MODEL_NAME || 'gemini-3.1-pro-preview';
 
 import { ResumeBlock, BlockType } from '@shared/types';
 import { useBuilderStore } from '../store/useBuilderStore';
@@ -18,7 +19,7 @@ const getAuthHeaders = (): Record<string, string> => {
 
 export const geminiService = {
     async polishExperience(rawText: string, apiKey?: string) {
-        // If apiKey is provided, use it directly (Local mode or user-ovveride)
+        // If apiKey is provided, use it directly (Local mode or user-override)
         if (apiKey) {
             const prompt = `
                 You are an expert resume writer and LaTeX specialist. 
@@ -31,7 +32,7 @@ export const geminiService = {
                 }
             `;
             const response = await fetch(
-                `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent?key=${apiKey}`,
+                `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL_NAME}:generateContent?key=${apiKey}`,
                 {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
@@ -123,7 +124,7 @@ If no data exists for a section, omit that section entirely.
 Return ONLY raw LaTeX.
 `;
         if (apiKey) {
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent?key=${apiKey}`, {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL_NAME}:generateContent?key=${apiKey}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
@@ -141,7 +142,7 @@ Return ONLY raw LaTeX.
         return await response.text();
     },
 
-    async parseResume(content: string | Blob, type: 'text' | 'file', apiKey?: string): Promise<Partial<ResumeBlock>[]> {
+    async parseResume(content: string | Blob, type: 'text' | 'file', apiKey?: string, autoSave = false, title?: string): Promise<any> {
         const prompt = `
             You are a resume data extractor. 
             Extract all information from the provided ${type === 'text' ? 'text/LaTeX' : 'document'} and return it as an array of ResumeBlock objects.
@@ -171,13 +172,10 @@ Return ONLY raw LaTeX.
             if (type === 'text') {
                 body = { contents: [{ parts: [{ text: prompt + "\n\nINPUT:\n" + content }] }] };
             } else {
-                // For files, we'd need to convert the blob to base64
-                // For simplicity in this local demo/agent environment, we'll suggest the user paste text
-                // But let's try to support it if we can find a base64 helper.
                 throw new Error("File parsing requires text extraction or multimodal support (not implemented in this simplified client service). Please paste the resume or Overleaf LaTeX text.");
             }
 
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent?key=${apiKey}`, {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL_NAME}:generateContent?key=${apiKey}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -194,40 +192,9 @@ Return ONLY raw LaTeX.
         const response = await fetch(`${API_BASE_URL}/ai/parse`, {
             method: "POST",
             headers: getAuthHeaders(),
-            body: JSON.stringify({ content, type }),
+            body: JSON.stringify({ content, type, autoSave, title }),
         });
         if (!response.ok) throw new Error("Backend AI parsing failed");
         return await response.json();
-    },
-
-    // Refined Polish calls
-    async polishProject(rawText: string, apiKey?: string) {
-        return this.polishType('project', rawText, apiKey);
-    },
-    async polishEducation(rawText: string, apiKey?: string) {
-        return this.polishType('education', rawText, apiKey);
-    },
-    async polishSkills(rawText: string, apiKey?: string) {
-        return this.polishType('skills', rawText, apiKey);
-    },
-    async polishType(type: BlockType, rawText: string, apiKey?: string) {
-        if (apiKey) {
-            const prompt = `
-                You are a career expert. Refine this ${type} entry for a professional resume.
-                Input: "${rawText}"
-                Return strictly valid JSON:
-                {
-                    "polishedPoints": [...],
-                    "latexCode": "..."
-                }
-            `;
-            // Simplified call (sharing logic)
-            return this.polishExperience(rawText, apiKey);
-        }
-        return (await fetch(`${API_BASE_URL}/ai/${type}`, {
-            method: "POST",
-            headers: getAuthHeaders(),
-            body: JSON.stringify({ text: rawText }),
-        })).json();
     }
 };

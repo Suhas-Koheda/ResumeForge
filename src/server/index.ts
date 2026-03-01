@@ -1,6 +1,8 @@
 import 'reflect-metadata';
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import { DataSource } from 'typeorm';
 import { config } from './core/config.js';
 import authRouter from './api/v1/auth.js';
@@ -8,7 +10,7 @@ import resumeRouter from './api/v1/resume.js';
 import exportRouter from './api/v1/export.js';
 import importRouter from './api/v1/import.js';
 import { aiService } from './services/ai.js';
-import { authMiddleware } from './core/auth.js';
+import { authMiddleware, AuthRequest } from './core/auth.js';
 import { User } from './entities/User.entity.js';
 import { Resume } from './entities/Resume.entity.js';
 import { AppDataSource, connectToDatabase } from './core/database.js';
@@ -18,26 +20,32 @@ import fs from 'fs';
 
 const app = express();
 
-console.log("=== DIAGNOSTIC LOG (SERVER STARTUP) ===");
-if (config.IS_LOCAL) {
-    console.log("DB_DRIVER: SQLite");
-    console.log("DB_FILE: local_dev.sqlite");
-} else {
-    console.log("DB URL (config.MONGODB_URI):", config.MONGODB_URI);
-}
-console.log("DB USERNAME:", config.DB_USERNAME);
-console.log("DB PASSWORD:", config.DB_PASSWORD ? 'SET' : 'NOT SET');
-console.log("JWT SECRET:", config.JWT_SECRET ? 'SET' : 'NOT SET');
-console.log("process.env.DB_URL:", process.env.DB_URL);
-console.log("=======================================");
-// Middleware
+console.log("=== SERVER STARTUP ===");
+console.log(`Starting in ${config.IS_LOCAL ? 'LOCAL' : 'PRODUCTION'} mode`);
+console.log("======================");
+
+// Middlewares for Security and Parsing
+app.use(helmet({
+    contentSecurityPolicy: false, // Disable CSP for easier development, can be tightened later
+    crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
+
 app.use(cors({
-    origin: (origin, callback) => callback(null, true), // Echo whatever origin asks for
+    origin: (origin, callback) => callback(null, true), 
     credentials: true,
 }));
+
 app.use(express.json());
 
-// Request logging
+// Set up rate limiting to prevent brute force/DDoS
+const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000, 
+    max: 500, // Increased slightly for resume building activity
+    message: 'Too many requests from this IP, please try again later.'
+});
+app.use('/api', limiter);
+
+// Request logging (Simple security audit trail)
 app.use((req, res, next) => {
     if (config.IS_LOCAL) {
         console.log(`[LOG_REQUEST] ${req.method} ${req.url}`);
@@ -45,12 +53,10 @@ app.use((req, res, next) => {
     next();
 });
 
-// DB and Server Lifecycle is handled by individual handlers (Serverless) or below (Local)
-
 // Routes
 app.get(['/api/health', '/.netlify/functions/server/health'], async (req, res) => {
     try {
-        await connectToDatabase(); // Truly check connection
+        await connectToDatabase(); 
         return res.json({
             status: 'ok',
             mode: config.IS_LOCAL ? 'LOCAL' : 'CLOUD',
@@ -102,11 +108,35 @@ apiRouter.post('/ai/assemble', authMiddleware, async (req, res) => {
     }
 });
 
-apiRouter.post('/ai/parse', authMiddleware, async (req, res) => {
+apiRouter.post('/ai/parse', authMiddleware, async (req: AuthRequest, res) => {
     try {
-        const { content } = req.body;
-        const result = await aiService.parseResume(content);
-        res.json(JSON.parse(result));
+        const { content, autoSave, title } = req.body;
+        const resultText = await aiService.parseResume(content);
+        const parsedData = JSON.parse(resultText);
+
+        // If parsing was successful and autoSave is requested, save to DB
+        if (autoSave && req.userId && parsedData) {
+            const resumeRepo = AppDataSource.getRepository(Resume);
+            
+            // Check if a resume with this title (or default) already exists for this user to avoid duplicates
+            const resumeTitle = title || "Imported Resume";
+            let resume = await resumeRepo.findOne({ where: { title: resumeTitle, userId: req.userId } });
+            
+            if (resume) {
+                resume.canvasData = parsedData;
+                await resumeRepo.save(resume);
+            } else {
+                resume = resumeRepo.create({
+                    userId: req.userId,
+                    title: resumeTitle,
+                    canvasData: parsedData
+                });
+                await resumeRepo.save(resume);
+            }
+            return res.json({ message: "Parsed and saved successfully", data: parsedData, resumeId: resume.id });
+        }
+
+        res.json(parsedData);
     } catch (error: any) {
         console.error("[LOG_API_ROUTE] AI parsing failed:", error);
         res.status(500).json({ error: 'AI parsing failed', details: error.message });
@@ -117,14 +147,15 @@ app.use(['/api/v1', '/.netlify/functions/server/v1'], apiRouter);
 
 const IS_SERVERLESS = !!process.env.VERCEL || !!process.env.NETLIFY || process.env.VITE_VERCEL === 'true';
 
-// Serve static frontend in production (Render, Heroku, etc)
+// Serve static frontend in production
 if (process.env.NODE_ENV === 'production' && !IS_SERVERLESS) {
     const clientDist = path.join(process.cwd(), 'dist', 'client');
-    app.use(express.static(clientDist));
-
-    app.get('*', (req, res) => {
-        res.sendFile(path.join(clientDist, 'index.html'));
-    });
+    if (fs.existsSync(clientDist)) {
+        app.use(express.static(clientDist));
+        app.get('*', (req, res) => {
+            res.sendFile(path.join(clientDist, 'index.html'));
+        });
+    }
 }
 
 if (!IS_SERVERLESS) {
@@ -132,10 +163,10 @@ if (!IS_SERVERLESS) {
         const TECTONIC_BIN = path.resolve(process.cwd(), '.bin/tectonic');
         const binaryStatus = fs.existsSync(TECTONIC_BIN) ? 'READY' : 'ABSENT (will use PATH)';
 
-        console.log(`Server running on port ${config.PORT || 5000} [${config.IS_LOCAL ? 'LOCAL MODE' : 'PRODUCTION'}]`);
-        console.log(`Tectonic Engine: ${binaryStatus} at ${TECTONIC_BIN}`);
-
-        app.listen(Number(config.PORT || 5000), '0.0.0.0', () => {
+        const port = Number(config.PORT || 5000);
+        app.listen(port, '0.0.0.0', () => {
+            console.log(`Server running on port ${port} [${config.IS_LOCAL ? 'LOCAL MODE' : 'PRODUCTION'}]`);
+            console.log(`Tectonic Engine: ${binaryStatus} at ${TECTONIC_BIN}`);
             console.log(`--- Express Listener Active ---`);
         });
     });
