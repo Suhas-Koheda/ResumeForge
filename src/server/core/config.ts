@@ -14,7 +14,16 @@ export const config = {
     DB_PASSWORD: process.env.DB_PASSWORD,
     // Using stable Gemini 1.5 models
     GEMINI_MODEL_NAME: process.env.GEMINI_MODEL_NAME || 'gemini-2.5-flash',
-    GEMINI_API_KEYS: process.env.GEMINI_API_KEYS ? process.env.GEMINI_API_KEYS.split(',') : [],
+    GEMINI_API_KEYS: ((): string[] => {
+        const val = process.env.GEMINI_API_KEYS;
+        if (!val) return [];
+        try {
+            if (val.trim().startsWith('[')) return JSON.parse(val);
+        } catch (e) {
+            console.error("Failed to parse GEMINI_API_KEYS as JSON, falling back to split(',')");
+        }
+        return val.split(',').map(k => k.trim()).filter(Boolean);
+    })(),
     JWT_SECRET: process.env.JWT_SECRET || 'dev-secret-keep-secure',
     IS_LOCAL: process.env.IS_LOCAL !== undefined
         ? process.env.IS_LOCAL === 'true'

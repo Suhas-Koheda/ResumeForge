@@ -318,9 +318,10 @@ function App() {
             setFullLatex(fullDoc);
             setPdfUrl(null);
             downloadPdf(false);
-        } catch (error) {
+            toast.success("AI Assembly complete.");
+        } catch (error: any) {
             console.error("Assembly Error:", error);
-            toast.error("Failed to assemble resume. Check your API key.");
+            toast.error(error.message || "Failed to assemble resume. Check your API key.");
         } finally {
             setIsAssembling(false);
         }

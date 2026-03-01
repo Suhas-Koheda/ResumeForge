@@ -91,6 +91,57 @@ export const aiService = {
         });
     },
 
+    async polishSkills(rawText: string) {
+        return executeWithRotation(async (model) => {
+            const prompt = `
+                Extract and categorize technical skills from the following text.
+                Input: "${rawText}"
+                Return the response in strictly valid JSON format:
+                {
+                    "skills": "Category 1: Skill A, Skill B; Category 2: Skill C",
+                    "latexCode": "\\\\customItemListStart\\n  \\\\customItem{\\\\textbf{Category 1}{: Skill A, Skill B}}\\n\\\\customItemListEnd"
+                }
+            `;
+            const result = await model.generateContent(prompt);
+            return JSON.stringify(parseSafeJson(result.response.text()));
+        });
+    },
+
+    async polishProject(rawText: string) {
+        return executeWithRotation(async (model) => {
+            const prompt = `
+                Convert the following project description into professional bullet points.
+                Input: "${rawText}"
+                Return the response in strictly valid JSON format:
+                {
+                    "polishedPoints": ["Result 1", "Result 2"],
+                    "technologies": "Tech A, Tech B",
+                    "latexCode": "\\\\customItemListStart\\n  \\\\customItem{...}\\n\\\\customItemListEnd"
+                }
+            `;
+            const result = await model.generateContent(prompt);
+            return JSON.stringify(parseSafeJson(result.response.text()));
+        });
+    },
+
+    async polishEducation(rawText: string) {
+        return executeWithRotation(async (model) => {
+            const prompt = `
+                Extract education details (Institution, Degree, Year) from the following text.
+                Input: "${rawText}"
+                Return the response in strictly valid JSON format:
+                {
+                    "school": "University Name",
+                    "degree": "Degree Name",
+                    "year": "20XX - 20XX",
+                    "latexCode": "\\\\customSubHeading{...}{...}{...}"
+                }
+            `;
+            const result = await model.generateContent(prompt);
+            return JSON.stringify(parseSafeJson(result.response.text()));
+        });
+    },
+
     async assembleResume(blocks: ResumeBlock[], template: string) {
         return executeWithRotation(async (model) => {
             const prompt = `

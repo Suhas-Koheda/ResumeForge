@@ -219,15 +219,21 @@ export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }>
                             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
                                 <div className="space-y-2">
                                     <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-2">
-                                        <Sparkles size={10} /> AI_ENGINE_KEY (Optional)
+                                        <Sparkles size={10} /> 
+                                        AI_ENGINE_KEY {(import.meta as any).env.IS_LOCAL !== 'true' ? '(Optional - Uses shared quota if empty)' : '(Optional)'}
                                     </label>
                                     <input
                                         type="password"
-                                        className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-800 p-3 text-[11px] outline-none focus:border-black dark:focus:border-white transition-all font-mono text-zinc-900 dark:text-zinc-300"
+                                        className={`w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-800 p-3 text-[11px] outline-none focus:border-black dark:focus:border-white transition-all font-mono text-zinc-900 dark:text-zinc-300`}
                                         placeholder="sk-..."
                                         value={localKey}
                                         onChange={e => setLocalKey(e.target.value)}
                                     />
+                                    {!localKey && (import.meta as any).env.IS_LOCAL !== 'true' && (
+                                        <p className="text-[8px] text-zinc-400/60 font-medium uppercase tracking-tight italic">
+                                            Note: You can provide your own Gemini API key to avoid shared rate limits in cloud environments.
+                                        </p>
+                                    )}
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-2">

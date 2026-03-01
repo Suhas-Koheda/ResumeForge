@@ -40,8 +40,10 @@ export const ExperienceBlock: React.FC<ExperienceBlockProps> = memo(({ id }) => 
                 latexCode: result.latexCode
             });
             setRawInput('');
-        } catch (error) {
-            toast.error("AI Polish failed.");
+            toast.success("Experience polished.");
+        } catch (error: any) {
+            console.error("AI Polish Error:", error);
+            toast.error(error.message || "AI Polish failed.");
         } finally {
             setIsPolishing(false);
         }

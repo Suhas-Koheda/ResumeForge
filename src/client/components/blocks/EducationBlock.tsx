@@ -37,8 +37,10 @@ export const EducationBlock: React.FC<EducationBlockProps> = memo(({ id }) => {
                 latexCode: result.latexCode
             });
             setRawInput('');
-        } catch (error) {
-            toast.error("AI Polish failed.");
+            toast.success("Education details extracted.");
+        } catch (error: any) {
+            console.error("AI Education Error:", error);
+            toast.error(error.message || "AI Polish failed.");
         } finally {
             setIsPolishing(false);
         }

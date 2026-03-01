@@ -145,6 +145,36 @@ apiRouter.post('/ai/parse', authMiddleware, async (req: AuthRequest, res) => {
     }
 });
 
+apiRouter.post('/ai/skills', authMiddleware, async (req, res) => {
+    try {
+        const { text } = req.body;
+        const result = await aiService.polishSkills(text);
+        res.json(JSON.parse(result));
+    } catch (error) {
+        res.status(500).json({ error: 'AI processing failed' });
+    }
+});
+
+apiRouter.post('/ai/project', authMiddleware, async (req, res) => {
+    try {
+        const { text } = req.body;
+        const result = await aiService.polishProject(text);
+        res.json(JSON.parse(result));
+    } catch (error) {
+        res.status(500).json({ error: 'AI processing failed' });
+    }
+});
+
+apiRouter.post('/ai/education', authMiddleware, async (req, res) => {
+    try {
+        const { text } = req.body;
+        const result = await aiService.polishEducation(text);
+        res.json(JSON.parse(result));
+    } catch (error) {
+        res.status(500).json({ error: 'AI processing failed' });
+    }
+});
+
 app.use(['/api/v1', '/.netlify/functions/server/v1'], apiRouter);
 
 const IS_SERVERLESS = !!process.env.VERCEL || !!process.env.NETLIFY || process.env.VITE_VERCEL === 'true';

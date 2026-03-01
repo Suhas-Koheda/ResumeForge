@@ -1,7 +1,7 @@
 /**
  * Simple service to interact with Gemini API.
- * In production/cloud mode, it delegates to the backend to use server-side keys.
- * In local mode, it can use the user-provided API key directly.
+ * In production/cloud mode, it delegates to the backend to use server-side keys 
+ * unless a client-side API key is provided for direct access.
  */
 
 const API_BASE_URL = (import.meta as any).env.VITE_API_URL || '/api/v1';
@@ -9,6 +9,24 @@ const GEMINI_MODEL_NAME = (import.meta as any).env.VITE_GEMINI_MODEL || 'gemini-
 
 import { ResumeBlock, BlockType } from '@shared/types';
 import { useBuilderStore } from '../store/useBuilderStore';
+
+/**
+ * Client-side rate limiting to prevent hitting quotas too quickly.
+ * Limits to 1 request every 1.5 seconds.
+ */
+let lastRequestTime = 0;
+const MIN_API_DELAY = 1500;
+
+const applyRateLimit = async () => {
+    const now = Date.now();
+    const elapsed = now - lastRequestTime;
+    if (elapsed < MIN_API_DELAY) {
+        const waitTime = MIN_API_DELAY - elapsed;
+        console.log(`[GEN_AI] Rate limiting: waiting ${waitTime}ms`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+    }
+    lastRequestTime = Date.now();
+};
 
 const getAuthHeaders = (): Record<string, string> => {
     const token = useBuilderStore.getState().token;
@@ -19,10 +37,9 @@ const getAuthHeaders = (): Record<string, string> => {
 
 export const geminiService = {
     async polishExperience(rawText: string, apiKey?: string) {
-        // Only use direct client-side AI if explicitly provided AND we are in local dev mode
-        const isLocalMode = (import.meta as any).env.IS_LOCAL === 'true';
-        
-        if (apiKey && isLocalMode) {
+        await applyRateLimit();
+        // Direct client-side AI if provided (both local and cloud)
+        if (apiKey) {
             const prompt = `
                 You are an expert resume writer and LaTeX specialist. 
                 Convert the following raw job experience description into professional, high-impact bullet points.
@@ -44,6 +61,12 @@ export const geminiService = {
                     }),
                 }
             );
+            
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.error?.message || `Gemini API Error: ${response.status}`);
+            }
+
             const data = await response.json();
             const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
             if (!content) throw new Error("Failed to get response from Gemini");
@@ -56,11 +79,132 @@ export const geminiService = {
             headers: getAuthHeaders(),
             body: JSON.stringify({ text: rawText }),
         });
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            throw new Error(err.error || "Backend AI service failed");
+        }
+        return await response.json();
+    },
+
+    async polishSkills(rawText: string, apiKey?: string) {
+        await applyRateLimit();
+        if (apiKey) {
+            const prompt = `
+                Extract and categorize technical skills from the following text.
+                Input: "${rawText}"
+                Return the response in strictly valid JSON format:
+                {
+                    "skills": "Category 1: Skill A, Skill B; Category 2: Skill C",
+                    "latexCode": "\\\\customItemListStart\\n  \\\\customItem{\\\\textbf{Category 1}{: Skill A, Skill B}}\\n\\\\customItemListEnd"
+                }
+            `;
+            const response = await fetch(
+                `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL_NAME}:generateContent?key=${apiKey}`,
+                {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: prompt }] }],
+                        generationConfig: { response_mime_type: "application/json" },
+                    }),
+                }
+            );
+            if (!response.ok) throw new Error("Gemini API Error");
+            const data = await response.json();
+            const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
+            return JSON.parse(content);
+        }
+
+        const response = await fetch(`${API_BASE_URL}/ai/skills`, {
+            method: "POST",
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ text: rawText }),
+        });
+        if (!response.ok) throw new Error("Backend AI service failed");
+        return await response.json();
+    },
+
+    async polishProject(rawText: string, apiKey?: string) {
+        await applyRateLimit();
+        if (apiKey) {
+            const prompt = `
+                Convert the following project description into professional bullet points.
+                Input: "${rawText}"
+                Return the response in strictly valid JSON format:
+                {
+                    "polishedPoints": ["Result 1", "Result 2"],
+                    "technologies": "Tech A, Tech B",
+                    "latexCode": "\\\\customItemListStart\\n  \\\\customItem{...}\\n\\\\customItemListEnd"
+                }
+            `;
+            const response = await fetch(
+                `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL_NAME}:generateContent?key=${apiKey}`,
+                {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: prompt }] }],
+                        generationConfig: { response_mime_type: "application/json" },
+                    }),
+                }
+            );
+            if (!response.ok) throw new Error("Gemini API Error");
+            const data = await response.json();
+            const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
+            return JSON.parse(content);
+        }
+
+        const response = await fetch(`${API_BASE_URL}/ai/project`, {
+            method: "POST",
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ text: rawText }),
+        });
+        if (!response.ok) throw new Error("Backend AI service failed");
+        return await response.json();
+    },
+
+    async polishEducation(rawText: string, apiKey?: string) {
+        await applyRateLimit();
+        if (apiKey) {
+            const prompt = `
+                Extract education details (Institution, Degree, Year) from the following text.
+                Input: "${rawText}"
+                Return the response in strictly valid JSON format:
+                {
+                    "school": "University Name",
+                    "degree": "Degree Name",
+                    "year": "20XX - 20XX",
+                    "latexCode": "\\\\customSubHeading{...}{...}{...}"
+                }
+            `;
+            const response = await fetch(
+                `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL_NAME}:generateContent?key=${apiKey}`,
+                {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: prompt }] }],
+                        generationConfig: { response_mime_type: "application/json" },
+                    }),
+                }
+            );
+            if (!response.ok) throw new Error("Gemini API Error");
+            const data = await response.json();
+            const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
+            return JSON.parse(content);
+        }
+
+        const response = await fetch(`${API_BASE_URL}/ai/education`, {
+            method: "POST",
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ text: rawText }),
+        });
         if (!response.ok) throw new Error("Backend AI service failed");
         return await response.json();
     },
 
     async assembleFullResume(blocks: ResumeBlock[], template: string, apiKey?: string) {
+        await applyRateLimit();
         const enabledBlocks = blocks.filter(b => b.enabled !== false);
         const prompt = `
 You are a LaTeX resume builder.
@@ -85,13 +229,18 @@ CORE INSTRUCTIONS:
 6. Do NOT invent data. Preserve dates exactly.
 7. Return ONLY the final LaTeX text. 
 `;
-        const isLocalMode = (import.meta as any).env.IS_LOCAL === 'true';
-        if (apiKey && isLocalMode) {
+        if (apiKey) {
             const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL_NAME}:generateContent?key=${apiKey}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
             });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.error?.message || `Gemini API Error: ${response.status}`);
+            }
+
             const data = await response.json();
             const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
             if (!text) throw new Error("Failed to assemble resume content");
@@ -108,6 +257,7 @@ CORE INSTRUCTIONS:
     },
 
     async parseResume(content: string | Blob, type: 'text' | 'file', apiKey?: string, autoSave = false, title?: string): Promise<any> {
+        await applyRateLimit();
         const prompt = `
             You are a resume data extractor. 
             Extract all information from the provided ${type === 'text' ? 'text/LaTeX' : 'document'} and return it as an array of ResumeBlock objects.
@@ -132,14 +282,12 @@ CORE INSTRUCTIONS:
             Return ONLY a valid JSON array of objects: [{ "type": BlockType, "data": { ... } }]
         `;
 
-        const isLocalMode = (import.meta as any).env.IS_LOCAL === 'true';
-
-        if (apiKey && isLocalMode) {
+        if (apiKey) {
             let body: any;
             if (type === 'text') {
                 body = { contents: [{ parts: [{ text: prompt + "\n\nINPUT:\n" + content }] }] };
             } else {
-                throw new Error("File parsing requires text extraction or multimodal support (not implemented in this simplified client service). Please paste the resume or Overleaf LaTeX text.");
+                throw new Error("File parsing requires text extraction or multimodal support. Please paste the resume or Overleaf LaTeX text.");
             }
 
             try {
@@ -184,3 +332,4 @@ CORE INSTRUCTIONS:
         return await response.json();
     }
 };
+

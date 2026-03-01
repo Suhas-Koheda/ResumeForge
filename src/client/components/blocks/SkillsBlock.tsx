@@ -33,8 +33,10 @@ export const SkillsBlock: React.FC<SkillsBlockProps> = memo(({ id }) => {
                 latexCode: result.latexCode
             });
             setRawInput('');
-        } catch (error) {
-            toast.error("AI Categorization failed.");
+            toast.success("Skills categorized.");
+        } catch (error: any) {
+            console.error("AI Skills Error:", error);
+            toast.error(error.message || "AI Categorization failed.");
         } finally {
             setIsPolishing(false);
         }

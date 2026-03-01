@@ -41,8 +41,10 @@ export const ProjectBlock: React.FC<ProjectBlockProps> = memo(({ id }) => {
                 latexCode: result.latexCode
             });
             setRawInput('');
-        } catch (error) {
-            toast.error("AI Polish failed.");
+            toast.success("Project highlights generated.");
+        } catch (error: any) {
+            console.error("AI Project Error:", error);
+            toast.error(error.message || "AI Polish failed.");
         } finally {
             setIsPolishing(false);
         }
