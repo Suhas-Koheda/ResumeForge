@@ -3,6 +3,7 @@ import { useBlock } from '../../hooks/useResume';
 import { useBuilderStore } from '../../store/useBuilderStore';
 import { geminiService } from '../../services/ai';
 import { Sparkles, Copy, Loader2, Code as CodeIcon } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 interface SkillsBlockProps {
     id: string;
@@ -33,7 +34,7 @@ export const SkillsBlock: React.FC<SkillsBlockProps> = memo(({ id }) => {
             });
             setRawInput('');
         } catch (error) {
-            alert("AI Categorization failed.");
+            toast.error("AI Categorization failed.");
         } finally {
             setIsPolishing(false);
         }
@@ -81,7 +82,7 @@ export const SkillsBlock: React.FC<SkillsBlockProps> = memo(({ id }) => {
                         </div>
                         <div className="flex gap-4">
                             <button onClick={() => setShowLatex(!showLatex)} className="text-[9px] font-bold text-zinc-900 dark:text-zinc-100 uppercase tracking-widest hover:underline">{showLatex ? 'Close' : 'Debug'}</button>
-                            <button onClick={() => { navigator.clipboard.writeText(data.latexCode); alert('Copied.'); }} className="text-[9px] font-bold text-zinc-900 dark:text-zinc-100 uppercase tracking-widest flex items-center gap-1 hover:underline"><Copy size={12} /> Copy</button>
+                            <button onClick={() => { navigator.clipboard.writeText(data.latexCode); toast.success('Copied.'); }} className="text-[9px] font-bold text-zinc-900 dark:text-zinc-100 uppercase tracking-widest flex items-center gap-1 hover:underline"><Copy size={12} /> Copy</button>
                         </div>
                     </div>
                     {showLatex && (

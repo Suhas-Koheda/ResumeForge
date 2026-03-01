@@ -14,6 +14,7 @@ import { geminiService } from './services/ai';
 import { manualLatexGenerator } from './services/manualLatex';
 import { latexServerService } from './services/latex';
 import { offlineLatexParser } from './services/offlineParser';
+import toast, { Toaster } from 'react-hot-toast';
 
 function App() {
     const {
@@ -263,7 +264,7 @@ function App() {
             downloadPdf(false);
         } catch (error) {
             console.error("Assembly Error:", error);
-            alert("Failed to assemble resume. Check your API key.");
+            toast.error("Failed to assemble resume. Check your API key.");
         } finally {
             setIsAssembling(false);
         }
@@ -343,7 +344,7 @@ function App() {
             try {
                 const json = JSON.parse(event.target?.result as string);
                 if (json.source !== "ResumeForge") {
-                    alert("Invalid file format. Please upload a valid ResumeForge JSON.");
+                    toast.error("Invalid file format. Please upload a valid ResumeForge JSON.");
                     return;
                 }
                 
@@ -354,10 +355,10 @@ function App() {
                 setCustomTemplate(importedTemplate || null);
                 setFullLatex(importedLatex || null);
                 
-                alert("Resume imported successfully.");
+                toast.success("Resume imported successfully.");
             } catch (err) {
                 console.error("Import error:", err);
-                alert("Failed to parse JSON file.");
+                toast.error("Failed to parse JSON file.");
             }
         };
         reader.readAsText(file);
@@ -375,6 +376,7 @@ function App() {
 
     return (
         <div className="h-screen h-[100dvh] w-screen flex flex-col bg-white dark:bg-[#111215] overflow-hidden font-mono selection:bg-black selection:text-white dark:selection:bg-white dark:selection:text-black">
+            <Toaster position="bottom-right" />
             <header className="h-10 sm:h-12 border-b border-zinc-200 dark:border-[#2d3042] bg-white dark:bg-[#1e2028] flex items-center justify-between px-2 sm:px-4 z-20 shrink-0">
                 <div className="flex items-center gap-2 sm:gap-6">
                     <div className="flex items-center gap-1.5 sm:gap-2 mr-2">

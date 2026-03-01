@@ -4,6 +4,7 @@ import { BulletListEditor } from '../ui/BulletListEditor';
 import { useBuilderStore } from '../../store/useBuilderStore';
 import { geminiService } from '../../services/ai';
 import { Sparkles, Code2, Copy, Loader2 } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 interface ProjectBlockProps {
     id: string;
@@ -41,7 +42,7 @@ export const ProjectBlock: React.FC<ProjectBlockProps> = memo(({ id }) => {
             });
             setRawInput('');
         } catch (error) {
-            alert("AI Polish failed.");
+            toast.error("AI Polish failed.");
         } finally {
             setIsPolishing(false);
         }
@@ -149,7 +150,7 @@ export const ProjectBlock: React.FC<ProjectBlockProps> = memo(({ id }) => {
                                 {showLatex ? 'Close' : 'Debug'}
                             </button>
                             <button
-                                onClick={() => { navigator.clipboard.writeText(data.latexCode); alert('Copied.'); }}
+                                onClick={() => { navigator.clipboard.writeText(data.latexCode); toast.success('Copied.'); }}
                                 className="text-[9px] font-bold text-zinc-900 dark:text-zinc-100 uppercase tracking-widest flex items-center gap-1 hover:underline"
                             >
                                 <Copy size={12} /> Copy

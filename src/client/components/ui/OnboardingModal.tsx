@@ -4,6 +4,7 @@ import { useResumeActions } from '../../hooks/useResume';
 import { ResumeBlock, BlockType } from '@shared/types';
 import { geminiService } from '../../services/ai';
 import { offlineLatexParser } from '../../services/offlineParser';
+import toast from 'react-hot-toast';
 
 export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
     const [tab, setTab] = useState<'profile' | 'import'>('profile');
@@ -62,11 +63,11 @@ export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }>
                         }));
                         setBlocks(newBlocks);
                     } else {
-                        alert("Our parser couldn't find any structural blocks. Try enabling AI parsing fallback.");
+                        toast.error("Our parser couldn't find any structural blocks. Try enabling AI parsing fallback.");
                     }
                 } catch (e: any) {
                     console.error(e);
-                    alert("Local parser failed. " + e.message);
+                    toast.error("Local parser failed. " + e.message);
                 }
                 onClose();
             } else {
@@ -101,7 +102,7 @@ export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }>
             }
         } catch (error: any) {
             console.error("Import Error:", error);
-            alert("Failed to parse source. If using raw text, an AI Key might be required.");
+            toast.error("Failed to parse source. If using raw text, an AI Key might be required.");
         } finally {
             setIsImporting(false);
         }
