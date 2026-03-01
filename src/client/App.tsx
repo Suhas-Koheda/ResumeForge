@@ -32,7 +32,7 @@ function App() {
     const [isAssembling, setIsAssembling] = useState(false);
     const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
     const [pdfUrl, setPdfUrl] = useState<string | null>(null);
-    const [previewMode, setPreviewMode] = useState<'code' | 'pdf'>('pdf');
+    const [previewMode, setPreviewMode] = useState<'code' | 'pdf' | 'template'>('pdf');
     const [showBuildOutput, setShowBuildOutput] = useState(false);
     const [compilationLog, setCompilationLog] = useState<string | null>(null);
     const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
@@ -43,6 +43,8 @@ function App() {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [showExportMenu, setShowExportMenu] = useState(false);
     const [hasLoadedFromServer, setHasLoadedFromServer] = useState(false);
+    const [userTemplates, setUserTemplates] = useState<{id: string, title: string, content: string}[]>([]);
+    const [isSavingTemplate, setIsSavingTemplate] = useState(false);
 
     // 0. Auto-bypass local mode on startup for seamless LAN experience
     useEffect(() => {
@@ -175,6 +177,60 @@ function App() {
             setIsSaving(false);
         }
     }
+
+    const fetchTemplates = async () => {
+        if (!token) return;
+        try {
+            const url = `${(import.meta as any).env.VITE_API_URL || '/api/v1'}/templates`;
+            const response = await fetch(url, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                setUserTemplates(data);
+            }
+        } catch (e) {
+            console.error("[LOG_APP] Failed to fetch templates:", e);
+        }
+    };
+
+    const saveTemplate = async () => {
+        if (!token) {
+            toast.error("Please log in to save templates to the cloud.");
+            return;
+        }
+        if (!customTemplate) return;
+        
+        const title = prompt("Template Name:", `My Template ${userTemplates.length + 1}`);
+        if (!title) return;
+
+        try {
+            setIsSavingTemplate(true);
+            const url = `${(import.meta as any).env.VITE_API_URL || '/api/v1'}/templates`;
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ title, content: customTemplate })
+            });
+
+            if (response.ok) {
+                toast.success("Template saved successfully.");
+                fetchTemplates();
+            }
+        } catch (error) {
+            console.error("Save template error:", error);
+            toast.error("Failed to save template.");
+        } finally {
+            setIsSavingTemplate(false);
+        }
+    };
+
+    useEffect(() => {
+        if (token) fetchTemplates();
+    }, [token]);
 
     const hasTriggeredOnboarding = React.useRef(false);
     React.useEffect(() => {
@@ -568,15 +624,58 @@ function App() {
                                     <h2 className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest">Compiler_Output</h2>
                                     <div className="flex border border-zinc-100 dark:border-zinc-800 p-0.5">
                                         <button onClick={() => setPreviewMode('code')} className={`px-2 sm:px-4 py-1.5 text-[8px] sm:text-[9px] font-bold uppercase tracking-widest ${previewMode === 'code' ? 'bg-black text-white dark:bg-white dark:text-black' : 'text-zinc-400'}`}>Source</button>
+                                        <button onClick={() => setPreviewMode('template')} className={`px-2 sm:px-4 py-1.5 text-[8px] sm:text-[9px] font-bold uppercase tracking-widest ${previewMode === 'template' ? 'bg-black text-white dark:bg-white dark:text-black' : 'text-zinc-400'}`}>Template (AI)</button>
                                         <button onClick={() => { if (!pdfUrl) downloadPdf(false); else setPreviewMode('pdf'); }} className={`px-2 sm:px-4 py-1.5 text-[8px] sm:text-[9px] font-bold uppercase tracking-widest ${previewMode === 'pdf' ? 'bg-black text-white dark:bg-white dark:text-black' : 'text-zinc-400'}`}>Preview</button>
                                     </div>
                                 </div>
-                                <button onClick={() => setShowBuildOutput(false)} className="text-zinc-400 hover:text-black p-1"><X size={16} /></button>
+                                <div className="flex items-center gap-2">
+                                    {previewMode === 'template' && (
+                                        <button 
+                                            onClick={handleAssemble}
+                                            disabled={isAssembling}
+                                            className="px-3 py-1.5 bg-blue-600 text-white text-[9px] font-bold uppercase tracking-widest hover:bg-blue-700 disabled:opacity-50 transition-all flex items-center gap-2"
+                                        >
+                                            {isAssembling ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />}
+                                            Apply_Template
+                                        </button>
+                                    )}
+                                    <button onClick={() => setShowBuildOutput(false)} className="text-zinc-400 hover:text-black p-1"><X size={16} /></button>
+                                </div>
                             </header>
                             <div className="flex-1 overflow-hidden p-2 sm:p-12 bg-zinc-50 dark:bg-zinc-950 flex justify-center">
                                 <div className="w-full max-w-5xl bg-white dark:bg-black border border-zinc-200 dark:border-zinc-800 flex flex-col shadow-2xl overflow-hidden text-[13px]">
                                     {previewMode === 'code' ? (
                                         <textarea className="flex-1 p-8 font-mono bg-transparent resize-none outline-none text-zinc-800 dark:text-zinc-300" value={fullLatex || ''} onChange={(e) => setFullLatex(e.target.value)} spellCheck={false} />
+                                    ) : previewMode === 'template' ? (
+                                        <div className="flex-1 flex flex-col h-full">
+                                            <div className="flex border-b border-zinc-100 dark:border-zinc-800">
+                                                <div className="flex-1 p-2 flex gap-2 overflow-x-auto no-scrollbar">
+                                                    {userTemplates.map(t => (
+                                                        <button 
+                                                            key={t.id} 
+                                                            onClick={() => setCustomTemplate(t.content)}
+                                                            className="px-3 py-1 bg-zinc-100 dark:bg-zinc-900 text-[8px] font-bold uppercase tracking-widest text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-all whitespace-nowrap"
+                                                        >
+                                                            {t.title}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                                <button 
+                                                    onClick={saveTemplate}
+                                                    disabled={isSavingTemplate || !customTemplate}
+                                                    className="px-4 py-2 bg-green-600 text-white text-[9px] font-bold uppercase tracking-widest hover:bg-green-700 disabled:opacity-50"
+                                                >
+                                                    {isSavingTemplate ? <Loader2 size={10} className="animate-spin" /> : <Save size={10} />}
+                                                </button>
+                                            </div>
+                                            <textarea 
+                                                className="flex-1 p-8 font-mono bg-transparent resize-none outline-none text-zinc-800 dark:text-zinc-300" 
+                                                placeholder="Enter your LaTeX macros or a full template with [PLACEHOLDERS]. AI will use this to generate the resume sections."
+                                                value={customTemplate || ''} 
+                                                onChange={(e) => setCustomTemplate(e.target.value)} 
+                                                spellCheck={false} 
+                                            />
+                                        </div>
                                     ) : (
                                         <div className="flex-1 relative bg-zinc-100 flex items-center justify-center">
                                             {isGeneratingPdf ? <Loader2 size={24} className="animate-spin" /> : pdfUrl ? <iframe src={pdfUrl} className="w-full h-full" title="PDF" /> : compilationLog ? <pre className="p-8 text-red-500">{compilationLog}</pre> : null}

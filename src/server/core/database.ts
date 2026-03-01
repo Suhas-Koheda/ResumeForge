@@ -2,6 +2,7 @@ import { DataSource } from 'typeorm';
 import { config } from './config.js';
 import { User } from '../entities/User.entity.js';
 import { Resume } from '../entities/Resume.entity.js';
+import { Template } from '../entities/Template.entity.js';
 
 export const AppDataSource = new DataSource(
     config.IS_LOCAL
@@ -10,7 +11,7 @@ export const AppDataSource = new DataSource(
             database: "local_dev.sqlite",
             synchronize: true,
             logging: true,
-            entities: [User, Resume],
+            entities: [User, Resume, Template],
             subscribers: [],
             migrations: [],
         }
@@ -29,7 +30,7 @@ export const AppDataSource = new DataSource(
             })(),
             synchronize: true,
             logging: false,
-            entities: [User, Resume],
+            entities: [User, Resume, Template],
             subscribers: [],
             migrations: [],
             ssl: { rejectUnauthorized: false },

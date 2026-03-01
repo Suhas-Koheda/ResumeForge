@@ -5,7 +5,7 @@
  */
 
 const API_BASE_URL = (import.meta as any).env.VITE_API_URL || '/api/v1';
-const GEMINI_MODEL_NAME = (import.meta as any).env.GEMINI_MODEL_NAME || 'gemini-2.5-flash';
+const GEMINI_MODEL_NAME = (import.meta as any).env.VITE_GEMINI_MODEL || 'gemini-2.5-flash';
 
 import { ResumeBlock, BlockType } from '@shared/types';
 import { useBuilderStore } from '../store/useBuilderStore';
@@ -61,67 +61,27 @@ export const geminiService = {
     async assembleFullResume(blocks: ResumeBlock[], template: string, apiKey?: string) {
         const enabledBlocks = blocks.filter(b => b.enabled !== false);
         const prompt = `
-You are a LaTeX resume engine.
-
-CRITICAL: You MUST strictly follow the provided template structure.
-
-You are NOT allowed to:
-- Add \\documentclass
-- Add \\usepackage
-- Redefine any commands
-- Add new macros
-- Modify formatting
-- Add commentary
-- Add markdown
-- Wrap output in code blocks
-
-You are ONLY allowed to generate SECTION CONTENT using the predefined commands.
-
-The template already defines these commands:
-- \\customSubHeading
-- \\customProject
-- \\customItem
-- \\customItemListStart
-- \\customItemListEnd
-- \\customSubHeadingContentStart
-- \\customSubHeadingContentEnd
-
-You MUST use them exactly.
+You are a LaTeX resume builder.
+Your task is to take a set of resume blocks (JSON) and a LaTeX template (string) 
+to create the final section content.
 
 ==================================================
-INPUT BLOCKS (JSON):
+TEMPLATE (LATEX):
+${template || 'STRICTLY use standard commands like \\customSubHeading, \\customProject, \\customItem.'}
+==================================================
+INPUT DATA (JSON):
 ${JSON.stringify(enabledBlocks)}
 ==================================================
 
-RULES:
-
-1. Output ONLY valid LaTeX section content.
-2. Do NOT output the header or preamble.
-3. Do NOT output \\begin{document} or \\end{document}.
-4. Every \\customItemListStart MUST contain at least one \\customItem.
-   If no items exist, DO NOT create the list at all.
-5. Escape all LaTeX special characters:
-   & → \\&
-   % → \\%
-   $ → \\$
-   # → \\#
-   _ → \\_
-   { → \\{
-   } → \\}
-6. Use the EXACT structure:
-   - Education → use \\customSubHeading
-   - Experience → \\customSubHeading + optional item list
-   - Projects → \\customProject + optional item list
-   - Skills → standard itemize block
-   - Summary → standalone paragraph
-   - Other/Achievements → use custom title section + optional item list
-7. Do NOT invent data.
-8. Preserve dates exactly as provided.
-9. Use professional concise language.
-
-If no data exists for a section, omit that section entirely.
-
-Return ONLY raw LaTeX.
+CORE INSTRUCTIONS:
+1. Use the template structure. If the template has placeholders (like [NAME] or {{EXPERIENCE}}), replace them with the data from the blocks.
+2. If the template is just a set of macros, use those macros to build the sections based on the blocks provided.
+3. Every \\customItemListStart MUST contain at least one \\customItem.
+   If no items exist for a section, DO NOT create the list.
+4. Output ONLY raw LaTeX section content. No preamble, no \\begin{document}, no markdown fences.
+5. Escape all LaTeX special characters: & → \\&, % → \\%, etc.
+6. Do NOT invent data. Preserve dates exactly.
+7. Return ONLY the final LaTeX text. 
 `;
         if (apiKey) {
             const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL_NAME}:generateContent?key=${apiKey}`, {
@@ -130,13 +90,15 @@ Return ONLY raw LaTeX.
                 body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
             });
             const data = await response.json();
-            return data.candidates[0].content.parts[0].text;
+            const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (!text) throw new Error("Failed to assemble resume content");
+            return text.replace(/```latex\n?|```\n?/g, "").trim();
         }
 
         const response = await fetch(`${API_BASE_URL}/ai/assemble`, {
             method: "POST",
             headers: getAuthHeaders(),
-            body: JSON.stringify({ blocks, template }),
+            body: JSON.stringify({ blocks: enabledBlocks, template }),
         });
         if (!response.ok) throw new Error("Backend AI assembly failed");
         return await response.text();
@@ -175,18 +137,37 @@ Return ONLY raw LaTeX.
                 throw new Error("File parsing requires text extraction or multimodal support (not implemented in this simplified client service). Please paste the resume or Overleaf LaTeX text.");
             }
 
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL_NAME}:generateContent?key=${apiKey}`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    ...body,
-                    generationConfig: { response_mime_type: "application/json" },
-                }),
-            });
-            const data = await response.json();
-            const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (!text) throw new Error("Failed to parse resume content");
-            return JSON.parse(text);
+            try {
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL_NAME}:generateContent?key=${apiKey}`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        ...body,
+                        generationConfig: { response_mime_type: "application/json" },
+                    }),
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.error?.message || `API Error ${response.status}`);
+                }
+
+                const data = await response.json();
+                const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (!text) throw new Error("AI returned empty content. Try again or check your source text.");
+                
+                try {
+                    return JSON.parse(text);
+                } catch (e) {
+                    // Try to extract JSON if AI returned markdown fences anyway
+                    const match = text.match(/\[[\s\S]*\]/);
+                    if (match) return JSON.parse(match[0]);
+                    throw e;
+                }
+            } catch (error: any) {
+                console.error("[GEMINI_CLIENT] Parsing error:", error);
+                throw new Error(error.message || "Failed to parse resume content");
+            }
         }
 
         const response = await fetch(`${API_BASE_URL}/ai/parse`, {
