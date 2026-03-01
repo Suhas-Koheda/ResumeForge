@@ -32,15 +32,19 @@ app.use(helmet({
 }));
 
 app.use(cors({
-    origin: (origin, callback) => callback(null, true), 
+    origin: (origin, callback) => callback(null, true),
     credentials: true,
 }));
 
 app.use(express.json());
 
+// Enable "trust proxy" so express-rate-limit can see the real client IP
+// behind proxies like Nginx, Vercel, or cloud load balancers.
+app.set('trust proxy', 1);
+
 // Set up rate limiting to prevent brute force/DDoS
 const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000, 
+    windowMs: 15 * 60 * 1000,
     max: 500, // Increased slightly for resume building activity
     message: 'Too many requests from this IP, please try again later.'
 });
@@ -57,7 +61,7 @@ app.use((req, res, next) => {
 // Routes
 app.get(['/api/health', '/.netlify/functions/server/health'], async (req, res) => {
     try {
-        await connectToDatabase(); 
+        await connectToDatabase();
         return res.json({
             status: 'ok',
             mode: config.IS_LOCAL ? 'LOCAL' : 'CLOUD',
@@ -119,11 +123,11 @@ apiRouter.post('/ai/parse', authMiddleware, async (req: AuthRequest, res) => {
         // If parsing was successful and autoSave is requested, save to DB
         if (autoSave && req.userId && parsedData) {
             const resumeRepo = AppDataSource.getRepository(Resume);
-            
+
             // Check if a resume with this title (or default) already exists for this user to avoid duplicates
             const resumeTitle = title || "Imported Resume";
             let resume = await resumeRepo.findOne({ where: { title: resumeTitle, userId: req.userId } });
-            
+
             if (resume) {
                 resume.canvasData = parsedData;
                 await resumeRepo.save(resume);
