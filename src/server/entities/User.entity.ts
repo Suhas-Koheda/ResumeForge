@@ -17,6 +17,12 @@ export class User {
     @Column({ type: "varchar", nullable: true })
     verificationToken?: string;
 
+    @Column({ type: "varchar", nullable: true })
+    resetPasswordToken?: string;
+
+    @Column({ type: "timestamp", nullable: true })
+    resetPasswordExpires?: Date;
+
     @CreateDateColumn()
     createdAt!: Date;
 }

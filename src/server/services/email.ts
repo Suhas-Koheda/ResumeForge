@@ -51,6 +51,48 @@ class EmailService {
             throw err;
         }
     }
+
+    async sendPasswordResetEmail(email: string, token: string) {
+        if (!this.resend) {
+            console.warn("[EMAIL_SERVICE] Resend API Key is missing. Email not sent.");
+            if (config.IS_LOCAL) {
+                console.log(`[DEV_ONLY] Reset Link: ${config.APP_URL}/auth?resetToken=${token}`);
+            }
+            return;
+        }
+
+        const resetUrl = `${config.APP_URL}/auth?resetToken=${token}`;
+
+        try {
+            const { data, error } = await this.resend.emails.send({
+                from: config.EMAIL.SMTP_FROM,
+                to: email,
+                subject: 'Reset your ResumeForge password',
+                html: `
+                    <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eaeaea; border-radius: 10px;">
+                        <h2 style="color: #333;">Password Reset Request</h2>
+                        <p>We received a request to reset your password. Click the button below to choose a new one. This link will expire in 1 hour.</p>
+                        <div style="margin: 30px 0;">
+                            <a href="${resetUrl}" style="background-color: #000; color: #fff; padding: 12px 24px; text-decoration: none; border-radius: 5px; font-weight: bold;">Reset Password</a>
+                        </div>
+                        <p style="color: #666; font-size: 14px;">If you didn't request a password reset, you can safely ignore this email.</p>
+                        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
+                        <p style="color: #999; font-size: 12px;">ResumeForge &copy; 2026</p>
+                    </div>
+                `
+            });
+
+            if (error) {
+                console.error("[EMAIL_SERVICE] Resend error:", error);
+                throw new Error("Failed to send email");
+            }
+
+            return data;
+        } catch (err) {
+            console.error("[EMAIL_SERVICE] Failed to send password reset email:", err);
+            throw err;
+        }
+    }
 }
 
 export const emailService = new EmailService();
