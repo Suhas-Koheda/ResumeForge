@@ -466,12 +466,6 @@ function App() {
                                         <p className="text-[11px] font-bold text-zinc-800 dark:text-zinc-200 truncate italic">{isLocalMode ? 'Offline_Mode' : (userEmail || 'Active_Session')}</p>
                                     </div>
                                     <button 
-                                        onClick={() => { setIsOnboardingOpen(true); setShowProfile(false); }} 
-                                        className="w-full flex items-center gap-3 px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-900/10 rounded-md transition-all text-left"
-                                    >
-                                        <FileUp size={12} /> Sync Historical (AI)
-                                    </button>
-                                    <button 
                                         onClick={() => { document.getElementById('json-import-input')?.click(); setShowProfile(false); }} 
                                         className="w-full flex items-center gap-3 px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-900/10 rounded-md transition-all text-left"
                                     >
@@ -492,6 +486,14 @@ function App() {
                             </>
                         )}
                     </div>
+
+                    <button 
+                        onClick={() => setIsOnboardingOpen(true)} 
+                        className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full border border-black dark:border-white bg-black dark:bg-white text-white dark:text-black hover:opacity-80 transition-all font-bold"
+                    >
+                        <Sparkles size={12} />
+                        <span className="text-[10px] font-black uppercase tracking-widest">INITIALISE</span>
+                    </button>
 
                     <div className="hidden lg:block w-px h-4 bg-zinc-200 dark:bg-zinc-800"></div>
 

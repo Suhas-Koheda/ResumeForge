@@ -61,7 +61,7 @@ export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }>
                             data: b.data || {},
                             enabled: true
                         }));
-                        setBlocks(newBlocks);
+                        setBlocks([...blocks, ...newBlocks]);
                     } else {
                         toast.error("Our parser couldn't find any structural blocks. Try enabling AI parsing fallback.");
                     }
@@ -94,7 +94,7 @@ export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }>
                     enabled: true
                 }));
                 
-                setBlocks(newBlocks);
+                setBlocks([...blocks, ...newBlocks]);
                 if (resumeId) {
                     setResumeId(activeResumeIndex, resumeId);
                 }
