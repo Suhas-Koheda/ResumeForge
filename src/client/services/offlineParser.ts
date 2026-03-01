@@ -18,10 +18,10 @@ export const offlineLatexParser = {
             blocks.push({
                 type: 'header',
                 data: {
-                    name: nameMatch ? nameMatch[1].trim() : '',
-                    email: emailMatch ? emailMatch[1].trim() : '',
-                    phone: phoneMatch ? phoneMatch[1].trim() : '',
-                    location: locationMatch ? (typeof locationMatch === 'string' ? locationMatch : locationMatch[1] || locationMatch[0]).trim() : '',
+                    name: nameMatch ? this.unescapeLatex(nameMatch[1].trim()) : '',
+                    email: emailMatch ? emailMatch[1].trim() : '', // Email in URL usually doesn't need unescape
+                    phone: phoneMatch ? this.unescapeLatex(phoneMatch[1].trim()) : '',
+                    location: locationMatch ? this.unescapeLatex((typeof locationMatch === 'string' ? locationMatch : locationMatch[1] || locationMatch[0]).trim()) : '',
                     website: websiteMatch ? websiteMatch[1].trim() : '',
                     linkedin: linkedinMatch ? linkedinMatch[1].trim() : '',
                     github: githubMatch ? githubMatch[1].trim() : ''
@@ -37,7 +37,12 @@ export const offlineLatexParser = {
             while ((m = eduItemRegex.exec(eduSectionMatch[1])) !== null) {
                 blocks.push({
                     type: 'education',
-                    data: { school: m[1], year: m[2], degree: m[3], location: m[4] }
+                    data: {
+                        school: this.unescapeLatex(m[1]),
+                        year: this.unescapeLatex(m[2]),
+                        degree: this.unescapeLatex(m[3]),
+                        location: this.unescapeLatex(m[4])
+                    }
                 });
             }
         }
@@ -48,10 +53,16 @@ export const offlineLatexParser = {
             const expItemRegex = /\\customSubHeading\s*\{([^\}]+)\}\s*\{([^\}]+)\}\s*\{([^\}]+)\}\s*\{([^\}]+)\}([^]*?)(?=\\customSubHeading|\\customSubHeadingContentEnd|$)/g;
             let m;
             while ((m = expItemRegex.exec(expSectionMatch[1])) !== null) {
-                const highlights = (m[5].match(/\\customItem\{([^\}]+)\}/g) || []).map(mi => mi.replace(/\\customItem\{|\}/g, '').trim());
+                const highlights = (m[5].match(/\\customItem\{([^\}]+)\}/g) || []).map(mi => this.unescapeLatex(mi.replace(/\\customItem\{|\}/g, '').trim()));
                 blocks.push({
                     type: 'experience',
-                    data: { company: m[1], duration: m[2], role: m[3], location: m[4], highlights }
+                    data: {
+                        company: this.unescapeLatex(m[1]),
+                        duration: this.unescapeLatex(m[2]),
+                        role: this.unescapeLatex(m[3]),
+                        location: this.unescapeLatex(m[4]),
+                        highlights
+                    }
                 });
             }
         }
@@ -64,7 +75,10 @@ export const offlineLatexParser = {
             while ((m = skillItemRegex.exec(skillsSectionMatch[1])) !== null) {
                 blocks.push({
                     type: 'skills',
-                    data: { category: m[1].replace(':', '').trim(), skills: m[2].trim() }
+                    data: {
+                        category: this.unescapeLatex(m[1].replace(':', '').trim()),
+                        skills: this.unescapeLatex(m[2].trim())
+                    }
                 });
             }
         }
@@ -76,7 +90,7 @@ export const offlineLatexParser = {
             projectsRaw.forEach(pRaw => {
                 const titleMatch = pRaw.match(/\\textbf\{([^\}]+)\}/);
                 const techMatch = pRaw.match(/\\emph\{([^\}]+)\}/);
-                const highlights = (pRaw.match(/\\customItem\{([^\}]+)\}/g) || []).map(mi => mi.replace(/\\customItem\{|\}/g, '').trim());
+                const highlights = (pRaw.match(/\\customItem\{([^\}]+)\}/g) || []).map(mi => this.unescapeLatex(mi.replace(/\\customItem\{|\}/g, '').trim()));
 
                 const liveLinkMatch = pRaw.match(/\\href\{([^}]+)\}\s*\{[^}]*?(?:Live|Link)[^}]*\}/i);
                 const codeLinkMatch = pRaw.match(/\\href\{([^}]+)\}\s*\{[^}]*?Code[^}]*\}/i);
@@ -89,11 +103,11 @@ export const offlineLatexParser = {
                     blocks.push({
                         type: 'project',
                         data: {
-                            title: titleMatch ? titleMatch[1] : '',
-                            technologies: techMatch ? techMatch[1] : '',
-                            liveLink: liveLinkMatch ? liveLinkMatch[1] : '',
+                            title: titleMatch ? this.unescapeLatex(titleMatch[1]) : '',
+                            technologies: techMatch ? this.unescapeLatex(techMatch[1]) : '',
+                            liveLink: liveLinkMatch ? liveLinkMatch[1] : '', // URLs usually shouldn't be unescaped for plain text
                             githubLink: codeLinkMatch ? codeLinkMatch[1] : '',
-                            duration: duration,
+                            duration: duration ? this.unescapeLatex(duration) : '',
                             highlights
                         }
                     });
@@ -102,5 +116,20 @@ export const offlineLatexParser = {
         }
 
         return blocks;
+    },
+
+    unescapeLatex(text: string): string {
+        if (!text) return '';
+        return text
+            .replace(/\\&/g, '&')
+            .replace(/\\%/g, '%')
+            .replace(/\\\$/g, '$')
+            .replace(/\\#/g, '#')
+            .replace(/\\_/g, '_')
+            .replace(/\\\{/g, '{')
+            .replace(/\\\}/g, '}')
+            .replace(/\\\^{}/g, '^')
+            .replace(/\\~{}/g, '~')
+            .replace(/\\textbackslash\s?/g, '\\');
     }
 };

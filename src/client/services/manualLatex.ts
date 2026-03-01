@@ -72,9 +72,9 @@ export const manualLatexGenerator = {
     \\faPhone\\ ${this.escapeLatex(header.phone || 'Phone')} ~~
     \\href{mailto:${header.email || ''}}{\\faEnvelope\\ \\underline{${this.escapeLatex(header.email || '')}}} \\\\
     ${[
-        header.website ? `\\href{https://${header.website.replace('https://', '').replace('http://', '')}}{\\faGlobe\\ \\underline{${this.escapeLatex(header.website)}}}` : null,
-        header.linkedin ? `\\href{https://${header.linkedin.replace('https://', '').replace('http://', '')}}{\\faLinkedin\\ \\underline{${this.escapeLatex(header.linkedin)}}}` : null,
-        header.github ? `\\href{https://${header.github.replace('https://', '').replace('http://', '')}}{\\faGithub\\ \\underline{${this.escapeLatex(header.github)}}}` : null
+        header.website ? `\\href{https://${this.escapeLatex(header.website.replace('https://', '').replace('http://', ''))}}{\\faGlobe\\ \\underline{${this.escapeLatex(header.website)}}}` : null,
+        header.linkedin ? `\\href{https://${this.escapeLatex(header.linkedin.replace('https://', '').replace('http://', ''))}}{\\faLinkedin\\ \\underline{${this.escapeLatex(header.linkedin)}}}` : null,
+        header.github ? `\\href{https://${this.escapeLatex(header.github.replace('https://', '').replace('http://', ''))}}{\\faGithub\\ \\underline{${this.escapeLatex(header.github)}}}` : null
     ].filter(Boolean).join(" ~~\n    ")}
 \\end{center}
 `;
@@ -120,8 +120,8 @@ ${s.highlights.map((h: string) => `\\customItem{${this.escapeLatex(h)}}`).join('
 \\customSubHeadingContentStart
 ${education.map(edu => `
 \\customSubHeading
-{${edu.school || 'University'}}{${edu.year || 'Year'}}
-{${edu.degree || 'Degree'}}{${edu.location || 'Location'}}
+{${this.escapeLatex(edu.school || 'University')}}{${this.escapeLatex(edu.year || 'Year')}}
+{${this.escapeLatex(edu.degree || 'Degree')}}{${this.escapeLatex(edu.location || 'Location')}}
 `).join('')}
 \\customSubHeadingContentEnd
 `;
@@ -135,8 +135,8 @@ ${education.map(edu => `
 \\customSubHeadingContentStart
 ${experiences.map(exp => `
 \\customSubHeading
-{${exp.company || 'Company'}}{${exp.duration || 'Duration'}}
-{${exp.role || 'Role'}}{${exp.location || 'Location'}}
+{${this.escapeLatex(exp.company || 'Company')}}{${this.escapeLatex(exp.duration || 'Duration')}}
+{${this.escapeLatex(exp.role || 'Role')}}{${this.escapeLatex(exp.location || 'Location')}}
 ${(exp.highlights && exp.highlights.length > 0) ? `\\customItemListStart
 ${exp.highlights.map((h: string) => `\\customItem{${this.escapeLatex(h)}}`).join('\n')}
 \\customItemListEnd` : ''}
@@ -156,7 +156,7 @@ ${skills.map(s => {
                 return points.map((p: string) => {
                     const [category, items] = p.split(':');
                     if (items) {
-                        return `\\item \\textbf{${category.trim()}:} ${this.escapeLatex(items.trim())}`;
+                        return `\\item \\textbf{${this.escapeLatex(category.trim())}:} ${this.escapeLatex(items.trim())}`;
                     }
                     return `\\item ${this.escapeLatex(p)}`;
                 }).join('\n');
@@ -175,8 +175,8 @@ ${projects.map(proj => {
                 const techArray = Array.isArray(proj.technologies) ? proj.technologies.join(', ') : proj.technologies;
                 const tech = techArray ? `$\\vert$ \\emph{${this.escapeLatex(techArray)}}` : '';
                 const links = [
-                    proj.liveLink ? `\\href{${proj.liveLink}}{Live}` : '',
-                    proj.githubLink ? `\\href{${proj.githubLink}}{Code}` : ''
+                    proj.liveLink ? `\\href{${this.escapeLatex(proj.liveLink)}}{Live}` : '',
+                    proj.githubLink ? `\\href{${this.escapeLatex(proj.githubLink)}}{Code}` : ''
                 ].filter(l => l).join(' $\\vert$ ');
 
                 return `
@@ -196,7 +196,7 @@ ${proj.highlights.map((h: string) => `\\customItem{${this.escapeLatex(h)}}`).joi
         if (others.length > 0) {
             content += others.map(o => `
 %-----------OTHER: ${o.title || 'ADDITIONAL'}-----------
-\\section{${(o.title || 'ADDITIONAL').toUpperCase()}}
+\\section{${this.escapeLatex(o.title || 'ADDITIONAL').toUpperCase()}}
 ${(o.highlights && o.highlights.length > 0) ? `\\customSubHeadingContentStart
 \\item
 \\customItemListStart
