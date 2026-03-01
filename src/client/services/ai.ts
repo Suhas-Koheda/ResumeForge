@@ -5,7 +5,7 @@
  */
 
 const API_BASE_URL = (import.meta as any).env.VITE_API_URL || '/api/v1';
-const GEMINI_MODEL_NAME = (import.meta as any).env.VITE_GEMINI_MODEL || 'gemini-2.5-flash';
+const GEMINI_MODEL_NAME = (import.meta as any).env.GEMINI_MODEL_NAME || (import.meta as any).env.VITE_GEMINI_MODEL || 'gemini-2.5-flash';
 
 import { ResumeBlock, BlockType } from '@shared/types';
 import { useBuilderStore } from '../store/useBuilderStore';
@@ -256,7 +256,7 @@ CORE INSTRUCTIONS:
         return await response.text();
     },
 
-    async parseResume(content: string | Blob, type: 'text' | 'file', apiKey?: string, autoSave = false, title?: string): Promise<any> {
+    async parseResume(content: string | Blob, type: 'text' | 'file', apiKey?: string, autoSave = false, title?: string, id?: string): Promise<any> {
         await applyRateLimit();
         const prompt = `
             You are a resume data extractor. 
@@ -326,7 +326,7 @@ CORE INSTRUCTIONS:
         const response = await fetch(`${API_BASE_URL}/ai/parse`, {
             method: "POST",
             headers: getAuthHeaders(),
-            body: JSON.stringify({ content, type, autoSave, title }),
+            body: JSON.stringify({ content, type, autoSave, title, id }),
         });
         if (!response.ok) throw new Error("Backend AI parsing failed");
         return await response.json();

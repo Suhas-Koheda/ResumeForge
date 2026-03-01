@@ -10,7 +10,7 @@ export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }>
     const [tab, setTab] = useState<'profile' | 'import'>('profile');
     const [importText, setImportText] = useState('');
     const [isImporting, setIsImporting] = useState(false);
-    const { addBlock, blocks, updateData, apiKey, setApiKey, setFullLatex, setBlocks, token, setResumeId, activeResumeIndex } = useResumeActions();
+    const { addBlock, blocks, updateData, apiKey, setApiKey, setFullLatex, setBlocks, token, setResumeId, activeResumeIndex, resumes } = useResumeActions();
     const [localKey, setLocalKey] = useState(apiKey || '');
     const [useAiForLatex, setUseAiForLatex] = useState(true);
 
@@ -73,13 +73,18 @@ export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }>
             } else {
                 if (isLatex) setFullLatex(importText);
 
+                const currentResume = resumes[activeResumeIndex];
+                const resumeTitle = currentResume?.title || `Resume R_${activeResumeIndex + 1}`;
+                const currentId = currentResume?.id;
+
                 // AI reconstruction with AutoSave support
                 const result = await geminiService.parseResume(
                     importText, 
                     'text', 
                     localKey || apiKey, 
                     !!token, // autoSave only if logged in
-                    "Imported Resume"
+                    resumeTitle,
+                    currentId
                 );
                 
                 // If backend saved it, it will return { data: ..., resumeId: ... }

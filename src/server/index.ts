@@ -117,17 +117,26 @@ apiRouter.post('/ai/assemble', authMiddleware, verificationMiddleware, async (re
 
 apiRouter.post('/ai/parse', authMiddleware, verificationMiddleware, async (req: AuthRequest, res) => {
     try {
-        const { content, autoSave, title } = req.body;
+        const { content, autoSave, title, id } = req.body;
         const resultText = await aiService.parseResume(content);
         const parsedData = JSON.parse(resultText);
 
         // If parsing was successful and autoSave is requested, save to DB
         if (autoSave && req.userId && parsedData) {
             const resumeRepo = AppDataSource.getRepository(Resume);
-
-            // Check if a resume with this title (or default) already exists for this user to avoid duplicates
             const resumeTitle = title || "Imported Resume";
-            let resume = await resumeRepo.findOne({ where: { title: resumeTitle, userId: req.userId } });
+            
+            let resume: Resume | null = null;
+            
+            // 1. Try by ID if provided
+            if (id) {
+                resume = await resumeRepo.findOne({ where: { id, userId: req.userId } });
+            }
+            
+            // 2. Fallback to title + search if no ID or not found
+            if (!resume) {
+                resume = await resumeRepo.findOne({ where: { title: resumeTitle, userId: req.userId } });
+            }
 
             if (resume) {
                 resume.canvasData = parsedData;
@@ -208,7 +217,8 @@ if (process.env.NODE_ENV === 'production' && !IS_SERVERLESS) {
 
 if (!IS_SERVERLESS) {
     connectToDatabase().then(() => {
-        const TECTONIC_BIN = path.resolve(process.cwd(), '.bin/tectonic');
+        const isWin = process.platform === 'win32';
+        const TECTONIC_BIN = path.resolve(process.cwd(), '.bin', isWin ? 'tectonic.exe' : 'tectonic');
         const binaryStatus = fs.existsSync(TECTONIC_BIN) ? 'READY' : 'ABSENT (will use PATH)';
 
         const port = Number(config.PORT || 5000);
