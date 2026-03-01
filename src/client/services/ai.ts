@@ -19,8 +19,10 @@ const getAuthHeaders = (): Record<string, string> => {
 
 export const geminiService = {
     async polishExperience(rawText: string, apiKey?: string) {
-        // If apiKey is provided, use it directly (Local mode or user-override)
-        if (apiKey) {
+        // Only use direct client-side AI if explicitly provided AND we are in local dev mode
+        const isLocalMode = (import.meta as any).env.IS_LOCAL === 'true';
+        
+        if (apiKey && isLocalMode) {
             const prompt = `
                 You are an expert resume writer and LaTeX specialist. 
                 Convert the following raw job experience description into professional, high-impact bullet points.
@@ -83,7 +85,8 @@ CORE INSTRUCTIONS:
 6. Do NOT invent data. Preserve dates exactly.
 7. Return ONLY the final LaTeX text. 
 `;
-        if (apiKey) {
+        const isLocalMode = (import.meta as any).env.IS_LOCAL === 'true';
+        if (apiKey && isLocalMode) {
             const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL_NAME}:generateContent?key=${apiKey}`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -129,7 +132,9 @@ CORE INSTRUCTIONS:
             Return ONLY a valid JSON array of objects: [{ "type": BlockType, "data": { ... } }]
         `;
 
-        if (apiKey) {
+        const isLocalMode = (import.meta as any).env.IS_LOCAL === 'true';
+
+        if (apiKey && isLocalMode) {
             let body: any;
             if (type === 'text') {
                 body = { contents: [{ parts: [{ text: prompt + "\n\nINPUT:\n" + content }] }] };

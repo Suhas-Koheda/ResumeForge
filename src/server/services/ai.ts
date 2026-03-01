@@ -127,17 +127,25 @@ CORE INSTRUCTIONS:
                 You are a resume data extractor. 
                 Extract all information from the provided text/LaTeX and return it as a JSON array of ResumeBlock objects.
                 
-                Supported block types: 'header', 'experience', 'education', 'skills', 'project'.
+                Supported block types: 'header', 'experience', 'education', 'skills', 'project', 'summary', 'other'.
                 
-                JSON Structure for data field:
+                CRITICAL RULES:
+                1. DO NOT make any assumptions or invent data.
+                2. You MUST strictly return all available sections. Do not drop a single entry or data point.
+                3. For Projects, if a date or time period exists, map it to the "duration" field.
+                4. For Experience, map the date or time period to "duration".
+
+                JSON Structure for each type (inside 'data' field):
                 - 'header': { "name": "", "email": "", "phone": "", "location": "", "website": "", "linkedin": "", "github": "" }
-                - 'experience': { "company": "", "role": "", "duration": "", "location": "", "highlights": [...] }
+                - 'experience': { "company": "", "role": "", "duration": "", "location": "", "highlights": ["Point 1", "..."] }
                 - 'education': { "school": "", "degree": "", "year": "", "location": "" }
-                - 'skills': { "category": "", "skills": "Skill1, Skill2, ..." }
-                - 'project': { "title": "", "duration": "", "technologies": "", "highlights": [...] }
+                - 'skills': { "category": "", "skills": "List, separated by commas" }
+                - 'project': { "title": "", "duration": "", "technologies": "", "highlights": ["Point 1", "..."] }
+                - 'summary': { "summary": "Full text of professional description" }
+                - 'other': { "title": "CUSTOM TITLE", "highlights": ["Item 1"], "content": "OR plain text if no list" }
 
                 Rules:
-                - Output ONLY a valid JSON array.
+                - Output ONLY a valid JSON array of objects: [{ "type": BlockType, "data": { ... } }]
                 - Do NOT include markdown code fences (\`\`\`json).
                 - Do NOT include any preamble or commentary.
                 
