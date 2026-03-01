@@ -377,7 +377,7 @@ function App() {
     return (
         <div className="h-screen h-[100dvh] w-screen flex flex-col bg-white dark:bg-[#111215] overflow-hidden font-mono selection:bg-black selection:text-white dark:selection:bg-white dark:selection:text-black">
             <Toaster position="bottom-right" />
-            <header className="h-10 sm:h-12 border-b border-zinc-200 dark:border-[#2d3042] bg-white dark:bg-[#1e2028] flex items-center justify-between px-2 sm:px-4 z-20 shrink-0">
+            <header className="h-10 sm:h-12 border-b border-zinc-200 dark:border-[#2d3042] bg-white dark:bg-[#1e2028] flex items-center justify-between px-2 sm:px-4 z-[60] relative shrink-0">
                 <div className="flex items-center gap-2 sm:gap-6">
                     <div className="flex items-center gap-1.5 sm:gap-2 mr-2">
                         <Terminal size={12} className="text-black dark:text-white" />
@@ -439,7 +439,7 @@ function App() {
 
                     <div className="hidden lg:block w-px h-4 bg-zinc-200 dark:bg-zinc-800"></div>
 
-                    <div className="flex gap-1 bg-zinc-100 dark:bg-[#111215] p-0.5 sm:p-1 border border-zinc-200 dark:border-[#2d3042] rounded-full overflow-x-auto max-w-[120px] sm:max-w-none no-scrollbar">
+                    <div className="hidden sm:flex gap-1 bg-zinc-100 dark:bg-[#111215] p-0.5 sm:p-1 border border-zinc-200 dark:border-[#2d3042] rounded-full overflow-x-auto max-w-none no-scrollbar">
                         {resumes.map((r, idx) => (
                             <div key={idx} className="relative group/pill flex items-center shrink-0">
                                 <button
@@ -495,10 +495,10 @@ function App() {
                     <div className="flex items-center gap-1 border border-zinc-200 dark:border-zinc-800 p-0.5 sm:p-1 relative">
                         <button
                             onClick={() => setShowExportMenu(!showExportMenu)}
-                            className="px-3 py-1.5 text-[9px] font-bold uppercase tracking-[0.2em] bg-black dark:bg-white text-white dark:text-black hover:opacity-90 transition-all flex items-center gap-2"
+                            className="px-2 sm:px-3 py-1.5 text-[9px] font-bold uppercase tracking-[0.2em] bg-black dark:bg-white text-white dark:text-black hover:opacity-90 transition-all flex items-center gap-1 sm:gap-2"
                         >
                             <Download size={10} />
-                            EXPORT
+                            <span className="hidden sm:inline">EXPORT</span>
                             <ChevronDown size={8} className={`transition-transform duration-200 ${showExportMenu ? 'rotate-180' : ''}`} />
                         </button>
 

@@ -185,11 +185,11 @@ const CanvasRegistry: React.FC = () => {
                 {({ zoomIn, zoomOut, resetTransform }) => (
                     <>
                         {/* ── Zoom Controls ─────────────────────────────────────── */}
-                        <div className="absolute bottom-8 right-8 z-50 flex flex-col gap-1">
-                            <div className="flex overflow-hidden rounded border border-zinc-200 dark:border-[#2d3042] bg-white dark:bg-[#1e2028]">
+                        <div className="absolute bottom-20 sm:bottom-8 right-4 sm:right-8 z-40 flex flex-col gap-1">
+                            <div className="flex flex-col sm:flex-row overflow-hidden rounded border border-zinc-200 dark:border-[#2d3042] bg-white dark:bg-[#1e2028]">
                                 <button
                                     onClick={() => zoomIn()}
-                                    className="p-3 transition-colors hover:bg-zinc-50 dark:hover:bg-white/5 border-r border-zinc-100 dark:border-[#2d3042]"
+                                    className="p-3 transition-colors hover:bg-zinc-50 dark:hover:bg-white/5 border-b sm:border-r border-zinc-100 dark:border-[#2d3042]"
                                 >
                                     <Plus size={14} className="text-zinc-500 dark:text-zinc-400" />
                                 </button>
@@ -220,7 +220,7 @@ const CanvasRegistry: React.FC = () => {
 
                         {/* ── Mini-legend ─────────────────────────────────────── */}
                         {blocks.length > 0 && (
-                            <div className="absolute top-4 right-4 z-50 flex flex-col gap-1 p-3 rounded border border-zinc-200 dark:border-[#2d3042] bg-white dark:bg-[#1e2028] shadow-sm">
+                            <div className="absolute top-4 right-4 z-40 hidden sm:flex flex-col gap-1 p-3 rounded border border-zinc-200 dark:border-[#2d3042] bg-white dark:bg-[#1e2028] shadow-sm pointer-events-none">
                                 {Object.entries(grouped).map(([type, group]) => (
                                     <div key={type} className="flex items-center gap-2">
                                         <div style={{ width: 8, height: 8, borderRadius: '50%', background: TYPE_ACCENT[type] ?? '#71717a' }} />
