@@ -9,8 +9,8 @@
         "build": "npm run build:client && npm run build:server",
         "build:client": "vite build --outDir dist/client",
         "build:server": "tsc -p tsconfig.server.json",
-        "vercel-build": "bash scripts/install-tectonic.sh && npm run build:client",
-        "postinstall": "bash scripts/install-tectonic.sh || true",
+        "vercel-build": "node scripts/install-tectonic.js && npm run build:client",
+        "postinstall": "node scripts/install-tectonic.js || true",
         "build:pdf": ".bin/tectonic resume.tex",
         "start": "node dist/server/index.js",
         "lint": "eslint . --ext ts,tsx"

@@ -6,12 +6,12 @@ class MailService {
 
     constructor() {
         this.transporter = nodemailer.createTransport({
-            host: config.SMTP_HOST,
-            port: config.SMTP_PORT,
-            secure: config.SMTP_PORT === 465,
-            auth: config.SMTP_USER ? {
-                user: config.SMTP_USER,
-                pass: config.SMTP_PASS,
+            host: config.EMAIL.SMTP_HOST,
+            port: config.EMAIL.SMTP_PORT as number,
+            secure: config.EMAIL.SMTP_PORT === 465,
+            auth: config.EMAIL.SMTP_USER ? {
+                user: config.EMAIL.SMTP_USER,
+                pass: config.EMAIL.SMTP_PASS,
             } : undefined,
         });
     }
@@ -20,7 +20,7 @@ class MailService {
         const verificationUrl = `${config.APP_URL}/verify?token=${token}`;
         
         const mailOptions = {
-            from: config.SMTP_FROM,
+            from: config.EMAIL.SMTP_FROM,
             to: email,
             subject: 'Verify your ResumeForge account',
             html: `
