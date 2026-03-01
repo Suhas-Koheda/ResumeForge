@@ -14,45 +14,70 @@ const parseSafeJson = (text: string) => {
 };
 
 let rotationIndex = 0;
-const getRotatingModel = (modelName: string = config.GEMINI_MODEL_NAME) => {
+
+/**
+ * Execute a task with API key rotation and retries for rate limits.
+ */
+async function executeWithRotation<T>(task: (model: any) => Promise<T>, modelName: string = config.GEMINI_MODEL_NAME): Promise<T> {
     const keys = [...config.GEMINI_API_KEYS].filter(Boolean);
     if (keys.length === 0) throw new Error("No Gemini API keys configured");
 
-    // Pick key based on rotation index
-    const key = keys[rotationIndex % keys.length];
-    rotationIndex++;
+    let attempts = 0;
+    let lastError: any = null;
 
-    const client = new GoogleGenerativeAI(key);
-    return client.getGenerativeModel({ model: modelName });
-};
+    while (attempts < keys.length) {
+        const key = keys[rotationIndex % keys.length];
+        const client = new GoogleGenerativeAI(key);
+        const model = client.getGenerativeModel({ model: modelName });
+
+        try {
+            return await task(model);
+        } catch (error: any) {
+            lastError = error;
+            // Check for rate limit error (429)
+            if (error?.status === 429 || error?.message?.includes("429") || error?.message?.includes("Quota exceeded")) {
+                console.warn(`[LOG_AI_BACKEND] API Key ${rotationIndex % keys.length} rate limited. Rotating...`);
+                rotationIndex++; // Switch to next key
+                attempts++;
+                continue;
+            }
+            // If it's not a rate limit error, throw immediately
+            throw error;
+        }
+    }
+
+    console.error("[LOG_AI_BACKEND] All API keys exhausted (rate limited).");
+    throw lastError || new Error("All Gemini API keys are currently rate limited.");
+}
 
 export const aiService = {
     async polishExperience(rawText: string) {
-        const model = getRotatingModel();
-        const prompt = `
-            You are an expert resume writer and LaTeX specialist. 
-            Convert the following raw job experience description into professional, high-impact bullet points.
-            Input: "${rawText}"
-            
-            Return the response in strictly valid JSON format:
-            {
-                "polishedPoints": ["Point 1", "Point 2"],
-                "latexCode": "\\\\customItemListStart\\n  \\\\customItem{...}\\n\\\\customItemListEnd"
-            }
-            
-            Rules:
-            - Output ONLY valid JSON.
-            - Do NOT include markdown code fences (\`\`\`json).
-            - Do NOT include notes or explanations.
-        `;
-        const result = await model.generateContent(prompt);
-        const textResponse = result.response.text();
-        return JSON.stringify(parseSafeJson(textResponse));
+        return executeWithRotation(async (model) => {
+            const prompt = `
+                You are an expert resume writer and LaTeX specialist. 
+                Convert the following raw job experience description into professional, high-impact bullet points.
+                Input: "${rawText}"
+                
+                Return the response in strictly valid JSON format:
+                {
+                    "polishedPoints": ["Point 1", "Point 2"],
+                    "latexCode": "\\\\customItemListStart\\n  \\\\customItem{...}\\n\\\\customItemListEnd"
+                }
+                
+                Rules:
+                - Output ONLY valid JSON.
+                - Do NOT include markdown code fences (\`\`\`json).
+                - Do NOT include notes or explanations.
+            `;
+            const result = await model.generateContent(prompt);
+            const textResponse = result.response.text();
+            return JSON.stringify(parseSafeJson(textResponse));
+        });
     },
 
     async assembleResume(blocks: ResumeBlock[], template: string) {
-        const model = getRotatingModel();
-        const prompt = `
+        return executeWithRotation(async (model) => {
+            const prompt = `
 You are a LaTeX resume engine.
 
 CRITICAL: You MUST strictly follow the provided template structure.
@@ -114,13 +139,13 @@ If no data exists for a section, omit that section entirely.
 
 Return ONLY raw LaTeX.
 `;
-        const result = await model.generateContent(prompt);
-        return result.response.text();
+            const result = await model.generateContent(prompt);
+            return result.response.text();
+        });
     },
 
     async parseResume(content: string) {
-        try {
-            const model = getRotatingModel();
+        return executeWithRotation(async (model) => {
             const prompt = `
                 You are a resume data extractor. 
                 Extract all information from the provided text/LaTeX and return it as a JSON array of ResumeBlock objects.
@@ -149,9 +174,6 @@ Return ONLY raw LaTeX.
 
             const parsed = parseSafeJson(textResponse);
             return JSON.stringify(parsed);
-        } catch (error: any) {
-            console.error("[LOG_AI_BACKEND] ERROR in parseResume:", error);
-            throw error;
-        }
+        });
     }
 };

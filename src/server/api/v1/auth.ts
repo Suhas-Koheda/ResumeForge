@@ -19,7 +19,7 @@ router.post('/register', async (req, res) => {
         const user = userRepo.create({ email, password: hashedPassword });
         await userRepo.save(user);
 
-        // Generate token immediately on registration
+        // Direct login on signup (as requested previously)
         const token = jwt.sign({ userId: user.id }, config.JWT_SECRET, { expiresIn: '7d' });
         res.status(201).json({ message: 'User created successfully', token });
     } catch (error) {

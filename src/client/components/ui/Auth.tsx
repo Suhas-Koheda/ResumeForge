@@ -69,7 +69,7 @@ export const Auth = ({ onBack, onSuccess }: { onBack: () => void, onSuccess: () 
                     <h2 className="text-xl font-black uppercase tracking-widest">
                         {isLogin ? 'Authenticate' : 'Initialize'}
                     </h2>
-                    <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-2">
+                    <p className="text-[10px] text-zinc-500 uppercase tracking-widest mt-2 font-black italic">
                         {isLocal ? 'DEVELOPMENT MODE ACTIVE' : 'SECURE ACCESS'}
                     </p>
                 </div>
@@ -81,7 +81,7 @@ export const Auth = ({ onBack, onSuccess }: { onBack: () => void, onSuccess: () 
                         </div>
                     )}
 
-                    {successMessage && (
+                    {successMessage && !error && (
                         <div className="bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-900 text-green-600 dark:text-green-400 text-[10px] uppercase font-bold tracking-wider p-3 text-center flex items-center justify-center gap-2">
                             <CheckCircle size={10} />
                             {successMessage}
@@ -95,7 +95,7 @@ export const Auth = ({ onBack, onSuccess }: { onBack: () => void, onSuccess: () 
                             required
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
-                            className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 px-4 py-3 text-xs outline-none focus:border-black dark:focus:border-white transition-colors placeholder:text-zinc-400"
+                            className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 px-4 py-3 text-[11px] outline-none focus:border-black dark:focus:border-white transition-all font-mono text-zinc-900 dark:text-zinc-300 placeholder:text-zinc-400 shadow-sm"
                             placeholder="user@domain.com"
                         />
                     </div>
@@ -107,7 +107,7 @@ export const Auth = ({ onBack, onSuccess }: { onBack: () => void, onSuccess: () 
                             required
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            className="w-full bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 px-4 py-3 text-xs outline-none focus:border-black dark:focus:border-white transition-colors"
+                            className="w-full bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 px-4 py-3 text-[11px] outline-none focus:border-black dark:focus:border-white transition-all font-mono text-zinc-900 dark:text-zinc-300 shadow-sm"
                             placeholder="••••••••"
                         />
                     </div>
@@ -134,7 +134,7 @@ export const Auth = ({ onBack, onSuccess }: { onBack: () => void, onSuccess: () 
                 <div className="mt-6 flex justify-center border-t border-zinc-200 dark:border-zinc-800 pt-6">
                     <button 
                         type="button"
-                        onClick={() => setIsLogin(!isLogin)}
+                        onClick={() => { setIsLogin(!isLogin); setError(null); setSuccessMessage(null); }}
                         className="text-[10px] uppercase font-bold tracking-widest text-zinc-500 hover:text-black dark:hover:text-white transition-colors"
                     >
                         {isLogin ? 'Initialize New Node →' : '← Back to Sign In'}

@@ -5,7 +5,7 @@
  */
 
 const API_BASE_URL = (import.meta as any).env.VITE_API_URL || '/api/v1';
-const GEMINI_MODEL_NAME = (import.meta as any).env.GEMINI_MODEL_NAME || 'gemini-3.1-pro-preview';
+const GEMINI_MODEL_NAME = (import.meta as any).env.GEMINI_MODEL_NAME || 'gemini-2.5-flash';
 
 import { ResumeBlock, BlockType } from '@shared/types';
 import { useBuilderStore } from '../store/useBuilderStore';
