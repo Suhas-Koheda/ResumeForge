@@ -122,22 +122,40 @@ export const latexService = {
             // ---------------------------------------------------------------
             let source = latexCode;
 
-            // \pdfgentounicode=1  – pdflatex only
+            // 1. pdfLaTeX primitives
             source = source.replace(/\\pdfgentounicode\s*=\s*\d+/gi, '');
-
-            // \pdfglyphtounicode{...}{...}  – pdflatex only
             source = source.replace(/\\pdfglyphtounicode\s*\{[^}]*\}\s*\{[^}]*\}/gi, '');
-
-            // \input{glyphtounicode} – pdflatex specific
             source = source.replace(/\\input\s*\{glyphtounicode\}/gi, '');
-
-            // \pdf primitives
             source = source.replace(/\\pdf(minorversion|compresslevel|objcompresslevel)\s*=\s*\d+/gi, '');
 
-            // Packages not needed for Tectonic/XeTeX
+            // 2. Multi-file commands (Curve and others)
+            // Neutralize makerubric/input of unknown local files that aren't provided
+            // We keep them as comments or replace them with harmless text to prevent crash
+            source = source.replace(/\\makerubric\s*\{([^}]*)\}/gi, '% Rubric: $1 (Flattened by ResumeForge)\n');
+            source = source.replace(/\\includecomment\s*\{([^}]*)\}/gi, '% includecomment: $1');
+            source = source.replace(/\\excludecomment\s*\{([^}]*)\}/gi, '% excludecomment: $1');
+            source = source.replace(/\\addbibresource\s*\{[^}]*\}/gi, '% stripped bibresource');
+            source = source.replace(/\\mynames\s*\{[^}]*\}/gi, '% stripped custom macro: mynames');
+            source = source.replace(/\\DefineBibliographyStrings\s*\{[^}]*\}\s*\{[^}]*\}/gi, '% stripped bib command');
+            source = source.replace(/\\prefixmarker\s*\{[^}]*\}/gi, '% stripped custom macro: prefixmarker');
+            source = source.replace(/\\photoscale\s*\{[^}]*\}/gi, '% stripped custom macro: photoscale');
+            
+            // 3. Graphics/External Files
+            // Neutralize missing images that would cause "File not found" errors
+            source = source.replace(/\\includegraphics\s*(\[[^\]]*\])?\s*\{([^}]*)\}/gi, (match, opts, path) => `% missing image: ${path}`);
+            source = source.replace(/\\photo\s*(\[[^\]]*\])?\s*\{([^}]*)\}/gi, (match, opts, path) => `% missing photo: ${path}`);
+
+            // 4. Specific XeTeX/pdfLaTeX conditionals
+            // Define ifxetexorluatex if it's used but not defined (common in Curve)
+            if (source.includes('ifxetexorluatex') && !source.includes('newif\\ifxetexorluatex')) {
+                source = '\\newif\\ifxetexorluatex\n\\xetexorluatextrue\n' + source;
+            }
+
+            // 5. Packages not needed for Tectonic/XeTeX
             source = source.replace(/\\usepackage\s*(\[[^\]]*\])?\s*\{inputenc\}/gi, '% stripped inputenc');
             source = source.replace(/\\usepackage\s*(\[[^\]]*\])?\s*\{fontenc\}/gi, '% stripped fontenc');
-
+            source = source.replace(/\\usepackage\s*(\[[^\]]*\])?\s*\{settings\}/gi, '% stripped settings');
+            
             await fs.writeFile(texPath, source, 'utf8');
 
             // ---------------------------------------------------------------

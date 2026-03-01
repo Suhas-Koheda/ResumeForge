@@ -131,22 +131,48 @@ export class LatexParserEngine {
         const sections: Array<{ title: string; content: latexParser.Node[] }> = [];
         let currentSection: { title: string; content: latexParser.Node[] } = { title: 'Header', content: [] };
 
-        for (const node of ast.content) {
-            if (node.kind === 'command' && (node.name === 'section' || node.name === 'cvsection')) {
-                // Determine title from args
-                if (currentSection.title !== 'Header' || currentSection.content.length > 0) {
-                    sections.push(currentSection);
+        const SECTION_COMMANDS = ['section', 'cvsection', 'makerubric', 'input'];
+
+        const traverse = (nodes: latexParser.Node[]) => {
+            for (const node of nodes) {
+                if (node.kind === 'command' && SECTION_COMMANDS.includes(node.name)) {
+                    // Determine title from args
+                    const titleArg = node.args.find(a => a.kind === 'arg.group');
+                    let title = '';
+
+                    if (titleArg && titleArg.content && titleArg.content[0]) {
+                        if (titleArg.content[0].kind === 'text.string') {
+                            title = titleArg.content[0].content;
+                        }
+                    }
+
+                    // Filter out common non-section inputs
+                    if (node.name === 'input' && (title === 'glyphtounicode' || title.endsWith('.sty') || title.endsWith('.cls'))) {
+                        currentSection.content.push(node);
+                        continue;
+                    }
+
+                    if (title) {
+                        if (currentSection.title !== 'Header' || currentSection.content.length > 0) {
+                            sections.push(currentSection);
+                        }
+                        // For makerubric/input, capitalize first letter to make it look like a section
+                        const displayTitle = title.charAt(0).toUpperCase() + title.slice(1);
+                        currentSection = { title: displayTitle, content: [] };
+                    } else {
+                        currentSection.content.push(node);
+                    }
+                } else if (node.kind === 'env' && node.name === 'document') {
+                    // Recurse into document body
+                    traverse(node.content);
+                } else {
+                    currentSection.content.push(node);
                 }
-                const titleArg = node.args.find(a => a.kind === 'arg.group');
-                let title = 'Section';
-                if (titleArg && titleArg.content && titleArg.content[0] && titleArg.content[0].kind === 'text.string') {
-                    title = titleArg.content[0].content;
-                }
-                currentSection = { title, content: [] };
-            } else {
-                currentSection.content.push(node);
             }
-        }
+        };
+
+        traverse(ast.content);
+        
         if (currentSection.content.length > 0) {
             sections.push(currentSection);
         }
