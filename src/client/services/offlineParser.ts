@@ -5,14 +5,31 @@ export const offlineLatexParser = {
         const blocks: Partial<ResumeBlock>[] = [];
 
         // Header
-        const nameMatch = latex.match(/\\Huge\s+\\scshape\s+(?:\\color\{[^}]+\}\s*)?([^}\\]+)/);
-        const emailMatch = latex.match(/mailto:([^}]+)/);
-        const phoneMatch = latex.match(/\\faPhone\\\s*([\+\d\-]+)/) || latex.match(/\\Telefon\\\s*([\+\d\-]+)/);
-        const locationMatch = latex.match(/\\vspace\{[^}]+\}\s*([^~\\]+)/) || latex.match(/Hyderabad, India/) || latex.match(/\\begin\{center\}[^]*?([^\n,]+,\s*[^\n\\]+)[^]*?\\faPhone/);
+        const nameMatch = latex.match(/\\Huge\s+\\scshape\s+(?:\\color\{[^}]+\}\s*)?([^}\\]+)/) || 
+                          latex.match(/\\LARGE\\bfseries\\sffamily\s*([^}\\]+)/) ||
+                          latex.match(/\\Huge\s*([^}\\]+)/);
 
-        const websiteMatch = latex.match(/\\href\{([^}]+)\}\s*\{\\faGlobe/) || latex.match(/\\href\{([^}]+)\}\s*\{\\Mundus/);
-        const linkedinMatch = latex.match(/\\href\{([^}]+)\}\s*\{\\faLinkedin/) || latex.match(/\\href\{([^}]+)\}\s*\{\\textbf\{L\}/);
-        const githubMatch = latex.match(/\\href\{([^}]+)\}\s*\{\\faGithub/) || latex.match(/\\href\{([^}]+)\}\s*\{\\textbf\{G\}/);
+        const emailMatch = latex.match(/mailto:([^}]+)/) || latex.match(/\\faEnvelope(?:\[regular\])?\}\{\\href\{mailto:([^}]+)\}/);
+        const phoneMatch = latex.match(/\\faPhone\\\s*([\+\d\-]+)/) || 
+                           latex.match(/\\Telefon\\\s*([\+\d\-]+)/) ||
+                           latex.match(/\\makefield\{\\faPhone\}\{\\texttt\{([^}]+)\}/);
+        
+        const locationMatch = latex.match(/\\vspace\{[^}]+\}\s*([^~\\]+)/) || 
+                              latex.match(/Hyderabad, India/) || 
+                              latex.match(/\\begin\{center\}[^]*?([^\n,]+,\s*[^\n\\]+)[^]*?\\faPhone/) ||
+                              latex.match(/\\makefield\{\\faMapMarker\}\{([^}]+)\}/);
+
+        const websiteMatch = latex.match(/\\href\{([^}]+)\}\s*\{\\faGlobe/) || 
+                             latex.match(/\\href\{([^}]+)\}\s*\{\\Mundus/) ||
+                             latex.match(/\\makefield\{\\faGlobe\}\{\\url\{([^}]+)\}/);
+
+        const linkedinMatch = latex.match(/\\href\{([^}]*linkedin\.com\/in\/[^}]*)\}/) || 
+                              latex.match(/\\href\{([^}]+)\}\s*\{\\faLinkedin/) || 
+                              latex.match(/\\href\{([^}]+)\}\s*\{\\textbf\{L\}/);
+
+        const githubMatch = latex.match(/\\href\{([^}]*github\.com\/[^}]*)\}/) ||
+                            latex.match(/\\href\{([^}]+)\}\s*\{\\faGithub/) || 
+                            latex.match(/\\href\{([^}]+)\}\s*\{\\textbf\{G\}/);
 
         if (nameMatch || emailMatch || phoneMatch) {
             blocks.push({
@@ -26,6 +43,16 @@ export const offlineLatexParser = {
                     linkedin: linkedinMatch ? linkedinMatch[1].trim() : '',
                     github: githubMatch ? githubMatch[1].trim() : ''
                 }
+            });
+        }
+
+        // Summary
+        const summaryMatch = latex.match(/\\section\*?\{Summary\}([^]*?)(?=\\section|\\makerubric|\\end\{document\}|$)/i) ||
+                             latex.match(/\\section\*?\{Professional Summary\}([^]*?)(?=\\section|\\makerubric|\\end\{document\}|$)/i);
+        if (summaryMatch) {
+            blocks.push({
+                type: 'summary',
+                data: { summary: this.unescapeLatex(summaryMatch[1].trim()) }
             });
         }
 

@@ -132,12 +132,38 @@ export const latexService = {
             // Neutralize makerubric/input of unknown local files that aren't provided
             // We keep them as comments or replace them with harmless text to prevent crash
             source = source.replace(/\\makerubric\s*\{([^}]*)\}/gi, '% Rubric: $1 (Flattened by ResumeForge)\n');
-            source = source.replace(/\\includecomment\s*\{([^}]*)\}/gi, '% includecomment: $1');
-            source = source.replace(/\\excludecomment\s*\{([^}]*)\}/gi, '% excludecomment: $1');
             source = source.replace(/\\addbibresource\s*\{[^}]*\}/gi, '% stripped bibresource');
             source = source.replace(/\\mynames\s*\{[^}]*\}/gi, '% stripped custom macro: mynames');
             source = source.replace(/\\DefineBibliographyStrings\s*\{[^}]*\}\s*\{[^}]*\}/gi, '% stripped bib command');
             source = source.replace(/\\prefixmarker\s*\{[^}]*\}/gi, '% stripped custom macro: prefixmarker');
+            // 2.5 Injected Fallbacks / Polyfills
+            const fallbacks = '\n% ResumeForge Auto-Injection Fallbacks\n' +
+                '\\usepackage{etoolbox}\n' +
+                '\\usepackage{comment}\n' +
+                '\\ifundef{\\includecomment}{\\newcommand{\\includecomment}[1]{\\newenvironment{#1}{}{}}}{\\ignore}\n' +
+                '\\ifundef{\\excludecomment}{\\newcommand{\\excludecomment}[1]{\\newenvironment{#1}{\\comment}{\\endcomment}}}{\\ignore}\n' +
+                '\\ifundef{\\leftheader}{\\newcommand{\\leftheader}[1]{#1}}{}\n' +
+                '\\ifundef{\\rightheader}{\\newcommand{\\rightheader}[1]{#1}}{}\n' +
+                '\\ifundef{\\makeheaders}{\\newcommand{\\makeheaders}[1][c]{}}{}\n' +
+                '\\ifundef{\\makerubric}{\\newcommand{\\makerubric}[1]{}}{}\n' +
+                '\\ifundef{\\photo}{\\newcommand{\\photo}[2][]{}}{}\n' +
+                '\\ifundef{\\photoscale}{\\newcommand{\\photoscale}[1]{}}{}\n' +
+                '\\ifundef{\\prefixmarker}{\\newcommand{\\prefixmarker}[1]{}}{}\n' +
+                '\\ifundef{\\entry}{\\newcommand{\\entry}[2][]{#2}}{}\n' +
+                '\\includecomment{fullonly}\n' + // Safety for common missing env
+                '\\newif\\ifxetexorluatex\n' +
+                '\\xetexorluatextrue\n';
+
+            if (source.includes('\\documentclass')) {
+                source = source.replace(/(\\documentclass[^{]*\{[^}]*\})/, '$1' + fallbacks);
+            } else {
+                source = fallbacks + source;
+            }
+
+            source = source.replace(/\\input\s*\{([^}]*)\}/gi, (match, file) => {
+                if (file === 'glyphtounicode') return '';
+                return `% input: ${file} (Flattened by AI ResumeForge)\n`;
+            });
             source = source.replace(/\\photoscale\s*\{[^}]*\}/gi, '% stripped custom macro: photoscale');
             
             // 3. Graphics/External Files

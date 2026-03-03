@@ -206,28 +206,33 @@ export const geminiService = {
     async assembleFullResume(blocks: ResumeBlock[], template: string, apiKey?: string) {
         await applyRateLimit();
         const enabledBlocks = blocks.filter(b => b.enabled !== false);
+        const isFullDocument = template.includes('\\documentclass') || template.includes('\\begin{document}');
+
         const prompt = `
 You are a LaTeX resume builder.
-Your task is to take a set of resume blocks (JSON) and a LaTeX template (string) 
-to create the final section content.
+Your task is to take a set of "Resume Blocks" (JSON data) and a "LaTeX Template" (the skeleton) to create the final document.
 
 ==================================================
-TEMPLATE (LATEX):
+TEMPLATE (THE SKELETON):
 ${template || 'STRICTLY use standard commands like \\customSubHeading, \\customProject, \\customItem.'}
-==================================================
-INPUT DATA (JSON):
+==================================
+INPUT DATA (JSON BLOCKS):
 ${JSON.stringify(enabledBlocks)}
-==================================================
+==================================
 
 CORE INSTRUCTIONS:
-1. Use the template structure. If the template has placeholders (like [NAME] or {{EXPERIENCE}}), replace them with the data from the blocks.
-2. If the template is just a set of macros, use those macros to build the sections based on the blocks provided.
-3. Every \\customItemListStart MUST contain at least one \\customItem.
-   If no items exist for a section, DO NOT create the list.
-4. Output ONLY raw LaTeX section content. No preamble, no \\begin{document}, no markdown fences.
-5. Escape all LaTeX special characters: & → \\&, % → \\%, etc.
-6. Do NOT invent data. Preserve dates exactly.
-7. Return ONLY the final LaTeX text. 
+1. TEMPLATE-FIRST: The provided "TEMPLATE" is your ONLY document structure. 
+   - IGNORE any LaTeX formatting found INSIDE the JSON data values (e.g., if a name value is "{\\Huge Shivaji}", extract ONLY "Shivaji").
+   - Extract only the RAW text (Content) and insert it into the template's placeholders or macros.
+2. DOCUMENT CLASS: ${isFullDocument ? 'The template is a FULL DOCUMENT. Use its original \\documentclass. If the template uses "curve" commands but has "article" class, FIX it to \\documentclass{curve}.' : 'Snippet mode: Return raw LaTeX sections only.'}
+3. FLATTENING: We do NOT have external files. 
+   - Replace \\makerubric{employment} with formatting from "Experience" blocks.
+   - Replace \\makerubric{education} with formatting from "Education" blocks.
+   - Replace \\makerubric{skills} with formatting from "Skills" blocks.
+   - Replace \\input{...} with relevant data if identified.
+4. MACROS: Use the template's specific macros (e.g., \\leftheader, \\entry, \\makeheaders).
+5. SELF-CONTAINED: Ensure all required environments (like fullonly) and packages are handled in the final response.
+6. Return ONLY raw LaTeX text. No markdown fences.
 `;
         if (apiKey) {
             const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL_NAME}:generateContent?key=${apiKey}`, {

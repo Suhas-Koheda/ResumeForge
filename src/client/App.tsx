@@ -315,18 +315,34 @@ function App() {
     const handleAssemble = async () => {
         setIsAssembling(true);
         setShowBuildOutput(true);
-        setPreviewMode('code');
+        const toastId = toast.loading("AI Assembly in progress...", { position: "bottom-center" });
         try {
             const sectionContent = await geminiService.assembleFullResume(blocks, customTemplate || '', apiKey);
-            const headerData = blocks.find(b => b.type === 'header')?.data || {};
-            const fullDoc = manualLatexGenerator.generatePreamble(headerData) +
-                sectionContent +
-                manualLatexGenerator.generatePostamble();
-            setFullLatex(fullDoc);
+            
+            if (!sectionContent) {
+                toast.dismiss(toastId);
+                throw new Error("AI returned empty content. Please verify your API key and template.");
+            }
+            
+            toast.success("AI Assembly complete. Compiling PDF...", { id: toastId });
+            setPreviewMode('pdf');
+
+            // If the content is already a full document, don't wrap it
+            if (sectionContent.includes('\\documentclass') || sectionContent.includes('\\begin{document}')) {
+                setFullLatex(sectionContent);
+                downloadPdf(false, sectionContent);
+            } else {
+                const headerData = blocks.find(b => b.type === 'header')?.data || {};
+                const fullDoc = manualLatexGenerator.generatePreamble(headerData) +
+                    sectionContent +
+                    manualLatexGenerator.generatePostamble();
+                setFullLatex(fullDoc);
+                downloadPdf(false, fullDoc);
+            }
+            pdfUrl && URL.revokeObjectURL(pdfUrl);
             setPdfUrl(null);
-            downloadPdf(false);
-            toast.success("AI Assembly complete.");
         } catch (error: any) {
+            toast.dismiss(toastId);
             console.error("Assembly Error:", error);
             toast.error(error.message || "Failed to assemble resume. Check your API key.");
         } finally {
@@ -334,14 +350,14 @@ function App() {
         }
     };
 
-    const downloadPdf = async (shouldDownload = true) => {
+    const downloadPdf = async (shouldDownload = true, forcedContent?: string) => {
         setIsGeneratingPdf(true);
         setCompilationLog(null);
         try {
-            // CRITICAL: If we are in visual mode (pdf preview), regenerate from visual blocks 
-            // to ensure latest edits (like AI polish) are included.
-            let content = fullLatex;
-            if (previewMode === 'pdf' || !content) {
+            // CRITICAL: If we are in visual mode (pdf preview) and NO override is provided,
+            // regenerate from visual blocks to ensure latest edits are included.
+            let content = forcedContent || fullLatex || '';
+            if (!forcedContent && (previewMode === 'pdf' || !content)) {
                 content = manualLatexGenerator.generate(blocks);
                 setFullLatex(content);
             }
@@ -357,7 +373,8 @@ function App() {
                 link.click();
             }
         } catch (error: any) {
-            console.error("PDF Gen Error:", error);
+            console.error("PDF Gen Error:", error.message);
+            toast.error(`PDF Generation failed: ${error.message}`);
             setCompilationLog(error.message);
             setPreviewMode('pdf');
             setShowBuildOutput(true);
