@@ -2,11 +2,14 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { ResumeBlock, BlockType } from '@shared/types';
 
+import { LatexGenerationOptions } from '../../shared/template.types';
+
 interface ResumeStorage {
     id?: string;
     title?: string;
     blocks: ResumeBlock[];
     fullLatex: string | null;
+    templateOptions?: LatexGenerationOptions;
 }
 
 interface BuilderStore {
@@ -15,6 +18,7 @@ interface BuilderStore {
     blocks: ResumeBlock[];
     fullLatex: string | null;
     customTemplate: string;
+    templateOptions: LatexGenerationOptions;
     setResumeId: (index: number, id: string) => void;
     addBlock: (type: BlockType) => string;
     updateBlock: (id: string, data: any) => void;
@@ -23,6 +27,7 @@ interface BuilderStore {
     updateBlockPosition: (id: string, x: number, y: number) => void;
     setBlocks: (blocks: ResumeBlock[]) => void;
     setFullLatex: (latex: string | null) => void;
+    setTemplateOptions: (options: Partial<LatexGenerationOptions>) => void;
     switchResume: (index: number) => void;
     addResume: (data?: Partial<ResumeStorage>) => void;
     deleteResume: (index: number) => void;
@@ -44,17 +49,32 @@ const generateId = () => Math.random().toString(36).substring(2, 9);
 
 const INITIAL_BLOCKS: ResumeBlock[] = [];
 
+const DEFAULT_TEMPLATE_OPTIONS: LatexGenerationOptions = {
+    template: 'modern',
+    fontSize: 11,
+    paperSize: 'a4',
+    colorScheme: {
+        primary: '#2563eb',
+        secondary: '#4b5563',
+        accent: '#3b82f6'
+    },
+    fontFamily: 'sans',
+    showIcons: true,
+    sectionStyle: 'lined'
+};
+
 export const useBuilderStore = create<BuilderStore>()(
     persist(
         (set, get) => ({
             resumes: [
-                { blocks: INITIAL_BLOCKS, fullLatex: null }
+                { blocks: INITIAL_BLOCKS, fullLatex: null, templateOptions: DEFAULT_TEMPLATE_OPTIONS }
             ],
             activeResumeIndex: 0,
             blocks: INITIAL_BLOCKS,
             fullLatex: null,
             apiKey: '',
             customTemplate: '',
+            templateOptions: DEFAULT_TEMPLATE_OPTIONS,
             token: null,
             userEmail: null,
             isVerified: false,
@@ -100,10 +120,11 @@ export const useBuilderStore = create<BuilderStore>()(
                     set({
                         resumes: formattedResumes,
                         activeResumeIndex: newIndex,
-                        blocks: formattedResumes[newIndex].blocks,
-                        fullLatex: formattedResumes[newIndex].fullLatex,
-                    });
-                }
+                         blocks: formattedResumes[newIndex].blocks,
+                         fullLatex: formattedResumes[newIndex].fullLatex,
+                         templateOptions: formattedResumes[newIndex].templateOptions || DEFAULT_TEMPLATE_OPTIONS
+                     });
+                 }
             },
 
             setResumeId: (index, id) => set((state) => {
@@ -122,14 +143,24 @@ export const useBuilderStore = create<BuilderStore>()(
                 };
                 return { blocks, resumes: newResumes };
             }),
-            setFullLatex: (fullLatex) => set((state) => {
-                const newResumes = [...state.resumes];
-                newResumes[state.activeResumeIndex] = {
-                    ...newResumes[state.activeResumeIndex],
-                    fullLatex
-                };
-                return { fullLatex, resumes: newResumes };
-            }),
+             setFullLatex: (fullLatex) => set((state) => {
+                 const newResumes = [...state.resumes];
+                 newResumes[state.activeResumeIndex] = {
+                     ...newResumes[state.activeResumeIndex],
+                     fullLatex
+                 };
+                 return { fullLatex, resumes: newResumes };
+             }),
+ 
+             setTemplateOptions: (options) => set((state) => {
+                 const newOptions = { ...state.templateOptions, ...options };
+                 const newResumes = [...state.resumes];
+                 newResumes[state.activeResumeIndex] = {
+                     ...newResumes[state.activeResumeIndex],
+                     templateOptions: newOptions
+                 };
+                 return { templateOptions: newOptions, resumes: newResumes };
+             }),
 
             switchResume: (index) => {
                 const state = get();
@@ -138,7 +169,8 @@ export const useBuilderStore = create<BuilderStore>()(
                 newResumes[state.activeResumeIndex] = { 
                     ...newResumes[state.activeResumeIndex],
                     blocks: state.blocks, 
-                    fullLatex: state.fullLatex 
+                    fullLatex: state.fullLatex,
+                    templateOptions: state.templateOptions
                 };
 
                 // Load new from index
@@ -146,11 +178,12 @@ export const useBuilderStore = create<BuilderStore>()(
                 if (!target) return;
                 
                 set({
-                    activeResumeIndex: index,
-                    blocks: target.blocks,
-                    fullLatex: target.fullLatex,
-                    resumes: newResumes
-                });
+                     activeResumeIndex: index,
+                     blocks: target.blocks,
+                     fullLatex: target.fullLatex,
+                     templateOptions: target.templateOptions || DEFAULT_TEMPLATE_OPTIONS,
+                     resumes: newResumes
+                 });
             },
 
             addResume: (data) => {
@@ -161,7 +194,8 @@ export const useBuilderStore = create<BuilderStore>()(
                 newResumes[state.activeResumeIndex] = { 
                     ...newResumes[state.activeResumeIndex],
                     blocks: state.blocks, 
-                    fullLatex: state.fullLatex 
+                    fullLatex: state.fullLatex,
+                    templateOptions: state.templateOptions
                 };
                 
                 // Create new resume entry
@@ -178,7 +212,8 @@ export const useBuilderStore = create<BuilderStore>()(
                     resumes: newResumes,
                     activeResumeIndex: newIndex,
                     blocks: newResume.blocks,
-                    fullLatex: newResume.fullLatex
+                    fullLatex: newResume.fullLatex,
+                    templateOptions: newResume.templateOptions || DEFAULT_TEMPLATE_OPTIONS
                 });
             },
 

@@ -9,7 +9,7 @@ import authRouter from './api/v1/auth.js';
 import resumeRouter from './api/v1/resume.js';
 import exportRouter from './api/v1/export.js';
 import importRouter from './api/v1/import.js';
-import templateRouter from './api/v1/template.js';
+import templatesRouter from './api/v1/templates.js';
 import { aiService } from './services/ai.js';
 import { authMiddleware, AuthRequest } from './core/auth.js';
 import { verificationMiddleware } from './core/verification.js';
@@ -92,7 +92,7 @@ apiRouter.use('/auth', authRouter);
 apiRouter.use('/resumes', authMiddleware, verificationMiddleware, resumeRouter);
 apiRouter.use('/export', authMiddleware, verificationMiddleware, exportRouter);
 apiRouter.use('/import', authMiddleware, verificationMiddleware, importRouter);
-apiRouter.use('/templates', authMiddleware, templateRouter);
+apiRouter.use('/templates', authMiddleware, templatesRouter);
 
 apiRouter.post('/ai/experience', authMiddleware, verificationMiddleware, async (req, res) => {
     try {

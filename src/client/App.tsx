@@ -15,6 +15,10 @@ import { manualLatexGenerator } from './services/manualLatex';
 import { latexServerService } from './services/latex';
 import { offlineLatexParser } from './services/offlineParser';
 import toast, { Toaster } from 'react-hot-toast';
+import { TemplateSelector } from './components/template/TemplateSelector';
+import { TemplateCustomizer } from './components/template/TemplateCustomizer';
+import { TemplateSaver } from './components/template/TemplateSaver';
+import { latexGenerator } from './services/latexGenerator';
 
 function App() {
     const {
@@ -24,7 +28,8 @@ function App() {
         fullLatex, setFullLatex,
         viewState, setViewState,
         token, logout, setToken, setBlocks,
-        setResumeId, loadResumes, userEmail
+        setResumeId, loadResumes, userEmail,
+        templateOptions
     } = useResumeActions();
 
     const [isSaving, setIsSaving] = useState(false);
@@ -32,7 +37,7 @@ function App() {
     const [isAssembling, setIsAssembling] = useState(false);
     const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
     const [pdfUrl, setPdfUrl] = useState<string | null>(null);
-    const [previewMode, setPreviewMode] = useState<'code' | 'pdf' | 'template'>('pdf');
+    const [previewMode, setPreviewMode] = useState<'code' | 'pdf' | 'template' | 'forge'>('pdf');
     const [showBuildOutput, setShowBuildOutput] = useState(false);
     const [compilationLog, setCompilationLog] = useState<string | null>(null);
     const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
@@ -303,14 +308,16 @@ function App() {
         { type: 'other', label: 'Other', icon: Layers },
     ];
 
-    const handleManualAssemble = () => {
-        const latex = manualLatexGenerator.generate(blocks);
-        setFullLatex(latex);
-        setPdfUrl(null);
-        setShowBuildOutput(true);
-        setPreviewMode('pdf');
-        downloadPdf(false);
-    };
+     const handleManualAssemble = () => {
+         const latex = previewMode === 'forge' 
+             ? latexGenerator.generateFullResume(blocks, templateOptions)
+             : manualLatexGenerator.generate(blocks);
+         setFullLatex(latex);
+         setPdfUrl(null);
+         setShowBuildOutput(true);
+         setPreviewMode('pdf');
+         downloadPdf(false, latex);
+     };
 
     const handleAssemble = async () => {
         setIsAssembling(true);
@@ -327,14 +334,21 @@ function App() {
             toast.success("AI Assembly complete. Compiling PDF...", { id: toastId });
             setPreviewMode('pdf');
 
-            // If the content is already a full document, don't wrap it
-            if (sectionContent.includes('\\documentclass') || sectionContent.includes('\\begin{document}')) {
-                setFullLatex(sectionContent);
-                downloadPdf(false, sectionContent);
+            // Cleanup and sync
+            const cleanedContent = sectionContent
+                .replace(/[\u0107\u0106\u0131\u00E7\u00C7]/g, ' ') // ć, Ć, ı, ç, Ç
+                .replace(/(^|\s)\]\s+([~|]|http|\\href|\\url)/g, '$1$2')
+                .replace(/^\s*[\-\]]\s*$/gm, '')
+                .replace(/\s+[aćçbi\u0107\u0106\u0131]\s+(?=http|\\href|\\url|~~|\|)/gi, ' ')
+                .trim();
+
+            if (cleanedContent.includes('\\documentclass') || cleanedContent.includes('\\begin{document}')) {
+                setFullLatex(cleanedContent);
+                downloadPdf(false, cleanedContent);
             } else {
                 const headerData = blocks.find(b => b.type === 'header')?.data || {};
                 const fullDoc = manualLatexGenerator.generatePreamble(headerData) +
-                    sectionContent +
+                    cleanedContent +
                     manualLatexGenerator.generatePostamble();
                 setFullLatex(fullDoc);
                 downloadPdf(false, fullDoc);
@@ -354,11 +368,20 @@ function App() {
         setIsGeneratingPdf(true);
         setCompilationLog(null);
         try {
-            // CRITICAL: If we are in visual mode (pdf preview) and NO override is provided,
-            // regenerate from visual blocks to ensure latest edits are included.
+            // Sync source from visual state (Forge/PDF)
             let content = forcedContent || fullLatex || '';
-            if (!forcedContent && (previewMode === 'pdf' || !content)) {
-                content = manualLatexGenerator.generate(blocks);
+            if (!forcedContent && (previewMode === 'forge' || previewMode === 'pdf' || !content)) {
+                content = previewMode === 'forge'
+                    ? latexGenerator.generateFullResume(blocks, templateOptions)
+                    : manualLatexGenerator.generate(blocks);
+                
+                // Cleanup artifacts (hallucinated lone brackets and icon chars)
+                content = content
+                    .replace(/[\u0107\u0106\u0131\u00E7\u00C7]/g, ' ')
+                    .replace(/(^|\s)\]\s+([~|]|http|\\href|\\url)/g, '$1$2')
+                    .replace(/^\s*[\-\]]\s*$/gm, '')
+                    .replace(/\s+[aćçbi\u0107\u0106\u0131]\s+(?=http|\\href|\\url|~~|\|)/gi, ' ');
+                
                 setFullLatex(content);
             }
 
@@ -650,9 +673,10 @@ function App() {
                                 <div className="flex items-center gap-2 sm:gap-8">
                                     <h2 className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest">Compiler_Output</h2>
                                     <div className="flex border border-zinc-100 dark:border-zinc-800 p-0.5">
-                                        <button onClick={() => setPreviewMode('code')} className={`px-2 sm:px-4 py-1.5 text-[8px] sm:text-[9px] font-bold uppercase tracking-widest ${previewMode === 'code' ? 'bg-black text-white dark:bg-white dark:text-black' : 'text-zinc-400'}`}>Source</button>
-                                        <button onClick={() => setPreviewMode('template')} className={`px-2 sm:px-4 py-1.5 text-[8px] sm:text-[9px] font-bold uppercase tracking-widest ${previewMode === 'template' ? 'bg-black text-white dark:bg-white dark:text-black' : 'text-zinc-400'}`}>Template (AI)</button>
-                                        <button onClick={() => { if (!pdfUrl) downloadPdf(false); else setPreviewMode('pdf'); }} className={`px-2 sm:px-4 py-1.5 text-[8px] sm:text-[9px] font-bold uppercase tracking-widest ${previewMode === 'pdf' ? 'bg-black text-white dark:bg-white dark:text-black' : 'text-zinc-400'}`}>Preview</button>
+                                         <button onClick={() => setPreviewMode('code')} className={`px-2 sm:px-4 py-1.5 text-[8px] sm:text-[9px] font-bold uppercase tracking-widest ${previewMode === 'code' ? 'bg-black text-white dark:bg-white dark:text-black' : 'text-zinc-400'}`}>Source</button>
+                                         <button onClick={() => setPreviewMode('forge')} className={`px-2 sm:px-4 py-1.5 text-[8px] sm:text-[9px] font-bold uppercase tracking-widest ${previewMode === 'forge' ? 'bg-black text-white dark:bg-white dark:text-black' : 'text-zinc-400'}`}>Forge</button>
+                                         <button onClick={() => setPreviewMode('template')} className={`px-2 sm:px-4 py-1.5 text-[8px] sm:text-[9px] font-bold uppercase tracking-widest ${previewMode === 'template' ? 'bg-black text-white dark:bg-white dark:text-black' : 'text-zinc-400'}`}>Template (AI)</button>
+                                         <button onClick={() => { if (!pdfUrl) downloadPdf(false); else setPreviewMode('pdf'); }} className={`px-2 sm:px-4 py-1.5 text-[8px] sm:text-[9px] font-bold uppercase tracking-widest ${previewMode === 'pdf' ? 'bg-black text-white dark:bg-white dark:text-black' : 'text-zinc-400'}`}>Preview</button>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2">
@@ -671,9 +695,27 @@ function App() {
                             </header>
                             <div className="flex-1 overflow-hidden p-2 sm:p-12 bg-zinc-50 dark:bg-zinc-950 flex justify-center">
                                 <div className="w-full max-w-5xl bg-white dark:bg-black border border-zinc-200 dark:border-zinc-800 flex flex-col shadow-2xl overflow-hidden text-[13px]">
-                                    {previewMode === 'code' ? (
-                                        <textarea className="flex-1 p-8 font-mono bg-transparent resize-none outline-none text-zinc-800 dark:text-zinc-300" value={fullLatex || ''} onChange={(e) => setFullLatex(e.target.value)} spellCheck={false} />
-                                    ) : previewMode === 'template' ? (
+                                     {previewMode === 'code' ? (
+                                         <textarea className="flex-1 p-8 font-mono bg-transparent resize-none outline-none text-zinc-800 dark:text-zinc-300" value={fullLatex || ''} onChange={(e) => setFullLatex(e.target.value)} spellCheck={false} />
+                                     ) : previewMode === 'forge' ? (
+                                         <div className="flex-1 overflow-y-auto bg-slate-50 dark:bg-zinc-900 p-6">
+                                             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-7xl mx-auto">
+                                                 <div className="lg:col-span-1 space-y-6">
+                                                     <TemplateCustomizer />
+                                                     <TemplateSaver />
+                                                     <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-xl">
+                                                         <h4 className="text-[10px] font-black uppercase text-blue-600 dark:text-blue-400 mb-2">Pro Tip</h4>
+                                                         <p className="text-[11px] text-blue-800 dark:text-blue-200 italic leading-relaxed">
+                                                             The Forge uses TeX-native rendering for maximum precision. Any change here is reflected instantly in the "COMPILE" output.
+                                                         </p>
+                                                     </div>
+                                                 </div>
+                                                 <div className="lg:col-span-2">
+                                                     <TemplateSelector />
+                                                 </div>
+                                             </div>
+                                         </div>
+                                     ) : previewMode === 'template' ? (
                                         <div className="flex-1 flex flex-col h-full">
                                             <div className="flex border-b border-zinc-100 dark:border-zinc-800">
                                                 <div className="flex-1 p-2 flex gap-2 overflow-x-auto no-scrollbar">

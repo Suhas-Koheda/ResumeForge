@@ -3,6 +3,7 @@ import { config } from './config.js';
 import { User } from '../entities/User.entity.js';
 import { Resume } from '../entities/Resume.entity.js';
 import { Template } from '../entities/Template.entity.js';
+import { TemplateVersion } from '../entities/TemplateVersion.entity.js';
 
 export const AppDataSource = new DataSource(
     config.IS_LOCAL
@@ -11,7 +12,7 @@ export const AppDataSource = new DataSource(
             database: "local_dev.sqlite",
             synchronize: true,
             logging: true,
-            entities: [User, Resume, Template],
+            entities: [User, Resume, Template, TemplateVersion],
             subscribers: [],
             migrations: [],
         }
@@ -30,7 +31,7 @@ export const AppDataSource = new DataSource(
             })(),
             synchronize: true,
             logging: false,
-            entities: [User, Resume, Template],
+            entities: [User, Resume, Template, TemplateVersion],
             subscribers: [],
             migrations: [],
             ssl: { rejectUnauthorized: false },

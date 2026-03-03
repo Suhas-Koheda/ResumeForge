@@ -144,28 +144,59 @@ export const aiService = {
 
     async assembleResume(blocks: ResumeBlock[], template: string) {
         return executeWithRotation(async (model) => {
+            // ── TEMPLATE CLEANING ──────────────────────────────────
+            let cleanTemplate = (template || '').trim();
+            const docClassCount = (cleanTemplate.match(/\\documentclass/g) || []).length;
+            if (docClassCount > 1) {
+                const firstIdx = cleanTemplate.indexOf('\\documentclass');
+                const secondIdx = cleanTemplate.indexOf('\\documentclass', firstIdx + 1);
+                const endDocBefore = cleanTemplate.lastIndexOf('\\end{document}', secondIdx);
+                if (endDocBefore > firstIdx) {
+                    cleanTemplate = cleanTemplate.substring(0, endDocBefore + '\\end{document}'.length);
+                } else {
+                    cleanTemplate = cleanTemplate.substring(0, secondIdx).trim();
+                }
+            }
+
+            const docClassMatch = cleanTemplate.match(/\\documentclass(?:\[[^\]]*\])?\{([^}]*)\}/);
+            const docClass = docClassMatch ? docClassMatch[1] : 'article';
+            const isCurve = docClass === 'curve';
+            const standardClasses = ['article', 'report', 'book', 'letter', 'beamer', 'memoir', 'standalone', 'minimal', 'curve'];
+            const isCustomClass = !standardClasses.includes(docClass);
+            const isFullDocument = cleanTemplate.includes('\\documentclass');
+
+            // Strip embedded .cls/.sty source after \end{document}
+            const endDocIdx = cleanTemplate.lastIndexOf('\\end{document}');
+            if (endDocIdx > -1) {
+                cleanTemplate = cleanTemplate.substring(0, endDocIdx + '\\end{document}'.length);
+            }
+
             const prompt = `
-You are a LaTeX resume builder. 
-Your task is to take a set of resume blocks (JSON) and a LaTeX template (string) 
-to create the final section content.
+You are a LaTeX resume builder. You produce COMPILABLE LaTeX that works with XeTeX/Tectonic.
 
 ==================================================
-TEMPLATE (LATEX):
-${template || 'STRICTLY use standard commands like \\customSubHeading, \\customProject, \\customItem.'}
+TEMPLATE (visual/structural reference):
+${cleanTemplate || 'NO TEMPLATE — use standard article-class resume format.'}
 ==================================================
 INPUT DATA (JSON):
 ${JSON.stringify(blocks)}
 ==================================================
 
-CORE INSTRUCTIONS:
-1. Use the template structure. If the template has placeholders (like [NAME] or {{EXPERIENCE}}), replace them with the data from the blocks.
-2. If the template is just a set of macros, use those macros to build the sections based on the blocks provided.
-3. Every \\customItemListStart MUST contain at least one \\customItem.
-   If no items exist for a section, DO NOT create the list.
-4. Output ONLY raw LaTeX section content. No preamble, no \\begin{document}, no markdown fences.
-5. Escape all LaTeX special characters: & → \\&, % → \\%, etc.
-6. Do NOT invent data. Preserve dates exactly.
-7. Return ONLY the final LaTeX text. 
+DETECTED DOCUMENT CLASS: "${docClass}"
+${isCustomClass ? `\nWARNING: "${docClass}" is a CUSTOM class NOT available in Tectonic. Convert to \\documentclass[letterpaper,11pt]{article}.\n` : ''}
+CRITICAL RULES:
+1. DOCUMENT CLASS: ${isCustomClass
+    ? `"${docClass}" is NOT available. Use \\documentclass[letterpaper,11pt]{article} and replicate formatting with standard LaTeX.`
+    : isFullDocument ? `Use \\documentclass{${docClass}}.` : 'Use \\documentclass[letterpaper,11pt]{article}.'}
+2. ${isCurve
+    ? 'Curve-class: You MAY use \\makerubric, \\entry, \\leftheader, etc.'
+    : `FORBIDDEN: \\makerubric, \\begin{rubric}, \\entry, \\leftheader, \\rightheader, \\makeheaders, \\makefield, \\personalinfo, \\begin{fullonly}, \\photo, \\photoscale.
+   ${isCustomClass ? 'Do NOT use any custom class commands. Rewrite as standard LaTeX.' : ''}
+   Use: \\section{}, \\begin{itemize}, \\textbf{}, \\href{}{}, fontawesome5 icons.`}
+3. If the template defines custom macros, define them with \\newcommand in the preamble before using.
+4. Extract ONLY raw text from blocks. IGNORE LaTeX formatting inside JSON values.
+5. Output a SINGLE, COMPLETE, SELF-CONTAINED document. No \\input{}, no .cls files.
+6. Return ONLY raw LaTeX. No markdown fences, no explanations.
 `;
             const result = await model.generateContent(prompt);
             return result.response.text().replace(/```latex\n?|```\n?/g, "").trim();

@@ -206,33 +206,65 @@ export const geminiService = {
     async assembleFullResume(blocks: ResumeBlock[], template: string, apiKey?: string) {
         await applyRateLimit();
         const enabledBlocks = blocks.filter(b => b.enabled !== false);
-        const isFullDocument = template.includes('\\documentclass') || template.includes('\\begin{document}');
+
+        // ── TEMPLATE CLEANING ────────────────────────────────────────────
+        // If the user pasted multiple templates (e.g. article + curve), keep only the first.
+        let cleanTemplate = (template || '').trim();
+        const docClassCount = (cleanTemplate.match(/\\documentclass/g) || []).length;
+        if (docClassCount > 1) {
+            const firstIdx = cleanTemplate.indexOf('\\documentclass');
+            const secondIdx = cleanTemplate.indexOf('\\documentclass', firstIdx + 1);
+            // Find \end{document} before the second \documentclass
+            const endDocBefore = cleanTemplate.lastIndexOf('\\end{document}', secondIdx);
+            if (endDocBefore > firstIdx) {
+                cleanTemplate = cleanTemplate.substring(0, endDocBefore + '\\end{document}'.length);
+            } else {
+                cleanTemplate = cleanTemplate.substring(0, secondIdx).trim();
+            }
+        }
+
+        // Detect the actual document class
+        const docClassMatch = cleanTemplate.match(/\\documentclass(?:\[[^\]]*\])?\{([^}]*)\}/);
+        const docClass = docClassMatch ? docClassMatch[1] : 'article';
+        const isCurve = docClass === 'curve';
+        const standardClasses = ['article', 'report', 'book', 'letter', 'beamer', 'memoir', 'standalone', 'minimal', 'curve'];
+        const isCustomClass = !standardClasses.includes(docClass);
+        const isFullDocument = cleanTemplate.includes('\\documentclass') || cleanTemplate.includes('\\begin{document}');
+
+        // Strip any embedded .cls/.sty source pasted after \end{document}
+        const endDocIdx = cleanTemplate.lastIndexOf('\\end{document}');
+        if (endDocIdx > -1) {
+            cleanTemplate = cleanTemplate.substring(0, endDocIdx + '\\end{document}'.length);
+        }
 
         const prompt = `
-You are a LaTeX resume builder.
-Your task is to take a set of "Resume Blocks" (JSON data) and a "LaTeX Template" (the skeleton) to create the final document.
+You are a LaTeX resume builder. You produce COMPILABLE LaTeX that works with XeTeX/Tectonic.
 
 ==================================================
-TEMPLATE (THE SKELETON):
-${template || 'STRICTLY use standard commands like \\customSubHeading, \\customProject, \\customItem.'}
+TEMPLATE (THE SKELETON — use this as visual/structural reference):
+${cleanTemplate || 'NO TEMPLATE PROVIDED — use the standard article-class resume format.'}
 ==================================
 INPUT DATA (JSON BLOCKS):
 ${JSON.stringify(enabledBlocks)}
 ==================================
 
-CORE INSTRUCTIONS:
-1. TEMPLATE-FIRST: The provided "TEMPLATE" is your ONLY document structure. 
-   - IGNORE any LaTeX formatting found INSIDE the JSON data values (e.g., if a name value is "{\\Huge Shivaji}", extract ONLY "Shivaji").
-   - Extract only the RAW text (Content) and insert it into the template's placeholders or macros.
-2. DOCUMENT CLASS: ${isFullDocument ? 'The template is a FULL DOCUMENT. Use its original \\documentclass. If the template uses "curve" commands but has "article" class, FIX it to \\documentclass{curve}.' : 'Snippet mode: Return raw LaTeX sections only.'}
-3. FLATTENING: We do NOT have external files. 
-   - Replace \\makerubric{employment} with formatting from "Experience" blocks.
-   - Replace \\makerubric{education} with formatting from "Education" blocks.
-   - Replace \\makerubric{skills} with formatting from "Skills" blocks.
-   - Replace \\input{...} with relevant data if identified.
-4. MACROS: Use the template's specific macros (e.g., \\leftheader, \\entry, \\makeheaders).
-5. SELF-CONTAINED: Ensure all required environments (like fullonly) and packages are handled in the final response.
-6. Return ONLY raw LaTeX text. No markdown fences.
+DETECTED DOCUMENT CLASS: "${docClass}"
+${isCustomClass ? `\nWARNING: "${docClass}" is a CUSTOM class that is NOT available. You MUST convert to \\documentclass[letterpaper,11pt]{article} and replicate the formatting using standard LaTeX commands.\n` : ''}
+CRITICAL RULES:
+1. DOCUMENT CLASS: ${isCustomClass
+    ? `The template uses a custom class "${docClass}" which is NOT available. You MUST use \\documentclass[letterpaper,11pt]{article} instead and replicate the template's visual structure using standard LaTeX (\\section{}, \\begin{itemize}, tabular, etc).`
+    : isFullDocument ? `Use \\documentclass{${docClass}} as shown in the template.` : 'Use \\documentclass[letterpaper,11pt]{article}.'}
+2. ${isCurve
+    ? 'This IS a Curve-class document. You MAY use \\makerubric, \\entry, \\leftheader, \\rightheader, \\makeheaders, \\begin{rubric}, \\begin{fullonly}.'
+    : `FORBIDDEN commands (these will crash compilation):
+   - \\makerubric, \\begin{rubric}, \\entry, \\leftheader, \\rightheader, \\makeheaders
+   - \\makefield, \\personalinfo, \\begin{fullonly}, \\photo, \\photoscale
+   ${isCustomClass ? '- Do NOT use any commands from the custom class. Rewrite them as standard LaTeX.' : ''}
+   Use standard LaTeX: \\section{}, \\begin{itemize}, \\textbf{}, \\href{}{}, fontawesome5 icons.`}
+3. If the template defines custom macros (\\customSubHeading, \\customProject, \\customItem, \\customItemListStart, \\customItemListEnd, \\resumeSubheading, \\resumeProject, \\resumeItem, etc), you MUST define them with \\newcommand in the preamble before using them.
+4. Extract ONLY raw text/data from JSON blocks. IGNORE any LaTeX formatting inside JSON values.
+5. Output a SINGLE, COMPLETE, SELF-CONTAINED LaTeX document. No \\input{}, no external file references, no custom .cls files.
+6. Return ONLY raw LaTeX. No markdown fences, no explanations, no comments about what you did.
 `;
         if (apiKey) {
             const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL_NAME}:generateContent?key=${apiKey}`, {

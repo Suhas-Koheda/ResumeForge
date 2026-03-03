@@ -1,6 +1,6 @@
 import express from 'express';
 import { authMiddleware, AuthRequest } from '../../core/auth.js';
-import { latexService } from '../../services/latex.js';
+import { latexCompiler } from '../../services/latexCompiler.js';
 
 const router = express.Router();
 
@@ -20,12 +20,20 @@ router.post('/pdf', authMiddleware, async (req: AuthRequest, res) => {
     }
 
     try {
-        const pdfBuffer = await latexService.compileToPdf(latexCode);
+        const result = await latexCompiler.compile(latexCode);
+        
+        if (!result.success || !result.pdf) {
+            console.error('[EXPORT] Tectonic compilation failed:', result.logs);
+            return res.status(500).json({
+                error: 'PDF compilation failed.',
+                details: result.logs,
+            });
+        }
 
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', 'attachment; filename=resume.pdf');
-        res.setHeader('Content-Length', pdfBuffer.length.toString());
-        return res.status(200).send(pdfBuffer);
+        res.setHeader('Content-Length', result.pdf.length.toString());
+        return res.status(200).send(result.pdf);
 
     } catch (error: any) {
         console.error('[EXPORT] Tectonic compilation failed:', error.message);

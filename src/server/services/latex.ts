@@ -3,6 +3,7 @@ import fs from 'fs/promises';
 import fsSync from 'fs';
 import path from 'path';
 import os from 'os';
+import { templateCompiler } from './templateCompiler.js';
 // The binary is placed here by scripts/install-tectonic.sh at build time.
 // In development it falls back to "tectonic" on the host $PATH.
 // Resolve Tectonic binary path - handle both local dev and bundled cloud environments
@@ -116,72 +117,15 @@ export const latexService = {
         const pdfPath = path.join(tempDir, 'resume.pdf');
 
         try {
-            // ---------------------------------------------------------------
-            // Pre-process: neutralise pdfLaTeX-only primitives that cause
-            // Tectonic (XeTeX engine) to abort with "Undefined control sequence"
-            // ---------------------------------------------------------------
-            let source = latexCode;
+            // Extract embedded .cls/.sty files, then preprocess
+            const { source: cleanedLatex, auxiliaryFiles } = templateCompiler.extractAuxiliaryFiles(latexCode);
+            const source = templateCompiler.preprocess(cleanedLatex);
 
-            // 1. pdfLaTeX primitives
-            source = source.replace(/\\pdfgentounicode\s*=\s*\d+/gi, '');
-            source = source.replace(/\\pdfglyphtounicode\s*\{[^}]*\}\s*\{[^}]*\}/gi, '');
-            source = source.replace(/\\input\s*\{glyphtounicode\}/gi, '');
-            source = source.replace(/\\pdf(minorversion|compresslevel|objcompresslevel)\s*=\s*\d+/gi, '');
-
-            // 2. Multi-file commands (Curve and others)
-            // Neutralize makerubric/input of unknown local files that aren't provided
-            // We keep them as comments or replace them with harmless text to prevent crash
-            source = source.replace(/\\makerubric\s*\{([^}]*)\}/gi, '% Rubric: $1 (Flattened by ResumeForge)\n');
-            source = source.replace(/\\addbibresource\s*\{[^}]*\}/gi, '% stripped bibresource');
-            source = source.replace(/\\mynames\s*\{[^}]*\}/gi, '% stripped custom macro: mynames');
-            source = source.replace(/\\DefineBibliographyStrings\s*\{[^}]*\}\s*\{[^}]*\}/gi, '% stripped bib command');
-            source = source.replace(/\\prefixmarker\s*\{[^}]*\}/gi, '% stripped custom macro: prefixmarker');
-            // 2.5 Injected Fallbacks / Polyfills
-            const fallbacks = '\n% ResumeForge Auto-Injection Fallbacks\n' +
-                '\\usepackage{etoolbox}\n' +
-                '\\usepackage{comment}\n' +
-                '\\ifundef{\\includecomment}{\\newcommand{\\includecomment}[1]{\\newenvironment{#1}{}{}}}{\\ignore}\n' +
-                '\\ifundef{\\excludecomment}{\\newcommand{\\excludecomment}[1]{\\newenvironment{#1}{\\comment}{\\endcomment}}}{\\ignore}\n' +
-                '\\ifundef{\\leftheader}{\\newcommand{\\leftheader}[1]{#1}}{}\n' +
-                '\\ifundef{\\rightheader}{\\newcommand{\\rightheader}[1]{#1}}{}\n' +
-                '\\ifundef{\\makeheaders}{\\newcommand{\\makeheaders}[1][c]{}}{}\n' +
-                '\\ifundef{\\makerubric}{\\newcommand{\\makerubric}[1]{}}{}\n' +
-                '\\ifundef{\\photo}{\\newcommand{\\photo}[2][]{}}{}\n' +
-                '\\ifundef{\\photoscale}{\\newcommand{\\photoscale}[1]{}}{}\n' +
-                '\\ifundef{\\prefixmarker}{\\newcommand{\\prefixmarker}[1]{}}{}\n' +
-                '\\ifundef{\\entry}{\\newcommand{\\entry}[2][]{#2}}{}\n' +
-                '\\includecomment{fullonly}\n' + // Safety for common missing env
-                '\\newif\\ifxetexorluatex\n' +
-                '\\xetexorluatextrue\n';
-
-            if (source.includes('\\documentclass')) {
-                source = source.replace(/(\\documentclass[^{]*\{[^}]*\})/, '$1' + fallbacks);
-            } else {
-                source = fallbacks + source;
+            // Write any extracted auxiliary files (.cls, .sty)
+            for (const aux of auxiliaryFiles) {
+                await fs.writeFile(path.join(tempDir, aux.filename), aux.content, 'utf8');
             }
 
-            source = source.replace(/\\input\s*\{([^}]*)\}/gi, (match, file) => {
-                if (file === 'glyphtounicode') return '';
-                return `% input: ${file} (Flattened by AI ResumeForge)\n`;
-            });
-            source = source.replace(/\\photoscale\s*\{[^}]*\}/gi, '% stripped custom macro: photoscale');
-            
-            // 3. Graphics/External Files
-            // Neutralize missing images that would cause "File not found" errors
-            source = source.replace(/\\includegraphics\s*(\[[^\]]*\])?\s*\{([^}]*)\}/gi, (match, opts, path) => `% missing image: ${path}`);
-            source = source.replace(/\\photo\s*(\[[^\]]*\])?\s*\{([^}]*)\}/gi, (match, opts, path) => `% missing photo: ${path}`);
-
-            // 4. Specific XeTeX/pdfLaTeX conditionals
-            // Define ifxetexorluatex if it's used but not defined (common in Curve)
-            if (source.includes('ifxetexorluatex') && !source.includes('newif\\ifxetexorluatex')) {
-                source = '\\newif\\ifxetexorluatex\n\\xetexorluatextrue\n' + source;
-            }
-
-            // 5. Packages not needed for Tectonic/XeTeX
-            source = source.replace(/\\usepackage\s*(\[[^\]]*\])?\s*\{inputenc\}/gi, '% stripped inputenc');
-            source = source.replace(/\\usepackage\s*(\[[^\]]*\])?\s*\{fontenc\}/gi, '% stripped fontenc');
-            source = source.replace(/\\usepackage\s*(\[[^\]]*\])?\s*\{settings\}/gi, '% stripped settings');
-            
             await fs.writeFile(texPath, source, 'utf8');
 
             // ---------------------------------------------------------------

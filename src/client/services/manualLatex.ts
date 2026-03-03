@@ -213,7 +213,7 @@ ${o.highlights.map((h: string) => `\\customItem{${this.escapeLatex(h)}}`).join('
 
     escapeLatex(text: string): string {
         if (!text) return '';
-        return text
+        let escaped = text
             .replace(/\\/g, '\\textbackslash ')
             .replace(/&/g, '\\&')
             .replace(/%/g, '\\%')
@@ -224,5 +224,9 @@ ${o.highlights.map((h: string) => `\\customItem{${this.escapeLatex(h)}}`).join('
             .replace(/\}/g, '\\}')
             .replace(/\^/g, '\\^{}')
             .replace(/~/g, '\\~{}');
+
+        // Cleanup artifacts
+        if (escaped.length <= 1 && /^[\]ćçab]$/i.test(escaped)) return '';
+        return escaped;
     }
 };

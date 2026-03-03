@@ -1,5 +1,6 @@
 import { latexParser } from 'latex-utensils';
 import { BlockType, ExtractedBlock, ParserResult, TemplateAdapter } from './types.js';
+import { InternalResumeData } from '../../../shared/template.types.js';
 
 export class LatexParserEngine {
     private adapters: TemplateAdapter[] = [];
@@ -30,69 +31,95 @@ export class LatexParserEngine {
         // 3. Segment into Sections
         const sections = this.segmentSections(ast);
 
-        // 4. Extract Blocks inside sections
+        // 4. Initialise extraction state
         const extractedBlocks: ExtractedBlock[] = [];
         let totalExtractedTokens = 0;
 
-        // Extract Header First
+        // 5. Extract data using adapter if available
+        let internalData: InternalResumeData | null = null;
         if (adapter) {
             try {
-                const headerData = adapter.extractHeader(ast);
-                extractedBlocks.push({
-                    id: Math.random().toString(36).substring(7),
-                    type: 'header',
-                    _original_section: 'Header',
-                    _template_type: templateMatched,
-                    data: headerData,
-                    _raw_latex: '...' // Fallback
-                });
+                internalData = adapter.convertToInternal(ast);
             } catch (e) {
-                console.warn('Failed to extract header using adapter:', adapter.name);
+                console.warn('Failed to convert to internal format using adapter:', adapter.name);
             }
         }
 
-        // Extract other sections
-        for (const section of sections) {
-            if (section.title.toLowerCase().includes('header') && adapter) continue; // Already extracted
-            const blockType = this.classifySection(section.title);
+        // 6. Prefer adapter data if available, otherwise fall back to segmentation
+        if (internalData) {
+            // Header
+            extractedBlocks.push({
+                id: Math.random().toString(36).substring(7),
+                type: 'header',
+                _original_section: 'Header',
+                _template_type: templateMatched,
+                data: internalData.header,
+                _raw_latex: '...' 
+            });
 
-            let entries: any[] = [];
-            if (adapter) {
-                switch (blockType) {
-                    case 'experience': entries = adapter.extractExperience(section.content); break;
-                    case 'education': entries = adapter.extractEducation(section.content); break;
-                    case 'skills': entries = adapter.extractSkills(section.content); break;
-                    case 'project': entries = adapter.extractProjects(section.content); break;
-                    case 'summary': entries = adapter.extractSummary(section.content); break;
-                    default: entries = adapter.extractCustom(section.content); break;
-                }
+            // Summary
+            if (internalData.summary) {
+                extractedBlocks.push({
+                    id: Math.random().toString(36).substring(7),
+                    type: 'summary',
+                    _original_section: 'Summary',
+                    _template_type: templateMatched,
+                    data: { content: internalData.summary },
+                    _raw_latex: '...'
+                });
             }
 
-            if (entries.length > 0) {
-                for (const entry of entries) {
-                    let mappedData: any = { ...entry };
+            // Experience
+            internalData.experience.forEach(exp => {
+                extractedBlocks.push({
+                    id: Math.random().toString(36).substring(7),
+                    type: 'experience',
+                    _original_section: 'Experience',
+                    _template_type: templateMatched,
+                    data: exp,
+                    _raw_latex: '...'
+                });
+            });
 
-                    if (blockType === 'experience') {
-                        mappedData = { company: entry.primary, role: entry.secondary, duration: entry.date, location: entry.location, highlights: entry.description };
-                    } else if (blockType === 'education') {
-                        mappedData = { school: entry.primary, degree: entry.secondary, year: entry.date, location: entry.location };
-                    } else if (blockType === 'project') {
-                        mappedData = { title: entry.primary, technologies: entry.secondary, duration: entry.date, highlights: entry.description };
-                    } else if (blockType === 'skills') {
-                        mappedData = { category: entry.primary, skills: entry.description || [] };
-                    }
+            // Education
+            internalData.education.forEach(edu => {
+                extractedBlocks.push({
+                    id: Math.random().toString(36).substring(7),
+                    type: 'education',
+                    _original_section: 'Education',
+                    _template_type: templateMatched,
+                    data: edu,
+                    _raw_latex: '...'
+                });
+            });
 
-                    extractedBlocks.push({
-                        id: Math.random().toString(36).substring(7),
-                        type: blockType,
-                        _original_section: section.title,
-                        _template_type: templateMatched,
-                        data: mappedData,
-                        _raw_latex: ''
-                    });
-                    totalExtractedTokens += JSON.stringify(mappedData).length / 5;
-                }
-            } else if (!adapter) {
+            // Projects
+            internalData.projects.forEach(proj => {
+                extractedBlocks.push({
+                    id: Math.random().toString(36).substring(7),
+                    type: 'project',
+                    _original_section: 'Projects',
+                    _template_type: templateMatched,
+                    data: proj,
+                    _raw_latex: '...'
+                });
+            });
+
+            // Skills
+            if (internalData.skills && internalData.skills.categories.length > 0) {
+                extractedBlocks.push({
+                    id: Math.random().toString(36).substring(7),
+                    type: 'skills',
+                    _original_section: 'Skills',
+                    _template_type: templateMatched,
+                    data: internalData.skills,
+                    _raw_latex: '...'
+                });
+            }
+        } else {
+            // Fallback to manual segmentation if no adapter or conversion failed
+            for (const section of sections) {
+                const blockType = this.classifySection(section.title);
                 extractedBlocks.push({
                     id: Math.random().toString(36).substring(7),
                     type: blockType,
@@ -104,8 +131,8 @@ export class LatexParserEngine {
             }
         }
 
-        // 5. Validation & Confidence
-        const confidenceScore = adapter ? 0.95 : 0.6; // If we matched a template, confidence is high
+        // 7. Validation & Confidence
+        const confidenceScore = adapter ? 0.95 : 0.6;
 
         return {
             blocks: extractedBlocks,

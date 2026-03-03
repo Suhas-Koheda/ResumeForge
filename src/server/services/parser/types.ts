@@ -1,4 +1,6 @@
 import type { latexParser } from 'latex-utensils';
+import { InternalResumeData, LatexGenerationOptions } from "../../../shared/template.types.js";
+
 
 /**
  * Core Parser Engine Data Structures
@@ -34,14 +36,21 @@ export interface NormalizedSectionEntry {
     metadata?: Record<string, any>; // Any additional template-specific fields
 }
 
+
+export interface TemplateMetadata {
+  id: string;
+  name: string;
+  version: string;
+  author?: string;
+  description?: string;
+  inferredOptions?: Partial<LatexGenerationOptions>;
+}
+
 export interface TemplateAdapter {
     name: string;
+    version: string;
     detect(ast: latexParser.LatexAst): boolean;
-    extractHeader(ast: latexParser.LatexAst): Record<string, any>;
-    extractExperience(astContent: latexParser.Node[]): NormalizedSectionEntry[];
-    extractEducation(astContent: latexParser.Node[]): NormalizedSectionEntry[];
-    extractSkills(astContent: latexParser.Node[]): NormalizedSectionEntry[];
-    extractProjects(astContent: latexParser.Node[]): NormalizedSectionEntry[];
-    extractSummary(astContent: latexParser.Node[]): NormalizedSectionEntry[];
-    extractCustom(astContent: latexParser.Node[]): NormalizedSectionEntry[];
+    convertToInternal(ast: latexParser.LatexAst): InternalResumeData;
+    convertFromInternal(data: InternalResumeData, options: LatexGenerationOptions): string;
+    extractMetadata(ast: latexParser.LatexAst): TemplateMetadata;
 }

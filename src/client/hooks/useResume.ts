@@ -70,6 +70,9 @@ export const useResumeActions = () => {
     const setResumeId = useBuilderStore((state) => state.setResumeId);
     const loadResumes = useBuilderStore((state) => state.loadResumes);
 
+    const templateOptions = useBuilderStore((state) => state.templateOptions);
+    const setTemplateOptions = useBuilderStore((state) => state.setTemplateOptions);
+
     return {
         blocks,
         addBlock,
@@ -80,6 +83,8 @@ export const useResumeActions = () => {
         setApiKey,
         customTemplate,
         setCustomTemplate,
+        templateOptions,
+        setTemplateOptions,
         setBlocks,
         switchResume,
         activeResumeIndex,
