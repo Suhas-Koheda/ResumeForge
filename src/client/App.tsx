@@ -10,26 +10,24 @@ import { ResumeBlock, BlockType } from '@shared/types';
 import { OnboardingModal } from './components/ui/OnboardingModal';
 import { Landing } from './components/ui/Landing';
 import { Auth } from './components/ui/Auth';
+import { AdvancedEditor } from './components/builder/AdvancedEditor';
 import { geminiService } from './services/ai';
 import { manualLatexGenerator } from './services/manualLatex';
 import { latexServerService } from './services/latex';
 import { offlineLatexParser } from './services/offlineParser';
 import toast, { Toaster } from 'react-hot-toast';
-import { TemplateSelector } from './components/template/TemplateSelector';
-import { TemplateCustomizer } from './components/template/TemplateCustomizer';
-import { TemplateSaver } from './components/template/TemplateSaver';
-import { latexGenerator } from './services/latexGenerator';
+import { Play } from 'lucide-react';
 
 function App() {
     const {
         addBlock, apiKey, setApiKey, blocks,
         customTemplate, setCustomTemplate,
         activeResumeIndex, switchResume, addResume, deleteResume, resumes,
-        fullLatex, setFullLatex,
         viewState, setViewState,
         token, logout, setToken, setBlocks,
         setResumeId, loadResumes, userEmail,
-        templateOptions
+        templateOptions, projectFiles, activeFileName, updateFileContent,
+        setProjectFiles, setActiveFileName, addFile, deleteFile
     } = useResumeActions();
 
     const [isSaving, setIsSaving] = useState(false);
@@ -37,7 +35,7 @@ function App() {
     const [isAssembling, setIsAssembling] = useState(false);
     const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
     const [pdfUrl, setPdfUrl] = useState<string | null>(null);
-    const [previewMode, setPreviewMode] = useState<'code' | 'pdf' | 'template' | 'forge'>('pdf');
+    const [previewMode, setPreviewMode] = useState<'code' | 'pdf'>('pdf');
     const [showBuildOutput, setShowBuildOutput] = useState(false);
     const [compilationLog, setCompilationLog] = useState<string | null>(null);
     const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
@@ -89,9 +87,11 @@ function App() {
 
     // 2. Offline AST logic (Source to Blocks persistence)
     useEffect(() => {
-        if (previewMode === 'code' && fullLatex) {
+        const mainFile = projectFiles.find(f => f.name === 'main.tex');
+        const mainContent = mainFile?.content;
+        if (previewMode === 'code' && mainContent) {
             const timer = setTimeout(() => {
-                const extracted = offlineLatexParser.parseLatexBlocks(fullLatex);
+                const extracted = offlineLatexParser.parseLatexBlocks(mainContent);
                 if (extracted.length > 0) {
                     const newBlocks = [...blocks];
                     const byType = newBlocks.reduce((acc, b) => {
@@ -130,11 +130,11 @@ function App() {
             }, 1000);
             return () => clearTimeout(timer);
         }
-    }, [fullLatex, previewMode, setBlocks]);
+    }, [projectFiles, previewMode, setBlocks]);
 
     // 3. Sync persistence logic
     const syncToCloud = async (isManual = false) => {
-        if (!blocks.length && !fullLatex) return;
+        if (!blocks.length && projectFiles.length === 0) return;
         if (!token && !isLocalMode) return;
 
         // CRITICAL FOR LOCAL SYNC: Skip auto-syncing if we are in local mode
@@ -168,7 +168,8 @@ function App() {
                     canvasData: {
                         nodes: blocks,
                         customTemplate,
-                        fullLatex
+                        projectFiles,
+                        activeFileName
                     }
                 })
             });
@@ -249,7 +250,7 @@ function App() {
         const timer = setTimeout(() => syncToCloud(), 3000);
         return () => clearTimeout(timer);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [blocks, fullLatex, customTemplate, token, activeResumeIndex]);
+    }, [blocks, projectFiles, activeFileName, customTemplate, token, activeResumeIndex]);
 
     // Deletion wrap with cloud action
     const handleDeleteResume = async (idx: number) => {
@@ -308,16 +309,11 @@ function App() {
         { type: 'other', label: 'Other', icon: Layers },
     ];
 
-     const handleManualAssemble = () => {
-         const latex = previewMode === 'forge' 
-             ? latexGenerator.generateFullResume(blocks, templateOptions)
-             : manualLatexGenerator.generate(blocks);
-         setFullLatex(latex);
-         setPdfUrl(null);
-         setShowBuildOutput(true);
-         setPreviewMode('pdf');
-         downloadPdf(false, latex);
-     };
+    const handleManualAssemble = () => {
+        setPreviewMode('pdf');
+        setShowBuildOutput(true);
+        downloadPdf(false);
+    };
 
     const handleAssemble = async () => {
         setIsAssembling(true);
@@ -325,12 +321,12 @@ function App() {
         const toastId = toast.loading("AI Assembly in progress...", { position: "bottom-center" });
         try {
             const sectionContent = await geminiService.assembleFullResume(blocks, customTemplate || '', apiKey);
-            
+
             if (!sectionContent) {
                 toast.dismiss(toastId);
                 throw new Error("AI returned empty content. Please verify your API key and template.");
             }
-            
+
             toast.success("AI Assembly complete. Compiling PDF...", { id: toastId });
             setPreviewMode('pdf');
 
@@ -343,15 +339,15 @@ function App() {
                 .trim();
 
             if (cleanedContent.includes('\\documentclass') || cleanedContent.includes('\\begin{document}')) {
-                setFullLatex(cleanedContent);
-                downloadPdf(false, cleanedContent);
+                updateFileContent('main.tex', cleanedContent);
+                downloadPdf(false);
             } else {
                 const headerData = blocks.find(b => b.type === 'header')?.data || {};
                 const fullDoc = manualLatexGenerator.generatePreamble(headerData) +
                     cleanedContent +
                     manualLatexGenerator.generatePostamble();
-                setFullLatex(fullDoc);
-                downloadPdf(false, fullDoc);
+                updateFileContent('main.tex', fullDoc);
+                downloadPdf(false);
             }
             pdfUrl && URL.revokeObjectURL(pdfUrl);
             setPdfUrl(null);
@@ -364,28 +360,22 @@ function App() {
         }
     };
 
-    const downloadPdf = async (shouldDownload = true, forcedContent?: string) => {
+    const downloadPdf = async (shouldDownload = true) => {
         setIsGeneratingPdf(true);
         setCompilationLog(null);
         try {
-            // Sync source from visual state (Forge/PDF)
-            let content = forcedContent || fullLatex || '';
-            if (!forcedContent && (previewMode === 'forge' || previewMode === 'pdf' || !content)) {
-                content = previewMode === 'forge'
-                    ? latexGenerator.generateFullResume(blocks, templateOptions)
-                    : manualLatexGenerator.generate(blocks);
-                
-                // Cleanup artifacts (hallucinated lone brackets and icon chars)
-                content = content
-                    .replace(/[\u0107\u0106\u0131\u00E7\u00C7]/g, ' ')
-                    .replace(/(^|\s)\]\s+([~|]|http|\\href|\\url)/g, '$1$2')
-                    .replace(/^\s*[\-\]]\s*$/gm, '')
-                    .replace(/\s+[aćçbi\u0107\u0106\u0131]\s+(?=http|\\href|\\url|~~|\|)/gi, ' ');
-                
-                setFullLatex(content);
+            // Sync all project files for compilation
+            const filesToCompile = projectFiles.map(f => ({
+                name: f.name,
+                content: f.content
+            }));
+
+            if (filesToCompile.length === 0) {
+                toast.error("No files to compile");
+                return;
             }
 
-            const blob = await latexServerService.compileLatexToPdf(content);
+            const blob = await latexServerService.compileLatexToPdf(filesToCompile);
             const url = URL.createObjectURL(blob);
             setPdfUrl(url);
             setPreviewMode('pdf');
@@ -407,7 +397,8 @@ function App() {
     };
 
     const downloadTex = () => {
-        const content = fullLatex || manualLatexGenerator.generate(blocks);
+        const mainFile = projectFiles.find(f => f.name === 'main.tex');
+        const content = mainFile?.content || manualLatexGenerator.generate(blocks);
         const blob = new Blob([content], { type: 'text/plain' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
@@ -427,7 +418,8 @@ function App() {
             canvasData: {
                 nodes: blocks,
                 customTemplate,
-                fullLatex
+                projectFiles,
+                activeFileName
             }
         };
         const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
@@ -452,12 +444,23 @@ function App() {
                     return;
                 }
 
-                const { nodes, customTemplate: importedTemplate, fullLatex: importedLatex } = json.canvasData;
+                const { nodes, customTemplate: importedTemplate, projectFiles: importedFiles, activeFileName: importedActive } = json.canvasData;
 
                 // Update current state
                 setBlocks(nodes || []);
                 setCustomTemplate(importedTemplate || null);
-                setFullLatex(importedLatex || null);
+
+                if (importedFiles) {
+                    setProjectFiles(importedFiles);
+                } else if (json.canvasData.fullLatex) {
+                    setProjectFiles([{ name: 'main.tex', content: json.canvasData.fullLatex }]);
+                }
+
+                if (importedActive) {
+                    setActiveFileName(importedActive);
+                } else {
+                    setActiveFileName('main.tex');
+                }
 
                 toast.success("Resume imported successfully.");
             } catch (err) {
@@ -582,9 +585,13 @@ function App() {
                                 // If opening the editor to show source code, 
                                 // always sync from current blocks first to avoid overwriting 
                                 // visual edits with stale LaTeX source.
-                                if (!showBuildOutput && previewMode === 'code') {
+                                if (!showBuildOutput) {
                                     const freshLatex = manualLatexGenerator.generate(blocks);
-                                    setFullLatex(freshLatex);
+                                    const mainFile = projectFiles.find(f => f.name === 'main.tex');
+                                    // Only overwrite if main.tex is empty or roughly empty
+                                    if (!mainFile?.content || mainFile.content.trim().length < 50) {
+                                        updateFileContent('main.tex', freshLatex);
+                                    }
                                 }
                                 setShowBuildOutput(!showBuildOutput);
                             }}
@@ -673,10 +680,8 @@ function App() {
                                 <div className="flex items-center gap-2 sm:gap-8">
                                     <h2 className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest">Compiler_Output</h2>
                                     <div className="flex border border-zinc-100 dark:border-zinc-800 p-0.5">
-                                         <button onClick={() => setPreviewMode('code')} className={`px-2 sm:px-4 py-1.5 text-[8px] sm:text-[9px] font-bold uppercase tracking-widest ${previewMode === 'code' ? 'bg-black text-white dark:bg-white dark:text-black' : 'text-zinc-400'}`}>Source</button>
-                                         <button onClick={() => setPreviewMode('forge')} className={`px-2 sm:px-4 py-1.5 text-[8px] sm:text-[9px] font-bold uppercase tracking-widest ${previewMode === 'forge' ? 'bg-black text-white dark:bg-white dark:text-black' : 'text-zinc-400'}`}>Forge</button>
-                                         <button onClick={() => setPreviewMode('template')} className={`px-2 sm:px-4 py-1.5 text-[8px] sm:text-[9px] font-bold uppercase tracking-widest ${previewMode === 'template' ? 'bg-black text-white dark:bg-white dark:text-black' : 'text-zinc-400'}`}>Template (AI)</button>
-                                         <button onClick={() => { if (!pdfUrl) downloadPdf(false); else setPreviewMode('pdf'); }} className={`px-2 sm:px-4 py-1.5 text-[8px] sm:text-[9px] font-bold uppercase tracking-widest ${previewMode === 'pdf' ? 'bg-black text-white dark:bg-white dark:text-black' : 'text-zinc-400'}`}>Preview</button>
+                                        <button onClick={() => setPreviewMode('code')} className={`px-2 sm:px-4 py-1.5 text-[8px] sm:text-[9px] font-bold uppercase tracking-widest ${previewMode === 'code' ? 'bg-black text-white dark:bg-white dark:text-black' : 'text-zinc-400'}`}>Edit_Source</button>
+                                        <button onClick={() => { if (!pdfUrl) downloadPdf(false); else setPreviewMode('pdf'); }} className={`px-2 sm:px-4 py-1.5 text-[8px] sm:text-[9px] font-bold uppercase tracking-widest ${previewMode === 'pdf' ? 'bg-black text-white dark:bg-white dark:text-black' : 'text-zinc-400'}`}>Preview_Result</button>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2">
@@ -695,59 +700,11 @@ function App() {
                             </header>
                             <div className="flex-1 overflow-hidden p-2 sm:p-12 bg-zinc-50 dark:bg-zinc-950 flex justify-center">
                                 <div className="w-full max-w-5xl bg-white dark:bg-black border border-zinc-200 dark:border-zinc-800 flex flex-col shadow-2xl overflow-hidden text-[13px]">
-                                     {previewMode === 'code' ? (
-                                         <textarea className="flex-1 p-8 font-mono bg-transparent resize-none outline-none text-zinc-800 dark:text-zinc-300" value={fullLatex || ''} onChange={(e) => setFullLatex(e.target.value)} spellCheck={false} />
-                                     ) : previewMode === 'forge' ? (
-                                         <div className="flex-1 overflow-y-auto bg-slate-50 dark:bg-zinc-900 p-6">
-                                             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-7xl mx-auto">
-                                                 <div className="lg:col-span-1 space-y-6">
-                                                     <TemplateCustomizer />
-                                                     <TemplateSaver />
-                                                     <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-xl">
-                                                         <h4 className="text-[10px] font-black uppercase text-blue-600 dark:text-blue-400 mb-2">Pro Tip</h4>
-                                                         <p className="text-[11px] text-blue-800 dark:text-blue-200 italic leading-relaxed">
-                                                             The Forge uses TeX-native rendering for maximum precision. Any change here is reflected instantly in the "COMPILE" output.
-                                                         </p>
-                                                     </div>
-                                                 </div>
-                                                 <div className="lg:col-span-2">
-                                                     <TemplateSelector />
-                                                 </div>
-                                             </div>
-                                         </div>
-                                     ) : previewMode === 'template' ? (
-                                        <div className="flex-1 flex flex-col h-full">
-                                            <div className="flex border-b border-zinc-100 dark:border-zinc-800">
-                                                <div className="flex-1 p-2 flex gap-2 overflow-x-auto no-scrollbar">
-                                                    {userTemplates.map(t => (
-                                                        <button
-                                                            key={t.id}
-                                                            onClick={() => setCustomTemplate(t.content)}
-                                                            className="px-3 py-1 bg-zinc-100 dark:bg-zinc-900 text-[8px] font-bold uppercase tracking-widest text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-all whitespace-nowrap"
-                                                        >
-                                                            {t.title}
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                                <button
-                                                    onClick={saveTemplate}
-                                                    disabled={isSavingTemplate || !customTemplate}
-                                                    className="px-4 py-2 bg-green-600 text-white text-[9px] font-bold uppercase tracking-widest hover:bg-green-700 disabled:opacity-50"
-                                                >
-                                                    {isSavingTemplate ? <Loader2 size={10} className="animate-spin" /> : <Save size={10} />}
-                                                </button>
-                                            </div>
-                                            <textarea
-                                                className="flex-1 p-8 font-mono bg-transparent resize-none outline-none text-zinc-800 dark:text-zinc-300"
-                                                placeholder="Enter your LaTeX macros or a full template with [PLACEHOLDERS]. AI will use this to generate the resume sections."
-                                                value={customTemplate || ''}
-                                                onChange={(e) => setCustomTemplate(e.target.value)}
-                                                spellCheck={false}
-                                            />
-                                        </div>
+                                    {previewMode === 'code' ? (
+                                        <AdvancedEditor onCompile={() => downloadPdf(false)} isCompiling={isGeneratingPdf} />
                                     ) : (
                                         <div className="flex-1 relative bg-zinc-100 flex items-center justify-center">
-                                            {isGeneratingPdf ? <Loader2 size={24} className="animate-spin" /> : pdfUrl ? <iframe src={pdfUrl} className="w-full h-full" title="PDF" /> : compilationLog ? <pre className="p-8 text-red-500">{compilationLog}</pre> : null}
+                                            {isGeneratingPdf ? <Loader2 size={24} className="animate-spin" /> : pdfUrl ? <iframe src={pdfUrl} className="w-full h-full" title="PDF" /> : compilationLog ? <pre className="p-8 text-red-500 overflow-auto whitespace-pre-wrap">{compilationLog}</pre> : null}
                                         </div>
                                     )}
                                 </div>

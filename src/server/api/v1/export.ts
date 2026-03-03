@@ -13,15 +13,15 @@ const router = express.Router();
  * No external services are used.
  */
 router.post('/pdf', authMiddleware, async (req: AuthRequest, res) => {
-    const { latexCode } = req.body;
+    const { files } = req.body;
 
-    if (!latexCode) {
-        return res.status(400).json({ error: 'LaTeX code is required' });
+    if (!files || !Array.isArray(files) || files.length === 0) {
+        return res.status(400).json({ error: 'LaTeX files are required' });
     }
 
     try {
-        const result = await latexCompiler.compile(latexCode);
-        
+        const result = await latexCompiler.compile(files);
+
         if (!result.success || !result.pdf) {
             console.error('[EXPORT] Tectonic compilation failed:', result.logs);
             return res.status(500).json({

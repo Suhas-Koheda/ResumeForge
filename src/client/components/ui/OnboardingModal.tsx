@@ -10,7 +10,7 @@ export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }>
     const [tab, setTab] = useState<'profile' | 'import'>('profile');
     const [importText, setImportText] = useState('');
     const [isImporting, setIsImporting] = useState(false);
-    const { addBlock, blocks, updateData, apiKey, setApiKey, setFullLatex, setBlocks, token, setResumeId, activeResumeIndex, resumes } = useResumeActions();
+    const { addBlock, blocks, updateData, apiKey, setApiKey, updateFileContent, setBlocks, token, setResumeId, activeResumeIndex, resumes } = useResumeActions();
     const [localKey, setLocalKey] = useState(apiKey || '');
     const [useAiForLatex, setUseAiForLatex] = useState(true);
 
@@ -48,7 +48,7 @@ export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }>
 
             if (isLatex && !useAiForLatex) {
                 // IMMEDIATE STORE: No AI usage for LaTeX
-                setFullLatex(importText);
+                updateFileContent('main.tex', importText);
 
                 try {
                     const extracted = offlineLatexParser.parseLatexBlocks(importText);
@@ -71,7 +71,7 @@ export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }>
                 }
                 onClose();
             } else {
-                if (isLatex) setFullLatex(importText);
+                if (isLatex) updateFileContent('main.tex', importText);
 
                 const currentResume = resumes[activeResumeIndex];
                 const resumeTitle = currentResume?.title || `Resume R_${activeResumeIndex + 1}`;
@@ -79,14 +79,14 @@ export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }>
 
                 // AI reconstruction with AutoSave support
                 const result = await geminiService.parseResume(
-                    importText, 
-                    'text', 
-                    localKey || apiKey, 
+                    importText,
+                    'text',
+                    localKey || apiKey,
                     !!token, // autoSave only if logged in
                     resumeTitle,
                     currentId
                 );
-                
+
                 // If backend saved it, it will return { data: ..., resumeId: ... }
                 const parsedBlocks = result.data || result;
                 const resumeId = result.resumeId;
@@ -98,7 +98,7 @@ export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }>
                     data: b.data || {},
                     enabled: true
                 }));
-                
+
                 setBlocks([...blocks, ...newBlocks]);
                 if (resumeId) {
                     setResumeId(activeResumeIndex, resumeId);
@@ -224,7 +224,7 @@ export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }>
                             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
                                 <div className="space-y-2">
                                     <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-2">
-                                        <Sparkles size={10} /> 
+                                        <Sparkles size={10} />
                                         AI_ENGINE_KEY {(import.meta as any).env.IS_LOCAL !== 'true' ? '(Optional - Uses shared quota if empty)' : '(Optional)'}
                                     </label>
                                     <input

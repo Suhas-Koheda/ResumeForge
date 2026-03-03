@@ -115,6 +115,17 @@ apiRouter.post('/ai/assemble', authMiddleware, verificationMiddleware, async (re
     }
 });
 
+apiRouter.post('/ai/command', authMiddleware, verificationMiddleware, async (req, res) => {
+    try {
+        const { prompt } = req.body;
+        const result = await aiService.genericAiCommand(prompt);
+        res.send(result);
+    } catch (error: any) {
+        console.error("[LOG_API_ROUTE] AI command failed:", error);
+        res.status(500).json({ error: 'AI command failed', details: error.message });
+    }
+});
+
 apiRouter.post('/ai/parse', authMiddleware, verificationMiddleware, async (req: AuthRequest, res) => {
     try {
         const { content, autoSave, title, id } = req.body;
@@ -125,14 +136,14 @@ apiRouter.post('/ai/parse', authMiddleware, verificationMiddleware, async (req: 
         if (autoSave && req.userId && parsedData) {
             const resumeRepo = AppDataSource.getRepository(Resume);
             const resumeTitle = title || "Imported Resume";
-            
+
             let resume: Resume | null = null;
-            
+
             // 1. Try by ID if provided
             if (id) {
                 resume = await resumeRepo.findOne({ where: { id, userId: req.userId } });
             }
-            
+
             // 2. Fallback to title + search if no ID or not found
             if (!resume) {
                 resume = await resumeRepo.findOne({ where: { title: resumeTitle, userId: req.userId } });

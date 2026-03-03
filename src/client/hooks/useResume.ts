@@ -52,11 +52,9 @@ export const useResumeActions = () => {
     const setBlocks = useBuilderStore((state) => state.setBlocks);
     const switchResume = useBuilderStore((state) => state.switchResume);
     const activeResumeIndex = useBuilderStore((state) => state.activeResumeIndex);
-    const setFullLatex = useBuilderStore((state) => state.setFullLatex);
     const addResume = useBuilderStore((state) => state.addResume);
     const deleteResume = useBuilderStore((state) => state.deleteResume);
     const resumes = useBuilderStore((state) => state.resumes);
-    const fullLatex = useBuilderStore((state) => state.fullLatex);
 
     // Auth & Persistence
     const token = useBuilderStore((state) => state.token);
@@ -73,6 +71,14 @@ export const useResumeActions = () => {
     const templateOptions = useBuilderStore((state) => state.templateOptions);
     const setTemplateOptions = useBuilderStore((state) => state.setTemplateOptions);
 
+    const projectFiles = useBuilderStore((state) => state.projectFiles);
+    const activeFileName = useBuilderStore((state) => state.activeFileName);
+    const setProjectFiles = useBuilderStore((state) => state.setProjectFiles);
+    const updateFileContent = useBuilderStore((state) => state.updateFileContent);
+    const setActiveFileName = useBuilderStore((state) => state.setActiveFileName);
+    const addFile = useBuilderStore((state) => state.addFile);
+    const deleteFile = useBuilderStore((state) => state.deleteFile);
+
     return {
         blocks,
         addBlock,
@@ -88,11 +94,9 @@ export const useResumeActions = () => {
         setBlocks,
         switchResume,
         activeResumeIndex,
-        setFullLatex,
         addResume,
         deleteResume,
         resumes,
-        fullLatex,
         token,
         userEmail,
         isVerified,
@@ -102,6 +106,13 @@ export const useResumeActions = () => {
         viewState,
         setViewState,
         setResumeId,
-        loadResumes
+        loadResumes,
+        projectFiles,
+        activeFileName,
+        setProjectFiles,
+        updateFileContent,
+        setActiveFileName,
+        addFile,
+        deleteFile
     };
 };

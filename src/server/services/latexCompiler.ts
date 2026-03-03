@@ -33,43 +33,46 @@ export interface CompileOptions {
 }
 
 const TECTONIC_BIN = (() => {
-    const isWin = process.platform === 'win32';
-    const binName = isWin ? 'tectonic.exe' : 'tectonic';
-    const rootPath = path.resolve(process.cwd(), '.bin', binName);
-    if (fsSync.existsSync(rootPath)) return rootPath;
-    const fallbackPath = path.resolve(process.env.LAMBDA_TASK_ROOT || process.cwd(), '.bin', binName);
-    if (fsSync.existsSync(fallbackPath)) return fallbackPath;
-    return binName;
+  const isWin = process.platform === 'win32';
+  const binName = isWin ? 'tectonic.exe' : 'tectonic';
+  const rootPath = path.resolve(process.cwd(), '.bin', binName);
+  if (fsSync.existsSync(rootPath)) return rootPath;
+  const fallbackPath = path.resolve(process.env.LAMBDA_TASK_ROOT || process.cwd(), '.bin', binName);
+  if (fsSync.existsSync(fallbackPath)) return fallbackPath;
+  return binName;
 })();
 
 class LatexCompiler {
   private cache: Map<string, CompilationResult> = new Map();
 
-  async compile(latex: string, options: CompileOptions = {}): Promise<CompilationResult> {
+  async compile(files: { name: string; content: string }[], options: CompileOptions = {}): Promise<CompilationResult> {
     const start = Date.now();
+    const mainFile = files.find(f => f.name === 'main.tex') || files[0];
+    if (!mainFile) {
+      throw new Error("No files provided for compilation");
+    }
 
-    // Extract embedded .cls/.sty files BEFORE preprocessing
-    const { source: cleanedLatex, auxiliaryFiles } = templateCompiler.extractAuxiliaryFiles(latex);
-    const processedLatex = templateCompiler.preprocess(cleanedLatex);
-    const hash = this.getHash(processedLatex);
-    
+    // Preprocess only the main file for now (or all files if they contain placeholders)
+    // For simplicity, we just process the main file
+    const processedMain = templateCompiler.preprocess(mainFile.content);
+    const hash = this.getHash(JSON.stringify(files));
+
     if (options.cache !== false) {
       const cached = this.getCachedResult(hash);
       if (cached) return cached;
     }
 
     const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'latex-compile-'));
-    const texPath = path.join(tempDir, 'resume.tex');
-    const pdfPath = path.join(tempDir, 'resume.pdf');
-    const logPath = path.join(tempDir, 'resume.log');
+    const texPath = path.join(tempDir, mainFile.name);
+    const pdfPath = path.join(tempDir, mainFile.name.replace('.tex', '.pdf'));
+    const logPath = path.join(tempDir, mainFile.name.replace('.tex', '.log'));
 
     try {
-      // Write any extracted auxiliary files (.cls, .sty) alongside the .tex
-      for (const aux of auxiliaryFiles) {
-        await fs.writeFile(path.join(tempDir, aux.filename), aux.content, 'utf8');
+      // Write all files to the temp directory
+      for (const file of files) {
+        const content = file.name === mainFile.name ? processedMain : file.content;
+        await fs.writeFile(path.join(tempDir, file.name), content, 'utf8');
       }
-
-      await fs.writeFile(texPath, processedLatex, 'utf8');
 
       const args = [
         texPath,
@@ -84,7 +87,7 @@ class LatexCompiler {
       };
 
       const result = await this.runTectonic(args, env, options.timeout || 30000);
-      
+
       let pdf: Buffer | undefined;
       if (fsSync.existsSync(pdfPath)) {
         pdf = await fs.readFile(pdfPath);
@@ -130,12 +133,12 @@ class LatexCompiler {
         }
       };
     } finally {
-      await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {});
+      await fs.rm(tempDir, { recursive: true, force: true }).catch(() => { });
     }
   }
 
-  async dryRun(latex: string): Promise<{ valid: boolean; errors: CompilationError[] }> {
-    const result = await this.compile(latex, { cache: false });
+  async dryRun(files: { name: string; content: string }[]): Promise<{ valid: boolean; errors: CompilationError[] }> {
+    const result = await this.compile(files, { cache: false });
     return {
       valid: result.success,
       errors: result.errors
@@ -166,32 +169,32 @@ class LatexCompiler {
   analyzeLogs(logs: string): CompilationError[] {
     const errors: CompilationError[] = [];
     const lines = logs.split('\n');
-    
+
     for (let i = 0; i < lines.length; i++) {
-        if (lines[i].startsWith('! ')) {
-            const message = lines[i].substring(2);
-            let lineNum = 0;
-            let context = '';
-            
-            // Try to find line number in subsequent lines
-            for (let j = i + 1; j < Math.min(i + 5, lines.length); j++) {
-                const lineMatch = lines[j].match(/l\.(\d+)/);
-                if (lineMatch) {
-                    lineNum = parseInt(lineMatch[1]);
-                    context = lines[j];
-                    break;
-                }
-            }
-            
-            errors.push({
-                line: lineNum,
-                message,
-                context,
-                suggestion: this.suggestFixFromServer(message)
-            });
+      if (lines[i].startsWith('! ')) {
+        const message = lines[i].substring(2);
+        let lineNum = 0;
+        let context = '';
+
+        // Try to find line number in subsequent lines
+        for (let j = i + 1; j < Math.min(i + 5, lines.length); j++) {
+          const lineMatch = lines[j].match(/l\.(\d+)/);
+          if (lineMatch) {
+            lineNum = parseInt(lineMatch[1]);
+            context = lines[j];
+            break;
+          }
         }
+
+        errors.push({
+          line: lineNum,
+          message,
+          context,
+          suggestion: this.suggestFixFromServer(message)
+        });
+      }
     }
-    
+
     return errors;
   }
 
@@ -226,30 +229,30 @@ class LatexCompiler {
   private async runTectonic(args: string[], env: any, timeout: number): Promise<{ stdout: string; stderr: string }> {
     return new Promise((resolve, reject) => {
       const child = spawn(TECTONIC_BIN, args, { env, timeout });
-      
+
       let stdout = '';
       let stderr = '';
-      
+
       child.stdout.on('data', (d) => stdout += d.toString());
       child.stderr.on('data', (d) => stderr += d.toString());
-      
+
       child.on('error', (err: any) => {
-          if (err.code === 'ENOENT') {
-              // Try fallback to system 'tectonic'
-              const fallback = spawn('tectonic', args, { env, timeout });
-              let fs2 = '', fe2 = '';
-              fallback.stdout.on('data', (d) => fs2 += d.toString());
-              fallback.stderr.on('data', (d) => fe2 += d.toString());
-              fallback.on('close', (code) => {
-                  if (code === 0) resolve({ stdout: fs2, stderr: fe2 });
-                  else reject(new Error(`Tectonic fallback failed with code ${code}`));
-              });
-              fallback.on('error', (fErr) => reject(new Error(`Tectonic not found: ${fErr.message}`)));
-          } else {
-              reject(err);
-          }
+        if (err.code === 'ENOENT') {
+          // Try fallback to system 'tectonic'
+          const fallback = spawn('tectonic', args, { env, timeout });
+          let fs2 = '', fe2 = '';
+          fallback.stdout.on('data', (d) => fs2 += d.toString());
+          fallback.stderr.on('data', (d) => fe2 += d.toString());
+          fallback.on('close', (code) => {
+            if (code === 0) resolve({ stdout: fs2, stderr: fe2 });
+            else reject(new Error(`Tectonic fallback failed with code ${code}`));
+          });
+          fallback.on('error', (fErr) => reject(new Error(`Tectonic not found: ${fErr.message}`)));
+        } else {
+          reject(err);
+        }
       });
-      
+
       child.on('close', (code) => {
         if (code === 0) resolve({ stdout, stderr });
         else resolve({ stdout, stderr }); // Still resolve to analyze logs if it failed

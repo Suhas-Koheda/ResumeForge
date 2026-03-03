@@ -61,7 +61,7 @@ export const geminiService = {
                     }),
                 }
             );
-            
+
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
                 throw new Error(errorData.error?.message || `Gemini API Error: ${response.status}`);
@@ -252,11 +252,11 @@ DETECTED DOCUMENT CLASS: "${docClass}"
 ${isCustomClass ? `\nWARNING: "${docClass}" is a CUSTOM class that is NOT available. You MUST convert to \\documentclass[letterpaper,11pt]{article} and replicate the formatting using standard LaTeX commands.\n` : ''}
 CRITICAL RULES:
 1. DOCUMENT CLASS: ${isCustomClass
-    ? `The template uses a custom class "${docClass}" which is NOT available. You MUST use \\documentclass[letterpaper,11pt]{article} instead and replicate the template's visual structure using standard LaTeX (\\section{}, \\begin{itemize}, tabular, etc).`
-    : isFullDocument ? `Use \\documentclass{${docClass}} as shown in the template.` : 'Use \\documentclass[letterpaper,11pt]{article}.'}
+                ? `The template uses a custom class "${docClass}" which is NOT available. You MUST use \\documentclass[letterpaper,11pt]{article} instead and replicate the template's visual structure using standard LaTeX (\\section{}, \\begin{itemize}, tabular, etc).`
+                : isFullDocument ? `Use \\documentclass{${docClass}} as shown in the template.` : 'Use \\documentclass[letterpaper,11pt]{article}.'}
 2. ${isCurve
-    ? 'This IS a Curve-class document. You MAY use \\makerubric, \\entry, \\leftheader, \\rightheader, \\makeheaders, \\begin{rubric}, \\begin{fullonly}.'
-    : `FORBIDDEN commands (these will crash compilation):
+                ? 'This IS a Curve-class document. You MAY use \\makerubric, \\entry, \\leftheader, \\rightheader, \\makeheaders, \\begin{rubric}, \\begin{fullonly}.'
+                : `FORBIDDEN commands (these will crash compilation):
    - \\makerubric, \\begin{rubric}, \\entry, \\leftheader, \\rightheader, \\makeheaders
    - \\makefield, \\personalinfo, \\begin{fullonly}, \\photo, \\photoscale
    ${isCustomClass ? '- Do NOT use any commands from the custom class. Rewrite them as standard LaTeX.' : ''}
@@ -336,7 +336,7 @@ CRITICAL RULES:
                         generationConfig: { response_mime_type: "application/json" },
                     }),
                 });
-                
+
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => ({}));
                     throw new Error(errorData.error?.message || `API Error ${response.status}`);
@@ -345,7 +345,7 @@ CRITICAL RULES:
                 const data = await response.json();
                 const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
                 if (!text) throw new Error("AI returned empty content. Try again or check your source text.");
-                
+
                 try {
                     return JSON.parse(text);
                 } catch (e) {
@@ -367,6 +367,31 @@ CRITICAL RULES:
         });
         if (!response.ok) throw new Error("Backend AI parsing failed");
         return await response.json();
+    },
+    async genericAiCommand(prompt: string, context: string, apiKey?: string) {
+        await applyRateLimit();
+        const fullPrompt = `${prompt}\n\nExisting code for context:\n${context}`;
+
+        if (apiKey) {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL_NAME}:generateContent?key=${apiKey}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ contents: [{ parts: [{ text: fullPrompt }] }] }),
+            });
+            if (!response.ok) throw new Error("Gemini API Error");
+            const data = await response.json();
+            const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+            return text?.replace(/```latex\n?|```\n?/g, "").trim();
+        }
+
+        // Add a generic API route on backend if needed, or reuse one
+        const response = await fetch(`${API_BASE_URL}/ai/command`, {
+            method: "POST",
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ prompt: fullPrompt }),
+        });
+        if (!response.ok) throw new Error("AI assistant failed");
+        return await response.text();
     }
 };
 

@@ -4,11 +4,11 @@ import { useBuilderStore } from '../store/useBuilderStore';
 const API_URL = (import.meta as any).env.VITE_API_URL || '/api/v1';
 
 export const latexServerService = {
-    async compileLatexToPdf(latexCode: string): Promise<Blob> {
+    async compileLatexToPdf(files: { name: string; content: string }[]): Promise<Blob> {
         const token = useBuilderStore.getState().token;
-        
+
         try {
-            const response = await axios.post(`${API_URL}/export/pdf`, { latexCode }, {
+            const response = await axios.post(`${API_URL}/export/pdf`, { files }, {
                 responseType: 'blob',
                 withCredentials: true,
                 headers: token ? {

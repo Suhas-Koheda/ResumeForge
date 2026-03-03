@@ -10,7 +10,7 @@ const parseSafeJson = (text: string) => {
         // Try to find a JSON array or object in the response first
         const arrayMatch = jsonStr.match(/\[[\s\S]*\]/);
         const objectMatch = jsonStr.match(/\{[\s\S]*\}/);
-        
+
         // Use the match that appears first/is larger, or fallback to cleaned
         if (arrayMatch && objectMatch) {
             jsonStr = arrayMatch[0].length > objectMatch[0].length ? arrayMatch[0] : objectMatch[0];
@@ -19,7 +19,7 @@ const parseSafeJson = (text: string) => {
         } else if (objectMatch) {
             jsonStr = objectMatch[0];
         }
-        
+
         return JSON.parse(jsonStr);
     } catch (e) {
         console.error("[LOG_AI_BACKEND] Failed to parse AI JSON. Raw Output:", text);
@@ -186,11 +186,11 @@ DETECTED DOCUMENT CLASS: "${docClass}"
 ${isCustomClass ? `\nWARNING: "${docClass}" is a CUSTOM class NOT available in Tectonic. Convert to \\documentclass[letterpaper,11pt]{article}.\n` : ''}
 CRITICAL RULES:
 1. DOCUMENT CLASS: ${isCustomClass
-    ? `"${docClass}" is NOT available. Use \\documentclass[letterpaper,11pt]{article} and replicate formatting with standard LaTeX.`
-    : isFullDocument ? `Use \\documentclass{${docClass}}.` : 'Use \\documentclass[letterpaper,11pt]{article}.'}
+                    ? `"${docClass}" is NOT available. Use \\documentclass[letterpaper,11pt]{article} and replicate formatting with standard LaTeX.`
+                    : isFullDocument ? `Use \\documentclass{${docClass}}.` : 'Use \\documentclass[letterpaper,11pt]{article}.'}
 2. ${isCurve
-    ? 'Curve-class: You MAY use \\makerubric, \\entry, \\leftheader, etc.'
-    : `FORBIDDEN: \\makerubric, \\begin{rubric}, \\entry, \\leftheader, \\rightheader, \\makeheaders, \\makefield, \\personalinfo, \\begin{fullonly}, \\photo, \\photoscale.
+                    ? 'Curve-class: You MAY use \\makerubric, \\entry, \\leftheader, etc.'
+                    : `FORBIDDEN: \\makerubric, \\begin{rubric}, \\entry, \\leftheader, \\rightheader, \\makeheaders, \\makefield, \\personalinfo, \\begin{fullonly}, \\photo, \\photoscale.
    ${isCustomClass ? 'Do NOT use any custom class commands. Rewrite as standard LaTeX.' : ''}
    Use: \\section{}, \\begin{itemize}, \\textbf{}, \\href{}{}, fontawesome5 icons.`}
 3. If the template defines custom macros, define them with \\newcommand in the preamble before using.
@@ -267,6 +267,13 @@ CRITICAL RULES:
             const result = await model.generateContent(prompt);
             const textResponse = result.response.text();
             return JSON.stringify(parseSafeJson(textResponse));
+        });
+    },
+
+    async genericAiCommand(prompt: string) {
+        return executeWithRotation(async (model) => {
+            const result = await model.generateContent(prompt);
+            return result.response.text().replace(/```latex\n?|```\n?/g, "").trim();
         });
     }
 };

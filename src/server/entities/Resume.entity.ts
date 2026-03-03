@@ -39,6 +39,8 @@ export class Resume {
     canvasData: {
         nodes: ResumeBlock[];
         customTemplate?: string;
+        projectFiles?: any[];
+        activeFileName?: string;
     } = { nodes: [], customTemplate: "" };
 
     @CreateDateColumn()
