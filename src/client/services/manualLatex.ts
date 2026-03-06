@@ -5,7 +5,6 @@ export const manualLatexGenerator = {
         return `
 %-------------------------
 % CV in LaTeX
-% Author: Udoy Saha (Template)
 % Filled by: ${this.escapeLatex(header.name || 'Your Name')}
 %------------------------
 

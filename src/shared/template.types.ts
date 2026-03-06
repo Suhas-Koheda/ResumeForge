@@ -1,4 +1,4 @@
-import { ResumeBlock } from "./types";
+import { ResumeBlock } from "./types.js";
 
 export type TemplateType = 'modern' | 'classic' | 'technical' | 'creative' | 'custom';
 

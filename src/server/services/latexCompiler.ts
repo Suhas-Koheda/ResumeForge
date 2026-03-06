@@ -53,8 +53,7 @@ class LatexCompiler {
     }
 
     // Preprocess only the main file for now (or all files if they contain placeholders)
-    // For simplicity, we just process the main file
-    const processedMain = templateCompiler.preprocess(mainFile.content);
+    const processedMain = await templateCompiler.preprocess(mainFile.content);
     const hash = this.getHash(JSON.stringify(files));
 
     if (options.cache !== false) {
@@ -73,7 +72,6 @@ class LatexCompiler {
         const content = file.name === mainFile.name ? processedMain : file.content;
         await fs.writeFile(path.join(tempDir, file.name), content, 'utf8');
       }
-
       const args = [
         texPath,
         '--outdir', tempDir,

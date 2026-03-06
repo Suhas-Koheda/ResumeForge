@@ -227,7 +227,7 @@ export const geminiService = {
         const docClassMatch = cleanTemplate.match(/\\documentclass(?:\[[^\]]*\])?\{([^}]*)\}/);
         const docClass = docClassMatch ? docClassMatch[1] : 'article';
         const isCurve = docClass === 'curve';
-        const standardClasses = ['article', 'report', 'book', 'letter', 'beamer', 'memoir', 'standalone', 'minimal', 'curve'];
+        const standardClasses = ['article', 'report', 'book', 'letter', 'beamer', 'memoir', 'standalone', 'minimal', 'curve', 'resume'];
         const isCustomClass = !standardClasses.includes(docClass);
         const isFullDocument = cleanTemplate.includes('\\documentclass') || cleanTemplate.includes('\\begin{document}');
 
@@ -252,19 +252,20 @@ DETECTED DOCUMENT CLASS: "${docClass}"
 ${isCustomClass ? `\nWARNING: "${docClass}" is a CUSTOM class that is NOT available. You MUST convert to \\documentclass[letterpaper,11pt]{article} and replicate the formatting using standard LaTeX commands.\n` : ''}
 CRITICAL RULES:
 1. DOCUMENT CLASS: ${isCustomClass
-                ? `The template uses a custom class "${docClass}" which is NOT available. You MUST use \\documentclass[letterpaper,11pt]{article} instead and replicate the template's visual structure using standard LaTeX (\\section{}, \\begin{itemize}, tabular, etc).`
-                : isFullDocument ? `Use \\documentclass{${docClass}} as shown in the template.` : 'Use \\documentclass[letterpaper,11pt]{article}.'}
-2. ${isCurve
-                ? 'This IS a Curve-class document. You MAY use \\makerubric, \\entry, \\leftheader, \\rightheader, \\makeheaders, \\begin{rubric}, \\begin{fullonly}.'
-                : `FORBIDDEN commands (these will crash compilation):
+    ? `The template uses a custom class "${docClass}" which is NOT available. You MUST use \\documentclass[letterpaper,11pt]{article} instead and replicate the template's visual structure using standard LaTeX (\\section{}, \\begin{itemize}, tabular, etc).`
+    : isFullDocument ? `Use \\documentclass{${docClass}} as shown in the template.` : 'Use \\documentclass[letterpaper,11pt]{article}.'}
+2. STRUCTURE: You MUST wrap the document body in \\begin{document} and \\end{document}. This is MANDATORY.
+3. ${isCurve
+    ? 'This IS a Curve-class document. You MAY use \\makerubric, \\entry, \\leftheader, \\rightheader, \\makeheaders, \\begin{rubric}, \\begin{fullonly}.'
+    : `FORBIDDEN commands (these will crash compilation):
    - \\makerubric, \\begin{rubric}, \\entry, \\leftheader, \\rightheader, \\makeheaders
    - \\makefield, \\personalinfo, \\begin{fullonly}, \\photo, \\photoscale
    ${isCustomClass ? '- Do NOT use any commands from the custom class. Rewrite them as standard LaTeX.' : ''}
    Use standard LaTeX: \\section{}, \\begin{itemize}, \\textbf{}, \\href{}{}, fontawesome5 icons.`}
-3. If the template defines custom macros (\\customSubHeading, \\customProject, \\customItem, \\customItemListStart, \\customItemListEnd, \\resumeSubheading, \\resumeProject, \\resumeItem, etc), you MUST define them with \\newcommand in the preamble before using them.
-4. Extract ONLY raw text/data from JSON blocks. IGNORE any LaTeX formatting inside JSON values.
-5. Output a SINGLE, COMPLETE, SELF-CONTAINED LaTeX document. No \\input{}, no external file references, no custom .cls files.
-6. Return ONLY raw LaTeX. No markdown fences, no explanations, no comments about what you did.
+4. If the template defines custom macros (\\customSubHeading, \\customProject, \\customItem, \\customItemListStart, \\customItemListEnd, \\resumeSubheading, \\resumeProject, \\resumeItem, etc), you MUST define them with \\newcommand in the preamble before using them.
+5. Extract ONLY raw text/data from JSON blocks. IGNORE any LaTeX formatting inside JSON values.
+6. Output a SINGLE, COMPLETE, SELF-CONTAINED LaTeX document. No \\input{}, no external file references.
+7. Return ONLY raw LaTeX. No markdown fences, no explanations, no comments about what you did.
 `;
         if (apiKey) {
             const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL_NAME}:generateContent?key=${apiKey}`, {
@@ -281,7 +282,14 @@ CRITICAL RULES:
             const data = await response.json();
             const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
             if (!text) throw new Error("Failed to assemble resume content");
-            return text.replace(/```latex\n?|```\n?/g, "").trim();
+            let extracted = text;
+            const match = text.match(/```(?:latex|tex)?\n([\s\S]*?)```/);
+            if (match) {
+                extracted = match[1];
+            } else {
+                extracted = text.replace(/```(?:latex|tex)?\n?|```\n?/g, "");
+            }
+            return extracted.trim();
         }
 
         const response = await fetch(`${API_BASE_URL}/ai/assemble`, {
@@ -392,6 +400,54 @@ CRITICAL RULES:
         });
         if (!response.ok) throw new Error("AI assistant failed");
         return await response.text();
+    },
+
+    async editFile(content: string, instruction: string, workspaceFiles?: { path: string, content: string }[], apiKey?: string) {
+        await applyRateLimit();
+        if (apiKey) {
+            const prompt = `
+You are a LaTeX expert. Modify the following LaTeX content based on the instruction.
+Maintain the overall structure and document class. Use professional resume formatting.
+
+INSTRUCTION: "${instruction}"
+
+CONTENT TO MODIFY:
+${content}
+
+Return ONLY the modified LaTeX. No markdown fences, no explanations.
+`;
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL_NAME}:generateContent?key=${apiKey}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.error?.message || `Gemini API Error: ${response.status}`);
+            }
+
+            const data = await response.json();
+            const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (!text) throw new Error("Failed to edit file content");
+
+            let extracted = text;
+            const match = text.match(/```(?:latex|tex)?\n([\s\S]*?)```/);
+            if (match) {
+                extracted = match[1];
+            } else {
+                extracted = text.replace(/```(?:latex|tex)?\n?|```\n?/g, "");
+            }
+            return extracted.trim();
+        }
+
+        const response = await fetch(`${API_BASE_URL}/ai/edit-file`, {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ content, instruction, workspaceFiles })
+        });
+        if (!response.ok) throw new Error('AI file editing failed');
+        return response.text();
     }
 };
 

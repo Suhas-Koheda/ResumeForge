@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { templateCompiler } from '../templateCompiler';
+import { templateCompiler } from '../templateCompiler.js';
 
 describe('TemplateCompiler', () => {
   it('should remove pdflatex primitives', () => {

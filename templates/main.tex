@@ -1,0 +1,85 @@
+
+%-------------------------
+% CV in LaTeX
+% Filled by: Shubham Gupta
+%------------------------
+
+\documentclass[letterpaper,11pt]{article}
+\usepackage{latexsym}
+\usepackage[empty]{fullpage}
+\usepackage{titlesec}
+\usepackage{marvosym}
+\usepackage[usenames,dvipsnames]{color}
+\usepackage{verbatim}
+\usepackage{enumitem}
+\usepackage[hidelinks]{hyperref}
+\usepackage{fancyhdr}
+\usepackage[english]{babel}
+\usepackage{tabularx}
+\usepackage{fontawesome5}
+\usepackage{multicol}
+\input{glyphtounicode}
+\usepackage{xcolor}
+
+\definecolor{ACCENT_COLOR}{RGB}{0,51,102}
+
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+
+\addtolength{\oddsidemargin}{-0.6in}
+\addtolength{\textwidth}{1.19in}
+\addtolength{\topmargin}{-0.7in}
+\addtolength{\textheight}{1.4in}
+
+\titleformat{\section}{
+\vspace{-4pt}\scshape\raggedright\large\bfseries\color{ACCENT_COLOR}
+}{}{0em}{}[\color{ACCENT_COLOR}\titlerule \vspace{-5pt}]
+
+\pdfgentounicode=1
+
+\newcommand{\customItem}[1]{\item\small{#1}}
+\newcommand{\customSubHeading}[4]{
+  \item
+  \begin{tabular*}{1.0\textwidth}{l@{\extracolsep{\fill}}r}
+    \textbf{#1} & \textbf{\small #2} \\
+    \textit{\small#3} & \textit{\small #4}
+  \end{tabular*}
+}
+\newcommand{\customProject}[2]{
+  \item
+  \begin{tabular*}{1.001\textwidth}{l@{\extracolsep{\fill}}r}
+    \small#1 & \textbf{\small #2}
+  \end{tabular*}
+}
+
+\newcommand{\customSubHeadingContentStart}{\begin{itemize}[leftmargin=0in,label={}]}
+\newcommand{\customSubHeadingContentEnd}{\end{itemize}}
+\newcommand{\customItemListStart}{\begin{itemize}}
+\newcommand{\customItemListEnd}{\end{itemize}}
+
+\begin{document}
+
+%----------HEADER----------
+\begin{center}
+    {\Huge \scshape \color{ACCENT_COLOR} Shubham Gupta} \\ \vspace{2pt}
+     ~~
+    \faPhone\ +91-7754916033 ~~
+    \href{mailto:guptas@iitk.ac.in}{\faEnvelope\ \underline{guptas@iitk.ac.in}} \\
+    
+\end{center}
+
+%-----------EDUCATION-----------
+\section{EDUCATION}
+\customSubHeadingContentStart
+
+\customSubHeading
+{D.A.V Public School}{2012}
+{Senior Secondary (CBSE), 86.8\%}{Kota, India}
+
+\customSubHeading
+{City Montessori School}{2010}
+{Secondary (ICSE), 95.4\%}{Lucknow, India}
+
+\customSubHeadingContentEnd
+\end{document}

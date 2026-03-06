@@ -119,7 +119,7 @@ export const latexService = {
         try {
             // Extract embedded .cls/.sty files, then preprocess
             const { source: cleanedLatex, auxiliaryFiles } = templateCompiler.extractAuxiliaryFiles(latexCode);
-            const source = templateCompiler.preprocess(cleanedLatex);
+            const source = await templateCompiler.preprocess(cleanedLatex);
 
             // Write any extracted auxiliary files (.cls, .sty)
             for (const aux of auxiliaryFiles) {

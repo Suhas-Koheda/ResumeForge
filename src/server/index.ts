@@ -10,6 +10,7 @@ import resumeRouter from './api/v1/resume.js';
 import exportRouter from './api/v1/export.js';
 import importRouter from './api/v1/import.js';
 import templatesRouter from './api/v1/templates.js';
+import filesRouter from './api/v1/files.js';
 import { aiService } from './services/ai.js';
 import { authMiddleware, AuthRequest } from './core/auth.js';
 import { verificationMiddleware } from './core/verification.js';
@@ -93,6 +94,7 @@ apiRouter.use('/resumes', authMiddleware, verificationMiddleware, resumeRouter);
 apiRouter.use('/export', authMiddleware, verificationMiddleware, exportRouter);
 apiRouter.use('/import', authMiddleware, verificationMiddleware, importRouter);
 apiRouter.use('/templates', authMiddleware, templatesRouter);
+apiRouter.use('/files', authMiddleware, verificationMiddleware, filesRouter);
 
 apiRouter.post('/ai/experience', authMiddleware, verificationMiddleware, async (req, res) => {
     try {
@@ -208,6 +210,20 @@ apiRouter.post('/ai/optimize', authMiddleware, verificationMiddleware, async (re
     } catch (error: any) {
         console.error("[LOG_API_ROUTE] AI optimization failed:", error);
         res.status(500).json({ error: 'AI optimization failed', details: error.message });
+    }
+});
+
+apiRouter.post('/ai/edit-file', authMiddleware, verificationMiddleware, async (req, res) => {
+    try {
+        const { content, instruction, workspaceFiles } = req.body;
+        if (!content || !instruction) {
+            return res.status(400).json({ error: 'Content and instruction are required' });
+        }
+        const result = await aiService.editLatexFile(content, instruction, workspaceFiles);
+        res.send(result);
+    } catch (error: any) {
+        console.error("[LOG_API_ROUTE] AI file editing failed:", error);
+        res.status(500).json({ error: 'AI file editing failed', details: error.message });
     }
 });
 

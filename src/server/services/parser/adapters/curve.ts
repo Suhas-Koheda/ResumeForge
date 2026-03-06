@@ -3,11 +3,34 @@ import { NormalizedSectionEntry, TemplateAdapter } from '../types.js';
 
 export class CurveAdapter implements TemplateAdapter {
     name = "Curve CV";
+    version = "1.0.0";
 
     detect(ast: latexParser.LatexAst): boolean {
         // Look for \documentclass{curve} or \makerubric
         const fullText = JSON.stringify(ast);
         return fullText.includes('curve') && (fullText.includes('makerubric') || fullText.includes('leftheader'));
+    }
+
+    convertToInternal(ast: latexParser.LatexAst): any {
+        return {
+            header: this.extractHeader(ast),
+            experience: [],
+            education: [],
+            projects: [],
+            skills: { categories: [] }
+        };
+    }
+
+    convertFromInternal(data: any, options: any): string {
+        return "";
+    }
+
+    extractMetadata(ast: latexParser.LatexAst): any {
+        return {
+            id: 'curve',
+            name: this.name,
+            version: this.version
+        };
     }
 
     extractHeader(ast: latexParser.LatexAst): Record<string, any> {

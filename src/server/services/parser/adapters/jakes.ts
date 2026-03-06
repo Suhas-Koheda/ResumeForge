@@ -3,6 +3,7 @@ import { NormalizedSectionEntry, TemplateAdapter } from '../types.js';
 
 export class JakesResumeAdapter implements TemplateAdapter {
     name = "Jake's Resume";
+    version = "1.0.0";
 
     detect(ast: latexParser.LatexAst): boolean {
         // Jake's Resume uniquely uses \resumeSubheading and \resumeItem
@@ -20,6 +21,28 @@ export class JakesResumeAdapter implements TemplateAdapter {
             }
         }
         return isJakes;
+    }
+
+    convertToInternal(ast: latexParser.LatexAst): any {
+        return {
+            header: this.extractHeader(ast),
+            experience: [],
+            education: [],
+            projects: [],
+            skills: { categories: [] }
+        };
+    }
+
+    convertFromInternal(data: any, options: any): string {
+        return "";
+    }
+
+    extractMetadata(ast: latexParser.LatexAst): any {
+        return {
+            id: 'jakes',
+            name: this.name,
+            version: this.version
+        };
     }
 
     extractHeader(ast: latexParser.LatexAst): Record<string, any> {

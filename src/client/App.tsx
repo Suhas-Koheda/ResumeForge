@@ -1,10 +1,11 @@
 import React, { memo, useState, useEffect } from 'react';
 import { ResumeCanvas } from './components/builder/ResumeCanvas';
+import { MultiFileEditor } from './components/builder/MultiFileEditor';
 import { useResumeActions } from './hooks/useResume';
 import {
     Plus, Settings as SettingsIcon, Layout, Sun, Moon,
     Briefcase, GraduationCap, Code, Rocket, FileText, Layers,
-    Loader2, Sparkles, X, Terminal, Copy, User, Download, LogOut, Cloud, Trash2, Menu, ChevronDown, Map, Save, Key, RefreshCw, FileUp, FileDown, Type
+    Loader2, Sparkles, X, Terminal, Copy, User, Download, LogOut, Cloud, Trash2, Menu, ChevronDown, Map, Save, Key, RefreshCw, FileUp, FileDown, Type, Play
 } from 'lucide-react';
 import { ResumeBlock, BlockType } from '@shared/types';
 import { OnboardingModal } from './components/ui/OnboardingModal';
@@ -16,9 +17,14 @@ import { manualLatexGenerator } from './services/manualLatex';
 import { latexServerService } from './services/latex';
 import { offlineLatexParser } from './services/offlineParser';
 import toast, { Toaster } from 'react-hot-toast';
-import { Play } from 'lucide-react';
+import { TemplateSelector } from './components/template/TemplateSelector';
+import { TemplateCustomizer } from './components/template/TemplateCustomizer';
+import { TemplateSaver } from './components/template/TemplateSaver';
+import { latexGenerator } from './services/latexGenerator';
+import { useFiles } from './hooks/useFiles';
 
 function App() {
+    const { writeFile } = useFiles();
     const {
         addBlock, apiKey, setApiKey, blocks,
         customTemplate, setCustomTemplate,
@@ -309,13 +315,73 @@ function App() {
         { type: 'other', label: 'Other', icon: Layers },
     ];
 
-    const handleManualAssemble = () => {
-        setPreviewMode('pdf');
-        setShowBuildOutput(true);
-        downloadPdf(false);
-    };
+    async function downloadPdf(shouldDownload = true, forcedContent?: string, filename?: string) {
+        setIsGeneratingPdf(true);
+        setCompilationLog(null);
+        try {
+            // Prepare all project files for compilation
+            let filesToCompile = projectFiles.map(f => ({
+                name: f.name,
+                content: f.content
+            }));
 
-    const handleAssemble = async () => {
+            // Sync forced content if provided
+            if (forcedContent) {
+                const targetName = filename || 'main.tex';
+                const existingIdx = filesToCompile.findIndex(f => f.name === targetName);
+                if (existingIdx > -1) {
+                    filesToCompile[existingIdx].content = forcedContent;
+                } else {
+                    filesToCompile.push({ name: targetName, content: forcedContent });
+                }
+            }
+
+            // Fallback: if main.tex is missing/empty and we have blocks, generate it
+            const mainFile = filesToCompile.find(f => f.name === 'main.tex');
+            if (!mainFile || mainFile.content.trim().length < 50) {
+                 const generated = manualLatexGenerator.generate(blocks);
+                 if (mainFile) mainFile.content = generated;
+                 else filesToCompile.push({ name: 'main.tex', content: generated });
+            }
+
+            if (filesToCompile.length === 0) {
+                toast.error("No files to compile");
+                return;
+            }
+
+            const blob = await latexServerService.compileLatexToPdf(filesToCompile);
+            const url = URL.createObjectURL(blob);
+            setPdfUrl(url);
+            setPreviewMode('pdf');
+            if (shouldDownload) {
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = filename ? filename.replace(/\.tex$/, '.pdf') : 'resume.pdf';
+                link.click();
+            }
+        } catch (error: any) {
+            console.error("PDF Gen Error:", error.message);
+            toast.error(`PDF Generation failed: ${error.message}`);
+            setCompilationLog(error.message);
+            setPreviewMode('pdf');
+            setShowBuildOutput(true);
+        } finally {
+            setIsGeneratingPdf(false);
+        }
+    }
+
+    function handleManualAssemble(forcedLatex?: string, filename?: string) {
+        const latex = forcedLatex || manualLatexGenerator.generate(blocks);
+        if (!forcedLatex || filename === 'main.tex') {
+            updateFileContent('main.tex', latex);
+        }
+        setPdfUrl(null);
+        setShowBuildOutput(true);
+        setPreviewMode('pdf');
+        downloadPdf(false, latex, filename);
+    }
+
+    async function handleAssemble() {
         setIsAssembling(true);
         setShowBuildOutput(true);
         const toastId = toast.loading("AI Assembly in progress...", { position: "bottom-center" });
@@ -340,14 +406,14 @@ function App() {
 
             if (cleanedContent.includes('\\documentclass') || cleanedContent.includes('\\begin{document}')) {
                 updateFileContent('main.tex', cleanedContent);
-                downloadPdf(false);
+                downloadPdf(false, cleanedContent);
             } else {
                 const headerData = blocks.find(b => b.type === 'header')?.data || {};
                 const fullDoc = manualLatexGenerator.generatePreamble(headerData) +
                     cleanedContent +
                     manualLatexGenerator.generatePostamble();
                 updateFileContent('main.tex', fullDoc);
-                downloadPdf(false);
+                downloadPdf(false, fullDoc);
             }
             pdfUrl && URL.revokeObjectURL(pdfUrl);
             setPdfUrl(null);
@@ -358,43 +424,7 @@ function App() {
         } finally {
             setIsAssembling(false);
         }
-    };
-
-    const downloadPdf = async (shouldDownload = true) => {
-        setIsGeneratingPdf(true);
-        setCompilationLog(null);
-        try {
-            // Sync all project files for compilation
-            const filesToCompile = projectFiles.map(f => ({
-                name: f.name,
-                content: f.content
-            }));
-
-            if (filesToCompile.length === 0) {
-                toast.error("No files to compile");
-                return;
-            }
-
-            const blob = await latexServerService.compileLatexToPdf(filesToCompile);
-            const url = URL.createObjectURL(blob);
-            setPdfUrl(url);
-            setPreviewMode('pdf');
-            if (shouldDownload) {
-                const link = document.createElement('a');
-                link.href = url;
-                link.download = 'resume.pdf';
-                link.click();
-            }
-        } catch (error: any) {
-            console.error("PDF Gen Error:", error.message);
-            toast.error(`PDF Generation failed: ${error.message}`);
-            setCompilationLog(error.message);
-            setPreviewMode('pdf');
-            setShowBuildOutput(true);
-        } finally {
-            setIsGeneratingPdf(false);
-        }
-    };
+    }
 
     const downloadTex = () => {
         const mainFile = projectFiles.find(f => f.name === 'main.tex');
@@ -645,7 +675,7 @@ function App() {
                         )}
 
                         <button
-                            onClick={handleManualAssemble}
+                            onClick={() => handleManualAssemble()}
                             className="hidden sm:flex px-3 py-1.5 text-[9px] font-bold uppercase tracking-[0.2em] border border-black dark:border-white text-black dark:text-white hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black transition-all items-center gap-2"
                         >
                             <Sparkles size={10} />
@@ -680,28 +710,18 @@ function App() {
                                 <div className="flex items-center gap-2 sm:gap-8">
                                     <h2 className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest">Compiler_Output</h2>
                                     <div className="flex border border-zinc-100 dark:border-zinc-800 p-0.5">
-                                        <button onClick={() => setPreviewMode('code')} className={`px-2 sm:px-4 py-1.5 text-[8px] sm:text-[9px] font-bold uppercase tracking-widest ${previewMode === 'code' ? 'bg-black text-white dark:bg-white dark:text-black' : 'text-zinc-400'}`}>Edit_Source</button>
-                                        <button onClick={() => { if (!pdfUrl) downloadPdf(false); else setPreviewMode('pdf'); }} className={`px-2 sm:px-4 py-1.5 text-[8px] sm:text-[9px] font-bold uppercase tracking-widest ${previewMode === 'pdf' ? 'bg-black text-white dark:bg-white dark:text-black' : 'text-zinc-400'}`}>Preview_Result</button>
+                                         <button onClick={() => setPreviewMode('code')} className={`px-2 sm:px-4 py-1.5 text-[8px] sm:text-[9px] font-bold uppercase tracking-widest ${previewMode === 'code' ? 'bg-black text-white dark:bg-white dark:text-black' : 'text-zinc-400'}`}>Source</button>
+                                         <button onClick={() => { if (!pdfUrl) downloadPdf(false); else setPreviewMode('pdf'); }} className={`px-2 sm:px-4 py-1.5 text-[8px] sm:text-[9px] font-bold uppercase tracking-widest ${previewMode === 'pdf' ? 'bg-black text-white dark:bg-white dark:text-black' : 'text-zinc-400'}`}>Preview</button>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    {previewMode === 'template' && (
-                                        <button
-                                            onClick={handleAssemble}
-                                            disabled={isAssembling}
-                                            className="px-3 py-1.5 bg-blue-600 text-white text-[9px] font-bold uppercase tracking-widest hover:bg-blue-700 disabled:opacity-50 transition-all flex items-center gap-2"
-                                        >
-                                            {isAssembling ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />}
-                                            Apply_Template
-                                        </button>
-                                    )}
                                     <button onClick={() => setShowBuildOutput(false)} className="text-zinc-400 hover:text-black p-1"><X size={16} /></button>
                                 </div>
                             </header>
                             <div className="flex-1 overflow-hidden p-2 sm:p-12 bg-zinc-50 dark:bg-zinc-950 flex justify-center">
                                 <div className="w-full max-w-5xl bg-white dark:bg-black border border-zinc-200 dark:border-zinc-800 flex flex-col shadow-2xl overflow-hidden text-[13px]">
-                                    {previewMode === 'code' ? (
-                                        <AdvancedEditor onCompile={() => downloadPdf(false)} isCompiling={isGeneratingPdf} />
+                                     {previewMode === 'code' ? (
+                                      <MultiFileEditor onCompile={(latex, filename) => handleManualAssemble(latex, filename)} isCompiling={isGeneratingPdf} />
                                     ) : (
                                         <div className="flex-1 relative bg-zinc-100 flex items-center justify-center">
                                             {isGeneratingPdf ? <Loader2 size={24} className="animate-spin" /> : pdfUrl ? <iframe src={pdfUrl} className="w-full h-full" title="PDF" /> : compilationLog ? <pre className="p-8 text-red-500 overflow-auto whitespace-pre-wrap">{compilationLog}</pre> : null}

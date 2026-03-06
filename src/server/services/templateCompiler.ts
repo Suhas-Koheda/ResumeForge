@@ -16,6 +16,9 @@
  *   - Single injection point across entire backend
  */
 
+import path from 'path';
+import { FileService } from './fileService.js';
+
 const POLYFILL_MARKER = '% --- RF_POLYFILLS_INJECTED ---';
 
 export interface AuxiliaryFile {
@@ -83,8 +86,55 @@ export class TemplateCompiler {
     return { source, auxiliaryFiles };
   }
 
-  preprocess(latex: string): string {
-    let source = latex;
+  /**
+   * Recursively resolve \input and \include imports from the FileService.
+   */
+  private async resolveImports(latex: string, currentDir: string = '.', visited: Set<string> = new Set()): Promise<string> {
+    const fileService = new FileService();
+    const importRegex = /\\(input|include)\s*\{([^}]+)\}/gi;
+    let result = latex;
+
+    // Use matchAll to find all imports
+    const matches = Array.from(latex.matchAll(importRegex));
+    
+    for (const match of matches) {
+      const fullMatch = match[0];
+      const importPath = match[2].trim();
+
+      // Skip glyphtounicode (special handled elsewhere)
+      if (importPath === 'glyphtounicode') continue;
+
+      // Resolve path relative to currentDir
+      const targetPath = path.join(currentDir, importPath);
+
+      // Prevent infinite loops
+      if (visited.has(targetPath)) continue;
+      
+      let fileName = targetPath;
+      if (!path.extname(fileName)) {
+        fileName += '.tex';
+      }
+
+      try {
+        const content = await fileService.readFile(fileName);
+        visited.add(targetPath);
+        // Recursively resolve imports in the new content, relative to its own folder
+        const nextDir = path.dirname(targetPath);
+        const resolvedContent = await this.resolveImports(content, nextDir, visited);
+        // Replace ONLY the first occurrence to avoid replacing multiple if they exist (though visited check handles it)
+        result = result.replace(fullMatch, resolvedContent);
+      } catch (e) {
+        // If file not found, keep it as is but mark it as missing in log/comment
+        result = result.replace(fullMatch, `% (RF) missing import: ${fileName}\n`);
+      }
+    }
+
+    return result;
+  }
+
+  async preprocess(latex: string): Promise<string> {
+    const { source: cleanedSource } = this.extractAuxiliaryFiles(latex);
+    let source = await this.resolveImports(cleanedSource);
 
     // ─── 0. IDEMPOTENCY GUARD ──────────────────────────────────────────
     if (source.includes(POLYFILL_MARKER)) {

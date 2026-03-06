@@ -161,7 +161,7 @@ export const aiService = {
             const docClassMatch = cleanTemplate.match(/\\documentclass(?:\[[^\]]*\])?\{([^}]*)\}/);
             const docClass = docClassMatch ? docClassMatch[1] : 'article';
             const isCurve = docClass === 'curve';
-            const standardClasses = ['article', 'report', 'book', 'letter', 'beamer', 'memoir', 'standalone', 'minimal', 'curve'];
+            const standardClasses = ['article', 'report', 'book', 'letter', 'beamer', 'memoir', 'standalone', 'minimal', 'curve', 'resume'];
             const isCustomClass = !standardClasses.includes(docClass);
             const isFullDocument = cleanTemplate.includes('\\documentclass');
 
@@ -186,20 +186,29 @@ DETECTED DOCUMENT CLASS: "${docClass}"
 ${isCustomClass ? `\nWARNING: "${docClass}" is a CUSTOM class NOT available in Tectonic. Convert to \\documentclass[letterpaper,11pt]{article}.\n` : ''}
 CRITICAL RULES:
 1. DOCUMENT CLASS: ${isCustomClass
-                    ? `"${docClass}" is NOT available. Use \\documentclass[letterpaper,11pt]{article} and replicate formatting with standard LaTeX.`
-                    : isFullDocument ? `Use \\documentclass{${docClass}}.` : 'Use \\documentclass[letterpaper,11pt]{article}.'}
-2. ${isCurve
-                    ? 'Curve-class: You MAY use \\makerubric, \\entry, \\leftheader, etc.'
-                    : `FORBIDDEN: \\makerubric, \\begin{rubric}, \\entry, \\leftheader, \\rightheader, \\makeheaders, \\makefield, \\personalinfo, \\begin{fullonly}, \\photo, \\photoscale.
+    ? `"${docClass}" is NOT available. Use \\documentclass[letterpaper,11pt]{article} and replicate formatting with standard LaTeX.`
+    : isFullDocument ? `Use \\documentclass{${docClass}}.` : 'Use \\documentclass[letterpaper,11pt]{article}.'}
+2. STRUCTURE: You MUST wrap the document body in \\begin{document} and \\end{document}. This is MANDATORY.
+3. ${isCurve
+    ? 'Curve-class: You MAY use \\makerubric, \\entry, \\leftheader, etc.'
+    : `FORBIDDEN: \\makerubric, \\begin{rubric}, \\entry, \\leftheader, \\rightheader, \\makeheaders, \\makefield, \\personalinfo, \\begin{fullonly}, \\photo, \\photoscale.
    ${isCustomClass ? 'Do NOT use any custom class commands. Rewrite as standard LaTeX.' : ''}
    Use: \\section{}, \\begin{itemize}, \\textbf{}, \\href{}{}, fontawesome5 icons.`}
-3. If the template defines custom macros, define them with \\newcommand in the preamble before using.
-4. Extract ONLY raw text from blocks. IGNORE LaTeX formatting inside JSON values.
-5. Output a SINGLE, COMPLETE, SELF-CONTAINED document. No \\input{}, no .cls files.
-6. Return ONLY raw LaTeX. No markdown fences, no explanations.
+4. If the template defines custom macros, define them with \\newcommand in the preamble before using.
+5. Extract ONLY raw text from blocks. IGNORE LaTeX formatting inside JSON values.
+6. Output a SINGLE, COMPLETE, SELF-CONTAINED document. No \\input{}, no .cls files.
+7. Return ONLY raw LaTeX. No markdown fences, no explanations.
 `;
             const result = await model.generateContent(prompt);
-            return result.response.text().replace(/```latex\n?|```\n?/g, "").trim();
+            const text = result.response.text();
+            let extracted = text;
+            const match = text.match(/```(?:latex|tex)?\n([\s\S]*?)```/);
+            if (match) {
+                extracted = match[1];
+            } else {
+                extracted = text.replace(/```(?:latex|tex)?\n?|```\n?/g, "");
+            }
+            return extracted.trim();
         });
     },
 
@@ -274,6 +283,32 @@ CRITICAL RULES:
         return executeWithRotation(async (model) => {
             const result = await model.generateContent(prompt);
             return result.response.text().replace(/```latex\n?|```\n?/g, "").trim();
+        });
+    },
+
+    async editLatexFile(content: string, instruction: string, workspaceFiles?: { path: string, content: string }[]) {
+        return executeWithRotation(async (model) => {
+            const prompt = `
+You are a LaTeX expert. Modify the following LaTeX content based on the instruction.
+Maintain the overall structure and document class. Use professional resume formatting.
+
+INSTRUCTION: "${instruction}"
+
+CONTENT TO MODIFY:
+${content}
+
+Return ONLY the modified LaTeX. No markdown fences, no explanations.
+`;
+            const result = await model.generateContent(prompt);
+            const text = result.response.text();
+            let extracted = text;
+            const match = text.match(/```(?:latex|tex)?\n([\s\S]*?)```/);
+            if (match) {
+                extracted = match[1];
+            } else {
+                extracted = text.replace(/```(?:latex|tex)?\n?|```\n?/g, "");
+            }
+            return extracted.trim();
         });
     }
 };

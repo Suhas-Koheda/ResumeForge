@@ -1,6 +1,7 @@
 import express from 'express';
 import { authMiddleware, AuthRequest } from '../../core/auth.js';
 import { latexCompiler } from '../../services/latexCompiler.js';
+import { getFileServiceClient } from '../../services/fileServiceClient.js';
 
 const router = express.Router();
 
@@ -8,9 +9,7 @@ const router = express.Router();
  * POST /api/v1/export/pdf
  * Body: { latexCode: string }
  *
- * Compiles the provided LaTeX source with the local Tectonic engine
- * and returns the PDF as an application/pdf binary buffer.
- * No external services are used.
+ * Compiles the provided LaTeX source with the local Tectonic engine.
  */
 router.post('/pdf', authMiddleware, async (req: AuthRequest, res) => {
     const { files } = req.body;
@@ -21,7 +20,6 @@ router.post('/pdf', authMiddleware, async (req: AuthRequest, res) => {
 
     try {
         const result = await latexCompiler.compile(files);
-
         if (!result.success || !result.pdf) {
             console.error('[EXPORT] Tectonic compilation failed:', result.logs);
             return res.status(500).json({

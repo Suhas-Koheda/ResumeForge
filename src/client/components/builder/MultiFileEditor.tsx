@@ -1,0 +1,224 @@
+import React, { useState, useEffect, useRef } from 'react';
+import Editor from '@monaco-editor/react';
+import { FileTree } from './FileTree';
+import { useFiles } from '../../hooks/useFiles';
+import { Save, Play, Sparkles, Loader2, FileCode, RefreshCcw, X, Wand2 } from 'lucide-react';
+import { useBuilderStore } from '../../store/useBuilderStore';
+import { manualLatexGenerator } from '../../services/manualLatex';
+import { geminiService } from '../../services/ai';
+
+interface MultiFileEditorProps {
+    onCompile?: (latex: string, filename?: string) => void;
+    isCompiling?: boolean;
+}
+
+export function MultiFileEditor({ onCompile, isCompiling }: MultiFileEditorProps) {
+    const { readFile, writeFile, files, createFile, loading } = useFiles();
+    const [activeFile, setActiveFile] = useState<string | null>(null);
+    const [content, setContent] = useState<string>('');
+    const [isSaving, setIsSaving] = useState(false);
+    const [isAiLoading, setIsAiLoading] = useState(false);
+    const [showAiPrompt, setShowAiPrompt] = useState(false);
+    const [aiInstruction, setAiInstruction] = useState('');
+    const { blocks, apiKey } = useBuilderStore();
+    const initialSyncDone = useRef(false);
+
+    // Auto-select first file if none active or create main.tex if empty
+    useEffect(() => {
+        if (!loading && files.length === 0 && !activeFile && !initialSyncDone.current) {
+            initialSyncDone.current = true;
+            const freshLatex = manualLatexGenerator.generate(blocks);
+            createFile('main.tex', freshLatex).then(() => {
+                handleFileSelect('main.tex');
+            });
+        } else if (files.length > 0 && !activeFile) {
+            if (files.includes('main.tex')) {
+                handleFileSelect('main.tex');
+            } else {
+                handleFileSelect(files[0]);
+            }
+        }
+    }, [files, activeFile, loading]);
+
+    const handleFileSelect = async (path: string) => {
+        try {
+            const text = await readFile(path);
+            setActiveFile(path);
+            setContent(text);
+        } catch (e: any) {
+            console.error(e);
+        }
+    };
+
+    const handleSave = async () => {
+        if (!activeFile) return;
+        setIsSaving(true);
+        try {
+            await writeFile(activeFile, content);
+        } catch (e: any) {
+            alert(e.message);
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const handleSyncFromCanvas = () => {
+        if (!activeFile) return;
+        if (confirm("Overwrite current file with content from visual builder?")) {
+            const freshLatex = manualLatexGenerator.generate(blocks);
+            setContent(freshLatex);
+        }
+    };
+
+    const handleAiEdit = async () => {
+        if (!aiInstruction.trim() || !activeFile) return;
+        setIsAiLoading(true);
+        try {
+            const result = await geminiService.editFile(content, aiInstruction, undefined, apiKey);
+            setContent(result);
+            await writeFile(activeFile, result);
+            setShowAiPrompt(false);
+            setAiInstruction('');
+        } catch (e: any) {
+            alert(`AI Edit failed: ${e.message}`);
+        } finally {
+            setIsAiLoading(false);
+        }
+    };
+
+    const handleCompileInternal = async () => {
+        await handleSave();
+        if (onCompile) {
+            let compileContent = content;
+            let compileFile = activeFile;
+            if (activeFile !== 'main.tex' && files.includes('main.tex')) {
+                try {
+                    compileContent = await readFile('main.tex');
+                    compileFile = 'main.tex';
+                } catch (e) {
+                    console.error("Failed to read main.tex", e);
+                }
+            }
+            onCompile(compileContent, compileFile || undefined);
+        }
+    };
+
+    return (
+        <div className="flex h-full w-full bg-white dark:bg-[#0b0c0e] overflow-hidden rounded-xl border border-zinc-200 dark:border-[#2d3042] shadow-2xl">
+            <FileTree onFileSelect={handleFileSelect} activeFile={activeFile || undefined} />
+            
+            <div className="flex-1 flex flex-col min-w-0 h-full relative">
+                <div className="h-14 px-6 border-b border-zinc-100 dark:border-[#2d3042] flex items-center justify-between bg-zinc-50/50 dark:bg-zinc-900/10 shrink-0">
+                    <div className="flex items-center gap-4 truncate">
+                         <span className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 shrink-0">Editor_Session</span>
+                         {activeFile && (
+                           <div className="flex items-center gap-2 bg-zinc-100 dark:bg-zinc-800 px-3 py-1 rounded-full border border-zinc-200 dark:border-zinc-700 truncate">
+                              <span className="text-[9px] font-bold text-zinc-600 dark:text-zinc-300 truncate">{activeFile}</span>
+                           </div>
+                         )}
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                        <button 
+                            onClick={() => setShowAiPrompt(!showAiPrompt)}
+                            className={`p-1.5 transition-all rounded-md ${showAiPrompt ? 'bg-blue-500 text-white' : 'text-zinc-400 hover:text-blue-500'}`}
+                            title="AI Magic Edit"
+                        >
+                            <Sparkles size={16} />
+                        </button>
+                        <button 
+                            onClick={handleSyncFromCanvas}
+                            title="Sync from Visual Builder"
+                            className="p-1.5 text-zinc-400 hover:text-blue-500 transition-colors"
+                        >
+                            <RefreshCcw size={14} />
+                        </button>
+                        <button 
+                            onClick={handleSave}
+                            disabled={isSaving || !activeFile}
+                            className="flex items-center gap-2 px-3 py-1.5 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 rounded text-[9px] font-bold uppercase tracking-widest hover:bg-zinc-200 dark:hover:bg-zinc-700 disabled:opacity-50 transition-all"
+                        >
+                            {isSaving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+                            SAVE
+                        </button>
+                        <button 
+                            onClick={handleCompileInternal}
+                            disabled={isCompiling || !activeFile}
+                            className="flex items-center gap-2 px-4 py-1.5 bg-black dark:bg-white text-white dark:text-black rounded text-[9px] font-bold uppercase tracking-widest hover:opacity-80 transition-all shadow-lg shadow-black/10"
+                        >
+                            {isCompiling ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />}
+                            COMPILE
+                        </button>
+                    </div>
+                </div>
+
+                <div className="flex-1 min-h-0 relative bg-white dark:bg-[#1e1e1e]">
+                    {activeFile ? (
+                        <>
+                            <Editor
+                                height="100%"
+                                defaultLanguage="latex"
+                                value={content}
+                                onChange={(v: string | undefined) => setContent(v || '')}
+                                theme="vs-dark"
+                                options={{
+                                    fontSize: 13,
+                                    fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+                                    minimap: { enabled: false },
+                                    scrollBeyondLastLine: false,
+                                    lineNumbers: 'on',
+                                    padding: { top: 20 },
+                                    cursorSmoothCaretAnimation: "on",
+                                    automaticLayout: true,
+                                    wordWrap: 'on',
+                                    tabSize: 2
+                                }}
+                            />
+                            {showAiPrompt && (
+                                <div className="absolute bottom-6 left-6 right-6 z-50 animate-in slide-in-from-bottom-4 duration-300">
+                                    <div className="bg-white dark:bg-[#1a1b1e] border border-blue-500/30 shadow-2xl rounded-xl p-1 flex items-center gap-2 backdrop-blur-md">
+                                        <div className="pl-4 text-blue-500">
+                                            <Wand2 size={16} />
+                                        </div>
+                                        <input 
+                                            autoFocus
+                                            placeholder="Ask AI to modify this file... (e.g. 'Add a new section for certifications')"
+                                            className="flex-1 bg-transparent border-none outline-none py-3 px-2 text-[12px] font-medium text-zinc-800 dark:text-zinc-200"
+                                            value={aiInstruction}
+                                            onChange={(e) => setAiInstruction(e.target.value)}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter') handleAiEdit();
+                                                if (e.key === 'Escape') setShowAiPrompt(false);
+                                            }}
+                                        />
+                                        <button 
+                                            onClick={handleAiEdit}
+                                            disabled={isAiLoading || !aiInstruction.trim()}
+                                            className="px-4 py-2 bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-all flex items-center gap-2"
+                                        >
+                                            {isAiLoading ? <Loader2 size={12} className="animate-spin" /> : 'Apply'}
+                                        </button>
+                                        <button 
+                                            onClick={() => setShowAiPrompt(false)}
+                                            className="p-2 text-zinc-400 hover:text-black dark:hover:text-white mr-1"
+                                        >
+                                            <X size={16} />
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </>
+                    ) : (
+                        <div className="h-full flex flex-col items-center justify-center opacity-10 gap-6 select-none">
+                           <FileCode size={80} strokeWidth={1} />
+                           <div className="text-center">
+                               <p className="text-[14px] font-black uppercase tracking-[0.4em] mb-1">Central_Workspace</p>
+                               <p className="text-[8px] font-bold uppercase tracking-widest text-zinc-500">Pick_a_Reference_for_Initialisation</p>
+                           </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+}

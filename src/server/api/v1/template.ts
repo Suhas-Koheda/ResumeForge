@@ -21,9 +21,11 @@ router.post('/', async (req: any, res) => {
         const repo = AppDataSource.getRepository(Template);
         
         const template = repo.create({
-            title,
-            content,
-            user: { id: req.userId }
+            name: title,
+            preamble: content,
+            user: { id: req.userId },
+            config: {}, // Required field in entity
+            styles: {}  // Required field in entity
         });
 
         await repo.save(template);
@@ -42,8 +44,8 @@ router.put('/:id', async (req: any, res) => {
         const template = await repo.findOne({ where: { id: req.params.id, user: { id: req.userId } } });
         if (!template) return res.status(404).json({ error: 'Template not found' });
 
-        if (title) template.title = title;
-        if (content) template.content = content;
+        if (title) template.name = title;
+        if (content) template.preamble = content;
         
         await repo.save(template);
         res.json(template);
