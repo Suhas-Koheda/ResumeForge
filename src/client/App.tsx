@@ -374,6 +374,7 @@ function App() {
         const latex = forcedLatex || manualLatexGenerator.generate(blocks);
         if (!forcedLatex || filename === 'main.tex') {
             updateFileContent('main.tex', latex);
+            writeFile('main.tex', latex).catch(e => console.error("Failed to write main.tex:", e));
         }
         setPdfUrl(null);
         setShowBuildOutput(true);
@@ -387,6 +388,7 @@ function App() {
         const toastId = toast.loading("AI Assembly in progress...", { position: "bottom-center" });
         try {
             const sectionContent = await geminiService.assembleFullResume(blocks, customTemplate || '', apiKey);
+            console.log("[LOG_APP] AI Assembly Output:", sectionContent);
 
             if (!sectionContent) {
                 toast.dismiss(toastId);
@@ -404,17 +406,28 @@ function App() {
                 .replace(/\s+[aćçbi\u0107\u0106\u0131]\s+(?=http|\\href|\\url|~~|\|)/gi, ' ')
                 .trim();
 
-            if (cleanedContent.includes('\\documentclass') || cleanedContent.includes('\\begin{document}')) {
-                updateFileContent('main.tex', cleanedContent);
-                downloadPdf(false, cleanedContent);
-            } else {
-                const headerData = blocks.find(b => b.type === 'header')?.data || {};
-                const fullDoc = manualLatexGenerator.generatePreamble(headerData) +
-                    cleanedContent +
-                    manualLatexGenerator.generatePostamble();
-                updateFileContent('main.tex', fullDoc);
-                downloadPdf(false, fullDoc);
+            // If the AI output doesn't start with \documentclass, wrap it if it looks like a body.
+            // But usually the prompt forces a full document now.
+            let finalDoc = cleanedContent;
+            if (!cleanedContent.includes('\\documentclass') && (cleanedContent.includes('\\begin{document}') || cleanedContent.length > 100)) {
+                 // It's a partial, but probably useful. Wrap it only if missing major tags.
+                 if (!cleanedContent.includes('\\begin{document}')) {
+                    const headerData = blocks.find(b => b.type.toLowerCase() === 'header')?.data || {};
+                    finalDoc = manualLatexGenerator.generatePreamble(headerData) +
+                        '\n' + cleanedContent + '\n' +
+                        manualLatexGenerator.generatePostamble();
+                 }
+            } else if (cleanedContent.length < 50) {
+                // If it's truly too short, only then fall back.
+                console.warn("[LOG_APP] AI output too short, falling back to manual generator.");
+                finalDoc = manualLatexGenerator.generate(blocks);
             }
+
+            updateFileContent('main.tex', finalDoc);
+            await writeFile('main.tex', finalDoc);
+            toast.success("main.tex updated successfully on disk.");
+            downloadPdf(false, finalDoc);
+            
             pdfUrl && URL.revokeObjectURL(pdfUrl);
             setPdfUrl(null);
         } catch (error: any) {

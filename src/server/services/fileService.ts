@@ -8,7 +8,7 @@ import path from 'path';
  */
 export class FileService {
   /** Root directory where all user LaTeX files are stored */
-  private readonly workspaceRoot: string;
+  public readonly workspaceRoot: string;
 
   constructor(workspaceRoot?: string) {
     // Default to a "templates" folder at the project root

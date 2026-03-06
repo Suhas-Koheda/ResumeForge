@@ -45,7 +45,7 @@ const TECTONIC_BIN = (() => {
 class LatexCompiler {
   private cache: Map<string, CompilationResult> = new Map();
 
-  async compile(files: { name: string; content: string }[], options: CompileOptions = {}): Promise<CompilationResult> {
+  async compile(files: { name: string; content: string }[], options: CompileOptions & { workspacePath?: string } = {}): Promise<CompilationResult> {
     const start = Date.now();
     const mainFile = files.find(f => f.name === 'main.tex') || files[0];
     if (!mainFile) {
@@ -54,7 +54,7 @@ class LatexCompiler {
 
     // Preprocess only the main file for now (or all files if they contain placeholders)
     const processedMain = await templateCompiler.preprocess(mainFile.content);
-    const hash = this.getHash(JSON.stringify(files));
+    const hash = this.getHash(JSON.stringify(files) + (options.workspacePath || ''));
 
     if (options.cache !== false) {
       const cached = this.getCachedResult(hash);
@@ -67,11 +67,41 @@ class LatexCompiler {
     const logPath = path.join(tempDir, mainFile.name.replace('.tex', '.log'));
 
     try {
-      // Write all files to the temp directory
+      // Write provided files to the temp directory
       for (const file of files) {
         const content = file.name === mainFile.name ? processedMain : file.content;
         await fs.writeFile(path.join(tempDir, file.name), content, 'utf8');
       }
+
+      // Automatically pull missing dependencies from workspace if available
+      if (options.workspacePath) {
+          // Detect potentially missing files (classes, packages, inputs)
+          const fileRefs = [
+              ...processedMain.matchAll(/\\documentclass(?:\[[^\]]*\])?\{([^}]+)\}/g),
+              ...processedMain.matchAll(/\\usepackage(?:\[[^\]]*\])?\{([^}]+)\}/g),
+              ...processedMain.matchAll(/\\input\{([^}]+)\}/g),
+              ...processedMain.matchAll(/\\include\{([^}]+)\}/g)
+          ].map(m => m[1]);
+
+          for (const ref of fileRefs) {
+              // Handle multiple packages in one \usepackage{a,b,c}
+              const names = ref.split(',').map(n => n.trim());
+              for (const name of names) {
+                  const possibleExtensions = ['.cls', '.sty', '.tex'];
+                  for (const ext of possibleExtensions) {
+                      const fileName = name.endsWith(ext) ? name : name + ext;
+                      if (!files.some(f => f.name === fileName)) {
+                          const fullPath = path.resolve(options.workspacePath, fileName);
+                          if (fsSync.existsSync(fullPath)) {
+                              const content = await fs.readFile(fullPath, 'utf8');
+                              await fs.writeFile(path.join(tempDir, fileName), content, 'utf8');
+                          }
+                      }
+                  }
+              }
+          }
+      }
+
       const args = [
         texPath,
         '--outdir', tempDir,

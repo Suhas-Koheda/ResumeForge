@@ -19,7 +19,9 @@ router.post('/pdf', authMiddleware, async (req: AuthRequest, res) => {
     }
 
     try {
-        const result = await latexCompiler.compile(files);
+        const fileService = getFileServiceClient(req);
+        const workspacePath = fileService.workspaceRoot;
+        const result = await latexCompiler.compile(files, { workspacePath });
         if (!result.success || !result.pdf) {
             console.error('[EXPORT] Tectonic compilation failed:', result.logs);
             return res.status(500).json({

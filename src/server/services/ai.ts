@@ -171,34 +171,34 @@ export const aiService = {
                 cleanTemplate = cleanTemplate.substring(0, endDocIdx + '\\end{document}'.length);
             }
 
-            const prompt = `
-You are a LaTeX resume builder. You produce COMPILABLE LaTeX that works with XeTeX/Tectonic.
+            const prompt = cleanTemplate
+                ? `You are a LaTeX Template Processor. Your ONLY job is to take the TEMPLATE provided and swap its placeholder data with the JSON DATA.
+Output MUST be the full document.
 
-==================================================
-TEMPLATE (visual/structural reference):
-${cleanTemplate || 'NO TEMPLATE — use standard article-class resume format.'}
-==================================================
-INPUT DATA (JSON):
+TEMPLATE:
+${cleanTemplate}
+
+JSON DATA:
 ${JSON.stringify(blocks)}
-==================================================
 
-DETECTED DOCUMENT CLASS: "${docClass}"
-${isCustomClass ? `\nWARNING: "${docClass}" is a CUSTOM class NOT available in Tectonic. Convert to \\documentclass[letterpaper,11pt]{article}.\n` : ''}
-CRITICAL RULES:
-1. DOCUMENT CLASS: ${isCustomClass
-    ? `"${docClass}" is NOT available. Use \\documentclass[letterpaper,11pt]{article} and replicate formatting with standard LaTeX.`
-    : isFullDocument ? `Use \\documentclass{${docClass}}.` : 'Use \\documentclass[letterpaper,11pt]{article}.'}
-2. STRUCTURE: You MUST wrap the document body in \\begin{document} and \\end{document}. This is MANDATORY.
-3. ${isCurve
-    ? 'Curve-class: You MAY use \\makerubric, \\entry, \\leftheader, etc.'
-    : `FORBIDDEN: \\makerubric, \\begin{rubric}, \\entry, \\leftheader, \\rightheader, \\makeheaders, \\makefield, \\personalinfo, \\begin{fullonly}, \\photo, \\photoscale.
-   ${isCustomClass ? 'Do NOT use any custom class commands. Rewrite as standard LaTeX.' : ''}
-   Use: \\section{}, \\begin{itemize}, \\textbf{}, \\href{}{}, fontawesome5 icons.`}
-4. If the template defines custom macros, define them with \\newcommand in the preamble before using.
-5. Extract ONLY raw text from blocks. IGNORE LaTeX formatting inside JSON values.
-6. Output a SINGLE, COMPLETE, SELF-CONTAINED document. No \\input{}, no .cls files.
-7. Return ONLY raw LaTeX. No markdown fences, no explanations.
-`;
+STRICT DIRECTIVES:
+1. NO STYLE HALLUCINATION: Use ONLY the structure and macros present in the TEMPLATE.
+2. FULL DOCUMENT: Your output MUST be a complete LaTeX document from \\documentclass to \\end{document}.
+3. NO MARKDOWN: Output ONLY raw LaTeX. No backticks or explanations.
+4. ESCAPING: You MUST escape special fragments: & -> \\&, % -> \\%, $ -> \\$, _ -> \\_, # -> \\#, etc.
+5. NO CONVERSATION: Return ONLY the code.`
+                : `You are an expert LaTeX Resume Architect.
+Create a complete, professional, compilable LaTeX resume using the following JSON DATA.
+Use a standard, high-quality resume document class (like article) and professional formatting.
+
+JSON DATA:
+${JSON.stringify(blocks)}
+
+DIRECTIVES:
+1. FULL DOCUMENT: Output a complete, self-contained LaTeX document from \\documentclass to \\end{document}.
+2. NO MARKDOWN: Output ONLY raw LaTeX.
+3. ESCAPING: You MUST escape special fragments: & -> \\&, % -> \\%, $ -> \\$, _ -> \\_, # -> \\#, etc.
+4. MODERN STYLE: Use professional fonts, clear sections, and good whitespace.`;
             const result = await model.generateContent(prompt);
             const text = result.response.text();
             let extracted = text;
@@ -294,10 +294,14 @@ Maintain the overall structure and document class. Use professional resume forma
 
 INSTRUCTION: "${instruction}"
 
-CONTENT TO MODIFY:
-${content}
+CONTENT TO MODIFY (IF EMPTY, CREATE A NEW RESUME):
+${content || 'NO CONTENT - CREATE A FULL PROFESSIONAL ARTICLE-CLASS RESUME'}
 
-Return ONLY the modified LaTeX. No markdown fences, no explanations.
+STRICT DIRECTIVES:
+1. ESCAPING: You MUST escape special fragments: & -> \\&, % -> \\%, $ -> \\$, _ -> \\_, # -> \\#, etc.
+2. FULL DOCUMENT: If the input is empty or a partial, return a FULL compilable document starting with \\documentclass and ending with \\end{document}.
+3. NO MARKDOWN: Return ONLY the raw LaTeX string.
+4. NO CONVERSATION: Return ONLY the raw code.
 `;
             const result = await model.generateContent(prompt);
             const text = result.response.text();

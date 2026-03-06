@@ -20,8 +20,9 @@ export function MultiFileEditor({ onCompile, isCompiling }: MultiFileEditorProps
     const [isAiLoading, setIsAiLoading] = useState(false);
     const [showAiPrompt, setShowAiPrompt] = useState(false);
     const [aiInstruction, setAiInstruction] = useState('');
-    const { blocks, apiKey } = useBuilderStore();
+    const { blocks, apiKey, updateFileContent, projectFiles } = useBuilderStore();
     const initialSyncDone = useRef(false);
+    const lastStoreContent = useRef<string | null>(null);
 
     // Auto-select first file if none active or create main.tex if empty
     useEffect(() => {
@@ -39,6 +40,25 @@ export function MultiFileEditor({ onCompile, isCompiling }: MultiFileEditorProps
             }
         }
     }, [files, activeFile, loading]);
+    // Sync local content with store when projectFiles change (e.g. from AI assembly)
+    useEffect(() => {
+        if (activeFile) {
+            const file = projectFiles.find(f => f.name === activeFile);
+            if (file) {
+                // If the store content changed from what we last saw, and it's different from our local state
+                if (file.content !== lastStoreContent.current && file.content !== content) {
+                    // Only sync if we're not actively saving or AI loading to avoid race conditions
+                    if (!isSaving && !isAiLoading) {
+                        setContent(file.content);
+                        lastStoreContent.current = file.content;
+                    }
+                } else if (file.content === content) {
+                    // Keep the ref in sync even if we're not changing content
+                    lastStoreContent.current = file.content;
+                }
+            }
+        }
+    }, [projectFiles, activeFile, content, isSaving, isAiLoading]);
 
     const handleFileSelect = async (path: string) => {
         try {
@@ -55,6 +75,8 @@ export function MultiFileEditor({ onCompile, isCompiling }: MultiFileEditorProps
         setIsSaving(true);
         try {
             await writeFile(activeFile, content);
+            updateFileContent(activeFile, content);
+            lastStoreContent.current = content;
         } catch (e: any) {
             alert(e.message);
         } finally {
@@ -77,6 +99,8 @@ export function MultiFileEditor({ onCompile, isCompiling }: MultiFileEditorProps
             const result = await geminiService.editFile(content, aiInstruction, undefined, apiKey);
             setContent(result);
             await writeFile(activeFile, result);
+            updateFileContent(activeFile, result);
+            lastStoreContent.current = result;
             setShowAiPrompt(false);
             setAiInstruction('');
         } catch (e: any) {

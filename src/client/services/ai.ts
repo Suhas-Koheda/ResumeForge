@@ -237,36 +237,34 @@ export const geminiService = {
             cleanTemplate = cleanTemplate.substring(0, endDocIdx + '\\end{document}'.length);
         }
 
-        const prompt = `
-You are a LaTeX resume builder. You produce COMPILABLE LaTeX that works with XeTeX/Tectonic.
+        const prompt = cleanTemplate
+            ? `You are a LaTeX Template Processor. Your ONLY job is to take the TEMPLATE provided and swap its placeholder data with the JSON DATA.
+Output MUST be the full document.
 
-==================================================
-TEMPLATE (THE SKELETON — use this as visual/structural reference):
-${cleanTemplate || 'NO TEMPLATE PROVIDED — use the standard article-class resume format.'}
-==================================
-INPUT DATA (JSON BLOCKS):
+TEMPLATE:
+${cleanTemplate}
+
+JSON DATA:
 ${JSON.stringify(enabledBlocks)}
-==================================
 
-DETECTED DOCUMENT CLASS: "${docClass}"
-${isCustomClass ? `\nWARNING: "${docClass}" is a CUSTOM class that is NOT available. You MUST convert to \\documentclass[letterpaper,11pt]{article} and replicate the formatting using standard LaTeX commands.\n` : ''}
-CRITICAL RULES:
-1. DOCUMENT CLASS: ${isCustomClass
-    ? `The template uses a custom class "${docClass}" which is NOT available. You MUST use \\documentclass[letterpaper,11pt]{article} instead and replicate the template's visual structure using standard LaTeX (\\section{}, \\begin{itemize}, tabular, etc).`
-    : isFullDocument ? `Use \\documentclass{${docClass}} as shown in the template.` : 'Use \\documentclass[letterpaper,11pt]{article}.'}
-2. STRUCTURE: You MUST wrap the document body in \\begin{document} and \\end{document}. This is MANDATORY.
-3. ${isCurve
-    ? 'This IS a Curve-class document. You MAY use \\makerubric, \\entry, \\leftheader, \\rightheader, \\makeheaders, \\begin{rubric}, \\begin{fullonly}.'
-    : `FORBIDDEN commands (these will crash compilation):
-   - \\makerubric, \\begin{rubric}, \\entry, \\leftheader, \\rightheader, \\makeheaders
-   - \\makefield, \\personalinfo, \\begin{fullonly}, \\photo, \\photoscale
-   ${isCustomClass ? '- Do NOT use any commands from the custom class. Rewrite them as standard LaTeX.' : ''}
-   Use standard LaTeX: \\section{}, \\begin{itemize}, \\textbf{}, \\href{}{}, fontawesome5 icons.`}
-4. If the template defines custom macros (\\customSubHeading, \\customProject, \\customItem, \\customItemListStart, \\customItemListEnd, \\resumeSubheading, \\resumeProject, \\resumeItem, etc), you MUST define them with \\newcommand in the preamble before using them.
-5. Extract ONLY raw text/data from JSON blocks. IGNORE any LaTeX formatting inside JSON values.
-6. Output a SINGLE, COMPLETE, SELF-CONTAINED LaTeX document. No \\input{}, no external file references.
-7. Return ONLY raw LaTeX. No markdown fences, no explanations, no comments about what you did.
-`;
+STRICT DIRECTIVES:
+1. NO STYLE HALLUCINATION: Use ONLY the structure and macros present in the TEMPLATE.
+2. FULL DOCUMENT: Your output MUST be a complete LaTeX document starting with \\documentclass and ending with \\end{document}.
+3. NO MARKDOWN: Output ONLY raw LaTeX. No backticks or code blocks.
+4. ESCAPING: You MUST escape special fragments: & -> \\&, % -> \\%, $ -> \\$, _ -> \\_, # -> \\#, etc.
+5. NO CONVERSATION: Return ONLY the code.`
+            : `You are an expert LaTeX Resume Architect.
+Create a complete, professional, compilable LaTeX resume using the following JSON DATA.
+Use a standard, high-quality resume document class (like article) and professional formatting.
+
+JSON DATA:
+${JSON.stringify(enabledBlocks)}
+
+DIRECTIVES:
+1. FULL DOCUMENT: Output a complete, self-contained LaTeX document from \\documentclass to \\end{document}.
+2. NO MARKDOWN: Output ONLY raw LaTeX. No backticks.
+3. ESCAPING: You MUST escape special fragments: & -> \\&, % -> \\%, $ -> \\$, _ -> \\_, # -> \\#, etc.
+4. MODERN STYLE: Use professional fonts, clear sections, and good whitespace.`;
         if (apiKey) {
             const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL_NAME}:generateContent?key=${apiKey}`, {
                 method: "POST",
@@ -411,10 +409,13 @@ Maintain the overall structure and document class. Use professional resume forma
 
 INSTRUCTION: "${instruction}"
 
-CONTENT TO MODIFY:
-${content}
+CONTENT TO MODIFY (IF EMPTY, CREATE A NEW RESUME):
+${content || 'NO CONTENT - CREATE A FULL PROFESSIONAL ARTICLE-CLASS RESUME'}
 
-Return ONLY the modified LaTeX. No markdown fences, no explanations.
+STRICT DIRECTIVES:
+1. ESCAPING: You MUST escape special fragments: & -> \\&, % -> \\%, $ -> \\$, etc.
+2. FULL DOCUMENT: If the input is empty or a partial, return a FULL compilable document.
+3. NO MARKDOWN: Return ONLY the raw LaTeX.
 `;
             const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL_NAME}:generateContent?key=${apiKey}`, {
                 method: "POST",
