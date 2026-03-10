@@ -3,143 +3,133 @@ import { ResumeBlock, BlockType } from '@shared/types';
 export const offlineLatexParser = {
     parseLatexBlocks(latex: string): Partial<ResumeBlock>[] {
         const blocks: Partial<ResumeBlock>[] = [];
-
-        // Header
-        const nameMatch = latex.match(/\\Huge\s+\\scshape\s+(?:\\color\{[^}]+\}\s*)?([^}\\]+)/) || 
-                          latex.match(/\\LARGE\\bfseries\\sffamily\s*([^}\\]+)/) ||
-                          latex.match(/\\Huge\s*([^}\\]+)/);
-
-        const emailMatch = latex.match(/mailto:([^}]+)/) || latex.match(/\\faEnvelope(?:\[regular\])?\}\{\\href\{mailto:([^}]+)\}/);
-        const phoneMatch = latex.match(/\\faPhone\\\s*([\+\d\-]+)/) || 
-                           latex.match(/\\Telefon\\\s*([\+\d\-]+)/) ||
-                           latex.match(/\\makefield\{\\faPhone\}\{\\texttt\{([^}]+)\}/);
         
-        const locationMatch = latex.match(/\\vspace\{[^}]+\}\s*([^~\\]+)/) || 
-                              latex.match(/Hyderabad, India/) || 
-                              latex.match(/\\begin\{center\}[^]*?([^\n,]+,\s*[^\n\\]+)[^]*?\\faPhone/) ||
-                              latex.match(/\\makefield\{\\faMapMarker\}\{([^}]+)\}/);
+        // Clean latex comments
+        const cleaned = latex.replace(/(?<!\\)%.*/g, '');
 
-        const websiteMatch = latex.match(/\\href\{([^}]+)\}\s*\{\\faGlobe/) || 
-                             latex.match(/\\href\{([^}]+)\}\s*\{\\Mundus/) ||
-                             latex.match(/\\makefield\{\\faGlobe\}\{\\url\{([^}]+)\}/);
+        const header: any = {
+            name: '', email: '', phone: '', location: '', linkedin: '', github: '', website: ''
+        };
 
-        const linkedinMatch = latex.match(/\\href\{([^}]*linkedin\.com\/in\/[^}]*)\}/) || 
-                              latex.match(/\\href\{([^}]+)\}\s*\{\\faLinkedin/) || 
-                              latex.match(/\\href\{([^}]+)\}\s*\{\\textbf\{L\}/);
+        const nameMatch = cleaned.match(/\\name\{([^}]+)\}/) || 
+                          cleaned.match(/\{\\huge\s+(?:\\textbf\{)?([^}\n]+)\}?/i) ||
+                          cleaned.match(/\\Huge\s+(?:\\textbf\{)?([^}\n]+)\}?/i) ||
+                          cleaned.match(/\\begin\{center\}\s*[\s\S]*?(?:\{\\huge |\\[Hh]uge )\\?textbf\{([^}]+)\}/);
+        if (nameMatch) header.name = this.unescapeLatex(nameMatch[1]);
 
-        const githubMatch = latex.match(/\\href\{([^}]*github\.com\/[^}]*)\}/) ||
-                            latex.match(/\\href\{([^}]+)\}\s*\{\\faGithub/) || 
-                            latex.match(/\\href\{([^}]+)\}\s*\{\\textbf\{G\}/);
+        const emailMatch = cleaned.match(/\\email\{([^}]+)\}/) || 
+                           cleaned.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+        if (emailMatch) header.email = this.unescapeLatex(emailMatch[1] || emailMatch[0]);
 
-        if (nameMatch || emailMatch || phoneMatch) {
-            blocks.push({
-                type: 'header',
-                data: {
-                    name: nameMatch ? this.unescapeLatex(nameMatch[1].trim()) : '',
-                    email: emailMatch ? emailMatch[1].trim() : '', // Email in URL usually doesn't need unescape
-                    phone: phoneMatch ? this.unescapeLatex(phoneMatch[1].trim()) : '',
-                    location: locationMatch ? this.unescapeLatex((typeof locationMatch === 'string' ? locationMatch : locationMatch[1] || locationMatch[0]).trim()) : '',
-                    website: websiteMatch ? websiteMatch[1].trim() : '',
-                    linkedin: linkedinMatch ? linkedinMatch[1].trim() : '',
-                    github: githubMatch ? githubMatch[1].trim() : ''
-                }
-            });
+        const phoneMatch = cleaned.match(/\\phone\{([^}]+)\}/) || 
+                           cleaned.match(/(\+?\d{1,3}[\s.-]?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}/);
+        if (phoneMatch) header.phone = this.unescapeLatex(phoneMatch[1] || phoneMatch[0]);
+
+        const preContent = cleaned.split(/\\section/)[0] || '';
+        const locMatch = preContent.match(/(?:San Francisco|New York|London|Hyderabad|Bangalore|Pune|Seattle)[-,\sA-Za-z]*/i) ||
+                         preContent.match(/([A-Z][a-zA-Z\s]+,\s*[A-Z]{2,3})/);
+        if (locMatch && !locMatch[0].includes('@')) header.location = this.unescapeLatex(locMatch[0]).trim();
+
+        const inMatch = cleaned.match(/linkedin\.com\/in\/([a-zA-Z0-9-]+)/);
+        if (inMatch) header.linkedin = `https://linkedin.com/in/${inMatch[1]}`;
+
+        const gitMatch = cleaned.match(/github\.com\/([a-zA-Z0-9-]+)/);
+        if (gitMatch) header.github = `https://github.com/${gitMatch[1]}`;
+
+        blocks.push({
+           type: 'header',
+           data: header
+        });
+
+        const sectionRegex = /\\section(?:\*)?\{([^}]+)\}/g;
+        let match;
+        const sections: { title: string, content: string }[] = [];
+        let lastIndex = 0;
+        let lastTitle = '';
+
+        while ((match = sectionRegex.exec(cleaned)) !== null) {
+          if (lastTitle) {
+            sections.push({ title: lastTitle, content: cleaned.substring(lastIndex, match.index) });
+          }
+          lastTitle = match[1];
+          lastIndex = match.index + match[0].length;
+        }
+        if (lastTitle) {
+          sections.push({ title: lastTitle, content: cleaned.substring(lastIndex) });
         }
 
-        // Summary
-        const summaryMatch = latex.match(/\\section\*?\{Summary\}([^]*?)(?=\\section|\\makerubric|\\end\{document\}|$)/i) ||
-                             latex.match(/\\section\*?\{Professional Summary\}([^]*?)(?=\\section|\\makerubric|\\end\{document\}|$)/i);
-        if (summaryMatch) {
-            blocks.push({
-                type: 'summary',
-                data: { summary: this.unescapeLatex(summaryMatch[1].trim()) }
-            });
-        }
+        for (const sec of sections) {
+           const t = sec.title.toLowerCase();
+           if (t.includes('experience') || t.includes('employment')) {
+               const parts = sec.content.split(/(?=\\company|\\textbf\{|\\customSubHeading|\\noindent)/);
+               for (const p of parts) {
+                  if (p.trim().length < 5) continue;
+                  let company = '', role = '', duration = '', location = '';
+                  const highlights: string[] = [];
 
-        // Education
-        const eduSectionMatch = latex.match(/\\section\{EDUCATION\}([^]*?)(?=\\section|\\end\{document\}|$)/i);
-        if (eduSectionMatch) {
-            const eduItemRegex = /\\customSubHeading\s*\{([^\}]+)\}\s*\{([^\}]+)\}\s*\{([^\}]+)\}\s*\{([^\}]+)\}/g;
-            let m;
-            while ((m = eduItemRegex.exec(eduSectionMatch[1])) !== null) {
-                blocks.push({
-                    type: 'education',
-                    data: {
-                        school: this.unescapeLatex(m[1]),
-                        year: this.unescapeLatex(m[2]),
-                        degree: this.unescapeLatex(m[3]),
-                        location: this.unescapeLatex(m[4])
-                    }
-                });
-            }
-        }
+                  const compMatch = p.match(/\\company\{([^}]+)\}/) || p.match(/\\textbf\{([^}]+)\}/);
+                  if (compMatch) company = compMatch[1];
+                  
+                  const roleMatch = p.match(/\\role\{([^}]+)\}/) || p.match(/\\textit\{([^}]+)\}/);
+                  if (roleMatch) role = roleMatch[1];
 
-        // Experience
-        const expSectionMatch = latex.match(/\\section\{EXPERIENCE\}([^]*?)(?=\\section|\\end\{document\}|$)/i);
-        if (expSectionMatch) {
-            const expItemRegex = /\\customSubHeading\s*\{([^\}]+)\}\s*\{([^\}]+)\}\s*\{([^\}]+)\}\s*\{([^\}]+)\}([^]*?)(?=\\customSubHeading|\\customSubHeadingContentEnd|$)/g;
-            let m;
-            while ((m = expItemRegex.exec(expSectionMatch[1])) !== null) {
-                const highlights = (m[5].match(/\\customItem\{([^\}]+)\}/g) || []).map(mi => this.unescapeLatex(mi.replace(/\\customItem\{|\}/g, '').trim()));
-                blocks.push({
-                    type: 'experience',
-                    data: {
-                        company: this.unescapeLatex(m[1]),
-                        duration: this.unescapeLatex(m[2]),
-                        role: this.unescapeLatex(m[3]),
-                        location: this.unescapeLatex(m[4]),
-                        highlights
-                    }
-                });
-            }
-        }
+                  const dateMatch = p.match(/\\dates\{([^}]+)\}/) || p.match(/([12][0-9]{3}\s*[-–]\s*(?:Present|[12][0-9]{3}))/i) || p.match(/([A-Z][a-z]+\s*\d{4}\s*[-–]\s*(?:Present|[A-Z][a-z]+\s*\d{4}))/i);
+                  if (dateMatch) duration = dateMatch[1];
 
-        // Skills
-        const skillsSectionMatch = latex.match(/\\section\{TECHNICAL SKILLS\}([^]*?)(?=\\section|\\end\{document\}|$)/i);
-        if (skillsSectionMatch) {
-            const skillItemRegex = /\\item\s*\\textbf\{([^\}]+)\}:?\s*([^\n\\]+)/g;
-            let m;
-            while ((m = skillItemRegex.exec(skillsSectionMatch[1])) !== null) {
-                blocks.push({
-                    type: 'skills',
-                    data: {
-                        category: this.unescapeLatex(m[1].replace(':', '').trim()),
-                        skills: this.unescapeLatex(m[2].trim())
-                    }
-                });
-            }
-        }
+                  const locMatch = p.match(/\\location\{([^}]+)\}/) || p.match(/\\hfill\s+([A-Z][a-zA-Z\s]+,\s*[A-Z]{2,3})/);
+                  if (locMatch) location = locMatch[1];
 
-        // Projects
-        const projSectionMatch = latex.match(/\\section\{PROJECTS?\}([^]*?)(?=\\section|\\end\{document\}|$)/i);
-        if (projSectionMatch) {
-            const projectsRaw = projSectionMatch[1].split(/\\customProject\b/).filter(s => s.trim().length > 0 && !s.includes('ContentStart'));
-            projectsRaw.forEach(pRaw => {
-                const titleMatch = pRaw.match(/\\textbf\{([^\}]+)\}/);
-                const techMatch = pRaw.match(/\\emph\{([^\}]+)\}/);
-                const highlights = (pRaw.match(/\\customItem\{([^\}]+)\}/g) || []).map(mi => this.unescapeLatex(mi.replace(/\\customItem\{|\}/g, '').trim()));
+                  const bullets = [...p.matchAll(/\\item\s+(.*?)(?=\\item|\\end\{itemize\}|$)/gs)].map(m => this.unescapeLatex(m[1].replace(/\\customItem\{|\}/g, '').trim()));
+                  const customBullets = [...p.matchAll(/\\customItem\{([^}]+)\}/g)].map(m => this.unescapeLatex(m[1]));
 
-                const liveLinkMatch = pRaw.match(/\\href\{([^}]+)\}\s*\{[^}]*?(?:Live|Link)[^}]*\}/i);
-                const codeLinkMatch = pRaw.match(/\\href\{([^}]+)\}\s*\{[^}]*?Code[^}]*\}/i);
+                  if (bullets.length > 0) highlights.push(...bullets);
+                  if (customBullets.length > 0) highlights.push(...customBullets);
 
-                let duration = "";
-                const quadMatch = pRaw.match(/\\quad\s*([^\}\n]+)/);
-                if (quadMatch) duration = quadMatch[1].replace('}', '').trim();
-
-                if (titleMatch || techMatch || highlights.length > 0) {
-                    blocks.push({
-                        type: 'project',
+                  if (company || role || highlights.length > 0) {
+                     blocks.push({
+                        type: 'experience',
                         data: {
-                            title: titleMatch ? this.unescapeLatex(titleMatch[1]) : '',
-                            technologies: techMatch ? this.unescapeLatex(techMatch[1]) : '',
-                            liveLink: liveLinkMatch ? liveLinkMatch[1] : '', // URLs usually shouldn't be unescaped for plain text
-                            githubLink: codeLinkMatch ? codeLinkMatch[1] : '',
-                            duration: duration ? this.unescapeLatex(duration) : '',
-                            highlights
+                           company: this.unescapeLatex(company), role: this.unescapeLatex(role),
+                           duration: this.unescapeLatex(duration), location: this.unescapeLatex(location),
+                           highlights
                         }
-                    });
-                }
-            });
+                     });
+                  }
+               }
+           } else if (t.includes('education') || t.includes('academic')) {
+               const parts = sec.content.split(/(?=\\school|\\textbf\{|\\customSubHeading|\\noindent)/);
+               for (const p of parts) {
+                  if (p.trim().length < 5) continue;
+                  const compMatch = p.match(/\\school\{([^}]+)\}/) || p.match(/\\textbf\{([^}]+)\}/);
+                  const roleMatch = p.match(/\\degree\{([^}]+)\}/) || p.match(/\\textit\{([^}]+)\}/);
+                  const dateMatch = p.match(/\\year\{([^}]+)\}/) || p.match(/([12][0-9]{3})/i);
+                  blocks.push({
+                     type: 'education',
+                     data: {
+                        school: this.unescapeLatex(compMatch ? compMatch[1] : ''),
+                        degree: this.unescapeLatex(roleMatch ? roleMatch[1] : ''),
+                        year: this.unescapeLatex(dateMatch ? dateMatch[1] : ''),
+                        location: ''
+                     }
+                  });
+               }
+           } else if (t.includes('skill')) {
+               const items = [...sec.content.matchAll(/\\item(?:\[.*?\])?\s*\\textbf\{([^}]+)\}:?\s*([^\n]+)/g)];
+               items.forEach(m => {
+                   blocks.push({
+                      type: 'skills',
+                      data: {
+                         category: this.unescapeLatex(m[1]).trim(),
+                         skills: this.unescapeLatex(m[2]).trim()
+                      }
+                   });
+               });
+           } else if (t.includes('summary')) {
+               blocks.push({
+                  type: 'summary',
+                  data: { summary: this.unescapeLatex(sec.content).trim() }
+               });
+           }
         }
 
         return blocks;
@@ -148,15 +138,13 @@ export const offlineLatexParser = {
     unescapeLatex(text: string): string {
         if (!text) return '';
         return text
-            .replace(/\\&/g, '&')
-            .replace(/\\%/g, '%')
-            .replace(/\\\$/g, '$')
-            .replace(/\\#/g, '#')
-            .replace(/\\_/g, '_')
-            .replace(/\\\{/g, '{')
-            .replace(/\\\}/g, '}')
-            .replace(/\\\^{}/g, '^')
-            .replace(/\\~{}/g, '~')
-            .replace(/\\textbackslash\s?/g, '\\');
+            .replace(/\\&/g, '&').replace(/\\%/g, '%').replace(/\\\$/g, '$')
+            .replace(/\\#/g, '#').replace(/\\_/g, '_').replace(/\\\{/g, '{')
+            .replace(/\\\}/g, '}').replace(/\\textbf\{([^}]+)\}/g, '$1')
+            .replace(/\\textit\{([^}]+)\}/g, '$1').replace(/\\emph\{([^}]+)\}/g, '$1')
+            .replace(/\\noindent\s*/g, '').replace(/\\huge\s*/gi, '').replace(/\\Large\s*/gi, '')
+            .replace(/\\scshape\s*/g, '').replace(/\\bfseries\s*/g, '')
+            .replace(/\\href\{([^}]+)\}\{([^}]+)\}/g, '$2')
+            .trim();
     }
 };

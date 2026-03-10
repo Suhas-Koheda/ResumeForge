@@ -10,7 +10,7 @@ export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }>
     const [tab, setTab] = useState<'profile' | 'import'>('profile');
     const [importText, setImportText] = useState('');
     const [isImporting, setIsImporting] = useState(false);
-    const { addBlock, blocks, updateData, apiKey, setApiKey, updateFileContent, setBlocks, token, setResumeId, activeResumeIndex, resumes } = useResumeActions();
+    const { addBlock, blocks, updateData, apiKey, setApiKey, updateFileContent, setBlocks, setResumeId, activeResumeIndex, resumes } = useResumeActions();
     const [localKey, setLocalKey] = useState(apiKey || '');
     const [useAiForLatex, setUseAiForLatex] = useState(true);
 
@@ -38,16 +38,20 @@ export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }>
     };
 
     const handleImport = async () => {
-        if (!importText.trim()) return;
+        console.log("[OnboardingModal] handleImport clicked. Text length:", importText.length);
+        if (!importText.trim()) {
+            console.log("[OnboardingModal] importText is empty, returning.");
+            return;
+        }
         if (localKey) setApiKey(localKey);
 
         setIsImporting(true);
         try {
             const isLatex = importText.includes('\\documentclass');
-            console.log(`[LOG_IMPORT] Detected ${isLatex ? 'LaTeX' : 'Text'} source.`);
+            console.log(`[OnboardingModal] Detected ${isLatex ? 'LaTeX' : 'Text'} source. useAiForLatex is ${useAiForLatex}`);
 
-            if (isLatex && !useAiForLatex) {
-                // IMMEDIATE STORE: No AI usage for LaTeX
+            if (isLatex && !useAiForLatex && false) {
+                console.log("[OnboardingModal] Skipping AI completely, using local LaTeX parser.");
                 updateFileContent('main.tex', importText);
 
                 try {
@@ -66,28 +70,29 @@ export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }>
                         toast.error("Our parser couldn't find any structural blocks. Try enabling AI parsing fallback.");
                     }
                 } catch (e: any) {
-                    console.error(e);
+                    console.error("[OnboardingModal] Local parser failed:", e);
                     toast.error("Local parser failed. " + e.message);
                 }
                 onClose();
             } else {
+                console.log("[OnboardingModal] Triggering remote backend parsing. (fallback to AI if text)");
                 if (isLatex) updateFileContent('main.tex', importText);
 
                 const currentResume = resumes[activeResumeIndex];
                 const resumeTitle = currentResume?.title || `Resume R_${activeResumeIndex + 1}`;
                 const currentId = currentResume?.id;
 
-                // AI reconstruction with AutoSave support
+                console.log("[OnboardingModal] Sending request to geminiService.parseResume()");
                 const result = await geminiService.parseResume(
                     importText,
                     'text',
                     localKey || apiKey,
-                    !!token, // autoSave only if logged in
+                    false, // autoSave only if logged in
                     resumeTitle,
                     currentId
                 );
 
-                // If backend saved it, it will return { data: ..., resumeId: ... }
+                console.log("[OnboardingModal] Parsing Result:", result);
                 const parsedBlocks = result.data || result;
                 const resumeId = result.resumeId;
 
@@ -106,10 +111,11 @@ export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }>
                 onClose();
             }
         } catch (error: any) {
-            console.error("Import Error:", error);
+            console.error("[OnboardingModal] Final Import Catch Error:", error);
             toast.error("Failed to parse source. If using raw text, an AI Key might be required.");
         } finally {
             setIsImporting(false);
+            console.log("[OnboardingModal] isImporting set to false.");
         }
     };
 

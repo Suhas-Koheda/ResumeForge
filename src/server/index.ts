@@ -293,25 +293,27 @@ apiRouter.post('/ai/command', authMiddleware, async (req, res) => {
 apiRouter.post('/ai/parse', authMiddleware, async (req: AuthRequest, res) => {
     try {
         const { content, autoSave, title, id } = req.body;
+        
+        // ALWAYS use the AI for parsing, regardless of whether it's LaTeX or Plain Text.
         const resultText = await aiService.parseResume(content);
-        const parsedData = JSON.parse(resultText);
+        let blocksArray: any[] = JSON.parse(resultText);
 
-        if (autoSave && req.userId && parsedData) {
+        if (autoSave && req.userId && blocksArray) {
             const repo = AppDataSource.getRepository(Resume);
             const resumeTitle = title || 'Imported Resume';
             let resume = id ? await repo.findOne({ where: { id, userId: req.userId } }) : null;
             if (!resume) resume = await repo.findOne({ where: { title: resumeTitle, userId: req.userId } });
 
             if (resume) {
-                resume.canvasData = parsedData;
+                resume.canvasData = { nodes: blocksArray, projectFiles: [] };
             } else {
-                resume = repo.create({ userId: req.userId, title: resumeTitle, canvasData: parsedData });
+                resume = repo.create({ userId: req.userId, title: resumeTitle, canvasData: { nodes: blocksArray, projectFiles: [] } });
             }
             await repo.save(resume);
-            return res.json({ message: 'Parsed and saved successfully', data: parsedData, resumeId: resume.id });
+            return res.json({ message: 'Parsed and saved successfully', data: blocksArray, resumeId: resume.id });
         }
 
-        res.json(parsedData);
+        res.json(blocksArray);
     } catch (e: any) {
         res.status(500).json({ error: 'AI parsing failed', details: e.message });
     }

@@ -22,7 +22,7 @@ export function MultiFileEditor({ onCompile, isCompiling }: MultiFileEditorProps
     const [aiInstruction, setAiInstruction] = useState('');
     const { blocks, apiKey, updateFileContent, projectFiles } = useBuilderStore();
     const initialSyncDone = useRef(false);
-    const lastStoreContent = useRef<string | null>(null);
+    const lastStoreContent = useRef<{ version: number, content: string } | null>(null);
 
     // Auto-select first file if none active or create main.tex if empty
     useEffect(() => {
@@ -40,25 +40,46 @@ export function MultiFileEditor({ onCompile, isCompiling }: MultiFileEditorProps
             }
         }
     }, [files, activeFile, loading]);
-    // Sync local content with store when projectFiles change (e.g. from AI assembly)
+    // Sync local content with store when projectFiles change
     useEffect(() => {
         if (activeFile) {
             const file = projectFiles.find(f => f.name === activeFile);
             if (file) {
-                // If the store content changed from what we last saw, and it's different from our local state
-                if (file.content !== lastStoreContent.current && file.content !== content) {
-                    // Only sync if we're not actively saving or AI loading to avoid race conditions
+                // If the store content changed and we haven't synced this version
+                if (file.version !== lastStoreContent.current?.version && file.content !== content) {
                     if (!isSaving && !isAiLoading) {
                         setContent(file.content);
-                        lastStoreContent.current = file.content;
+                        lastStoreContent.current = { version: file.version, content: file.content };
+                        
+                        // If canvas updated blocks and generated a new main.tex, it would be 'canvas'.
+                        // But wait, the blocks -> file sync happens where? We'll put it below!
                     }
-                } else if (file.content === content) {
-                    // Keep the ref in sync even if we're not changing content
-                    lastStoreContent.current = file.content;
+                } else if (file.version === lastStoreContent.current?.version) {
+                    // Just ensure refs match
+                    lastStoreContent.current = { version: file.version, content: file.content };
                 }
             }
         }
     }, [projectFiles, activeFile, content, isSaving, isAiLoading]);
+
+    // Handle bidirectional sync: Update file when blocks change, if not currently editing code
+    const lastBlocksRef = useRef(blocks);
+    useEffect(() => {
+        if (blocks !== lastBlocksRef.current) {
+            lastBlocksRef.current = blocks;
+            // Blocks changed (probably from canvas). We should update main.tex.
+            const mainFile = projectFiles.find(f => f.name === 'main.tex');
+            
+            // Only auto-update if last editor was NOT code, or we choose to overwrite to keep them in sync
+            if (files.includes('main.tex') && mainFile) {
+                 const freshLatex = manualLatexGenerator.generate(blocks);
+                 if (freshLatex !== mainFile.content && mainFile.lastEditor !== 'code') {
+                     updateFileContent('main.tex', freshLatex, 'canvas');
+                     writeFile('main.tex', freshLatex).catch(console.error);
+                 }
+            }
+        }
+    }, [blocks, projectFiles, updateFileContent, writeFile, files]);
 
     const handleFileSelect = async (path: string) => {
         try {
@@ -75,8 +96,37 @@ export function MultiFileEditor({ onCompile, isCompiling }: MultiFileEditorProps
         setIsSaving(true);
         try {
             await writeFile(activeFile, content);
-            updateFileContent(activeFile, content);
-            lastStoreContent.current = content;
+            updateFileContent(activeFile, content, 'code');
+            const fileStore = useBuilderStore.getState().projectFiles.find(f => f.name === activeFile);
+            if (fileStore) {
+                 lastStoreContent.current = { version: fileStore.version, content: fileStore.content };
+            }
+            
+            // Sync Code -> Canvas if it's main.tex
+            if (activeFile === 'main.tex') {
+                 // Try parsing the updated latex back to blocks
+                 try {
+                     const { offlineLatexParser } = await import('../../services/offlineParser');
+                     const newBlocks = offlineLatexParser.parseLatexBlocks(content);
+                     if (newBlocks && newBlocks.length > 0) {
+                         // Preserve positions of existing blocks by matching types
+                         const currentBlocks = useBuilderStore.getState().blocks;
+                         const updatedBlocks: any[] = newBlocks.map(nb => {
+                             const existing = currentBlocks.find(b => b.type === nb.type);
+                             return {
+                                 ...nb,
+                                 id: nb.id || existing?.id || Math.random().toString(36).substring(7),
+                                 position: existing?.position || { x: 0, y: 0 },
+                                 enabled: existing?.enabled !== false
+                             };
+                         });
+                         useBuilderStore.getState().setBlocks(updatedBlocks);
+                         lastBlocksRef.current = updatedBlocks; // Prevent auto-reverting
+                     }
+                 } catch (parseErr) {
+                     console.warn("Could not sync to canvas:", parseErr);
+                 }
+            }
         } catch (e: any) {
             alert(e.message);
         } finally {
@@ -99,8 +149,11 @@ export function MultiFileEditor({ onCompile, isCompiling }: MultiFileEditorProps
             const result = await geminiService.editFile(content, aiInstruction, undefined, apiKey);
             setContent(result);
             await writeFile(activeFile, result);
-            updateFileContent(activeFile, result);
-            lastStoreContent.current = result;
+            updateFileContent(activeFile, result, 'code');
+            const fileStore = useBuilderStore.getState().projectFiles.find(f => f.name === activeFile);
+            if (fileStore) {
+               lastStoreContent.current = { version: fileStore.version, content: fileStore.content };
+            }
             setShowAiPrompt(false);
             setAiInstruction('');
         } catch (e: any) {

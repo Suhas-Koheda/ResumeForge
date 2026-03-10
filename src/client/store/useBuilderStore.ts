@@ -8,6 +8,9 @@ import { LatexGenerationOptions } from '../../shared/template.types';
 export interface LatexFile {
     name: string;
     content: string;
+    version: number;
+    lastEditor: 'canvas' | 'code' | 'system';
+    timestamp: number;
 }
 
 export interface ResumeStorage {
@@ -42,7 +45,7 @@ interface BuilderStore {
 
     // File actions
     setProjectFiles: (files: LatexFile[]) => void;
-    updateFileContent: (name: string, content: string) => void;
+    updateFileContent: (name: string, content: string, source?: 'canvas' | 'code' | 'system') => void;
     setActiveFileName: (name: string | null) => void;
     addFile: (name: string) => void;
     deleteFile: (name: string) => void;
@@ -65,7 +68,13 @@ interface BuilderStore {
 
 const generateId = (): string => Math.random().toString(36).substring(2, 9);
 
-const DEFAULT_PROJECT_FILES: LatexFile[] = [{ name: 'main.tex', content: '' }];
+const DEFAULT_PROJECT_FILES: LatexFile[] = [{ 
+    name: 'main.tex', 
+    content: '',
+    version: 1,
+    lastEditor: 'system',
+    timestamp: Date.now()
+}];
 
 const DEFAULT_TEMPLATE_OPTIONS: LatexGenerationOptions = {
     template: 'modern',
@@ -179,11 +188,22 @@ export const useBuilderStore = create<BuilderStore>()(
                     resumes: syncActiveResume(state, { projectFiles }),
                 })),
 
-            updateFileContent: (name, content) =>
+            updateFileContent: (name, content, source = 'code') =>
                 set((state) => {
-                    const projectFiles = state.projectFiles.map(f =>
-                        f.name === name ? { ...f, content } : f,
-                    );
+                    const projectFiles = state.projectFiles.map(f => {
+                        if (f.name === name) {
+                            // Don't update if content is exact match
+                            if (f.content === content) return f;
+                            return {
+                                ...f,
+                                content,
+                                version: (f.version || 0) + 1,
+                                lastEditor: source,
+                                timestamp: Date.now()
+                            };
+                        }
+                        return f;
+                    });
                     return { projectFiles, resumes: syncActiveResume(state, { projectFiles }) };
                 }),
 
@@ -196,7 +216,10 @@ export const useBuilderStore = create<BuilderStore>()(
             addFile: (name) =>
                 set((state) => {
                     if (state.projectFiles.some(f => f.name === name)) return state;
-                    const projectFiles = [...state.projectFiles, { name, content: '' }];
+                    const projectFiles = [
+                        ...state.projectFiles, 
+                        { name, content: '', version: 1, lastEditor: 'system' as const, timestamp: Date.now() }
+                    ];
                     return {
                         projectFiles,
                         activeFileName: name,
@@ -243,9 +266,13 @@ export const useBuilderStore = create<BuilderStore>()(
                     id: r.id,
                     title: r.title,
                     blocks: r.canvasData?.nodes || [],
-                    projectFiles: r.canvasData?.projectFiles ||
-                        (r.canvasData?.fullLatex
-                            ? [{ name: 'main.tex', content: r.canvasData.fullLatex }]
+                    projectFiles: r.canvasData?.projectFiles?.map((f: any) => ({
+                        ...f,
+                        version: f.version || 1,
+                        lastEditor: f.lastEditor || 'system',
+                        timestamp: f.timestamp || Date.now()
+                    })) || (r.canvasData?.fullLatex
+                            ? [{ name: 'main.tex', content: r.canvasData.fullLatex, version: 1, lastEditor: 'system', timestamp: Date.now() }]
                             : [...DEFAULT_PROJECT_FILES]),
                     activeFileName: r.canvasData?.activeFileName || 'main.tex',
                 }));

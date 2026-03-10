@@ -129,6 +129,15 @@ class LatexCompiler {
       const errors = this.analyzeLogs(logs || result.stderr);
       const warnings = this.extractWarnings(logs || result.stderr);
 
+      if (!pdf && errors.length === 0) {
+        errors.push({
+           line: 0,
+           message: "Compilation failed. Check the logs for details.",
+           context: result.stderr.substring(0, 100) || logs.substring(0, 100) || "Unknown error occurred.",
+           suggestion: "Syntax error or missing package check needed."
+        });
+      }
+
       const compilationResult: CompilationResult = {
         success: !!pdf && errors.length === 0,
         pdf,
@@ -199,14 +208,15 @@ class LatexCompiler {
     const lines = logs.split('\n');
 
     for (let i = 0; i < lines.length; i++) {
-      if (lines[i].startsWith('! ')) {
-        const message = lines[i].substring(2);
+      const trimmed = lines[i].trim();
+      if (trimmed.startsWith('! ')) {
+        const message = trimmed.substring(2);
         let lineNum = 0;
         let context = '';
 
         // Try to find line number in subsequent lines
-        for (let j = i + 1; j < Math.min(i + 5, lines.length); j++) {
-          const lineMatch = lines[j].match(/l\.(\d+)/);
+        for (let j = i + 1; j < Math.min(i + 15, lines.length); j++) {
+          const lineMatch = lines[j].match(/l\.(\d+)/) || lines[j].match(/line (\d+)/i);
           if (lineMatch) {
             lineNum = parseInt(lineMatch[1]);
             context = lines[j];

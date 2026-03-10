@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { fileService } from '../services/files';
 
 export interface FileNode {
@@ -8,10 +8,43 @@ export interface FileNode {
   children?: FileNode[];
 }
 
+class FileOperationQueue {
+  private queue: Array<() => Promise<void>> = [];
+  private processing = false;
+  
+  async enqueue(operation: () => Promise<void>): Promise<void> {
+    return new Promise((resolve, reject) => {
+      this.queue.push(async () => {
+        try {
+          await operation();
+          resolve();
+        } catch (e) {
+          reject(e);
+        }
+      });
+      this.processNext();
+    });
+  }
+  
+  private async processNext() {
+    if (this.processing || this.queue.length === 0) return;
+    this.processing = true;
+    const op = this.queue.shift();
+    if (op) {
+      await op();
+    }
+    this.processing = false;
+    this.processNext();
+  }
+}
+
 export function useFiles() {
   const [files, setFiles] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // Persist queue across re-renders
+  const queue = useRef(new FileOperationQueue()).current;
 
   const refreshFiles = useCallback(async () => {
     setLoading(true);
@@ -30,30 +63,43 @@ export function useFiles() {
   }, [refreshFiles]);
 
   const createFile = async (path: string, content: string = '') => {
-    await fileService.writeFile(path, content);
-    await refreshFiles();
+    await queue.enqueue(async () => {
+      await fileService.writeFile(path, content);
+      await refreshFiles();
+    });
   };
 
   const deleteFile = async (path: string) => {
-    await fileService.deleteFile(path);
-    await refreshFiles();
+    await queue.enqueue(async () => {
+      await fileService.deleteFile(path);
+      await refreshFiles();
+    });
   };
 
   const renameFile = async (oldPath: string, newPath: string) => {
-    await fileService.renameFile(oldPath, newPath);
-    await refreshFiles();
+    await queue.enqueue(async () => {
+      await fileService.renameFile(oldPath, newPath);
+      await refreshFiles();
+    });
   };
 
   const readFile = async (path: string) => {
-    return await fileService.readFile(path);
+    // Only queue reads if needed, but reads are generally safe and fast if isolated. Keep as is or enqueue. 
+    // Usually reads can happen concurrently without corrupting backend state, but we queue to ensure we read after flush
+    let content = '';
+    await queue.enqueue(async () => {
+       content = await fileService.readFile(path);
+    });
+    return content;
   }
 
   const writeFile = async (path: string, content: string) => {
-    await fileService.writeFile(path, content);
-    // Only refresh if it's a new file (though usually we'd use createFile for that)
-    if (!files.includes(path)) {
-      await refreshFiles();
-    }
+    await queue.enqueue(async () => {
+      await fileService.writeFile(path, content);
+      if (!files.includes(path)) {
+        await refreshFiles();
+      }
+    });
   }
 
   // Helper to convert flat path list to a tree structure if needed
