@@ -2,117 +2,71 @@ import { useBuilderStore } from '../store/useBuilderStore';
 import { useCallback } from 'react';
 
 /**
- * Custom hook to encapsulate block-specific logic and state access.
+ * Custom hook to access and mutate a single block by ID.
  */
 export const useBlock = (id: string) => {
     const data = useBuilderStore(
-        useCallback((state) => state.blocks.find((b) => b.id === id)?.data, [id])
+        useCallback((state) => state.blocks.find(b => b.id === id)?.data, [id]),
     );
-
-    const updateBlock = useBuilderStore((state) => state.updateBlock);
-    const deleteBlock = useBuilderStore((state) => state.deleteBlock);
-    const toggleBlock = useBuilderStore((state) => state.toggleBlock);
-    const updateBlockPosition = useBuilderStore((state) => state.updateBlockPosition);
-
-    const updateData = useCallback(
-        (newData: any) => updateBlock(id, newData),
-        [id, updateBlock]
-    );
-
-    const remove = useCallback(() => deleteBlock(id), [id, deleteBlock]);
-
-    const setPosition = useCallback(
-        (x: number, y: number) => updateBlockPosition(id, x, y),
-        [id, updateBlockPosition]
-    );
+    const updateBlock = useBuilderStore(s => s.updateBlock);
+    const deleteBlock = useBuilderStore(s => s.deleteBlock);
+    const toggleBlock = useBuilderStore(s => s.toggleBlock);
+    const updateBlockPosition = useBuilderStore(s => s.updateBlockPosition);
 
     return {
         data,
-        updateData,
-        remove,
-        toggle: () => toggleBlock(id),
-        setPosition
+        updateData: useCallback((newData: any) => updateBlock(id, newData), [id, updateBlock]),
+        remove: useCallback(() => deleteBlock(id), [id, deleteBlock]),
+        toggle: useCallback(() => toggleBlock(id), [id, toggleBlock]),
+        setPosition: useCallback((x: number, y: number) => updateBlockPosition(id, x, y), [id, updateBlockPosition]),
     };
 };
 
 /**
- * Hook for global canvas actions.
+ * Hook for global canvas actions (read from store, no cloud logic).
  */
 export const useResumeActions = () => {
-    const blocks = useBuilderStore((state) => state.blocks);
-    const addBlock = useBuilderStore((state) => state.addBlock);
-    const updateBlock = useBuilderStore((state) => state.updateBlock);
-    const toggleBlock = useBuilderStore((state) => state.toggleBlock);
-    const updateBlockPosition = useBuilderStore((state) => state.updateBlockPosition);
-    const apiKey = useBuilderStore((state) => state.apiKey);
-    const setApiKey = useBuilderStore((state) => state.setApiKey);
-    const customTemplate = useBuilderStore((state) => state.customTemplate);
-    const setCustomTemplate = useBuilderStore((state) => state.setCustomTemplate);
+    const blocks = useBuilderStore(s => s.blocks);
+    const addBlock = useBuilderStore(s => s.addBlock);
+    const updateBlock = useBuilderStore(s => s.updateBlock);
+    const toggleBlock = useBuilderStore(s => s.toggleBlock);
+    const updateBlockPosition = useBuilderStore(s => s.updateBlockPosition);
+    const setBlocks = useBuilderStore(s => s.setBlocks);
 
-    const setBlocks = useBuilderStore((state) => state.setBlocks);
-    const switchResume = useBuilderStore((state) => state.switchResume);
-    const activeResumeIndex = useBuilderStore((state) => state.activeResumeIndex);
-    const addResume = useBuilderStore((state) => state.addResume);
-    const deleteResume = useBuilderStore((state) => state.deleteResume);
-    const resumes = useBuilderStore((state) => state.resumes);
+    const apiKey = useBuilderStore(s => s.apiKey);
+    const setApiKey = useBuilderStore(s => s.setApiKey);
+    const customTemplate = useBuilderStore(s => s.customTemplate);
+    const setCustomTemplate = useBuilderStore(s => s.setCustomTemplate);
+    const templateOptions = useBuilderStore(s => s.templateOptions);
+    const setTemplateOptions = useBuilderStore(s => s.setTemplateOptions);
 
-    // Auth & Persistence
-    const token = useBuilderStore((state) => state.token);
-    const userEmail = useBuilderStore((state) => state.userEmail);
-    const isVerified = useBuilderStore((state) => state.isVerified);
-    const setIsVerified = useBuilderStore((state) => state.setIsVerified);
-    const setToken = useBuilderStore((state) => state.setToken);
-    const logout = useBuilderStore((state) => state.logout);
-    const viewState = useBuilderStore((state) => state.viewState);
-    const setViewState = useBuilderStore((state) => state.setViewState);
-    const setResumeId = useBuilderStore((state) => state.setResumeId);
-    const loadResumes = useBuilderStore((state) => state.loadResumes);
+    const resumes = useBuilderStore(s => s.resumes);
+    const activeResumeIndex = useBuilderStore(s => s.activeResumeIndex);
+    const switchResume = useBuilderStore(s => s.switchResume);
+    const addResume = useBuilderStore(s => s.addResume);
+    const deleteResume = useBuilderStore(s => s.deleteResume);
+    const setResumeId = useBuilderStore(s => s.setResumeId);
+    const loadResumes = useBuilderStore(s => s.loadResumes);
+    const resetCanvas = useBuilderStore(s => s.resetCanvas);
 
-    const templateOptions = useBuilderStore((state) => state.templateOptions);
-    const setTemplateOptions = useBuilderStore((state) => state.setTemplateOptions);
-
-    const projectFiles = useBuilderStore((state) => state.projectFiles);
-    const activeFileName = useBuilderStore((state) => state.activeFileName);
-    const setProjectFiles = useBuilderStore((state) => state.setProjectFiles);
-    const updateFileContent = useBuilderStore((state) => state.updateFileContent);
-    const setActiveFileName = useBuilderStore((state) => state.setActiveFileName);
-    const addFile = useBuilderStore((state) => state.addFile);
-    const deleteFile = useBuilderStore((state) => state.deleteFile);
+    const projectFiles = useBuilderStore(s => s.projectFiles);
+    const activeFileName = useBuilderStore(s => s.activeFileName);
+    const setProjectFiles = useBuilderStore(s => s.setProjectFiles);
+    const updateFileContent = useBuilderStore(s => s.updateFileContent);
+    const setActiveFileName = useBuilderStore(s => s.setActiveFileName);
+    const addFile = useBuilderStore(s => s.addFile);
+    const deleteFile = useBuilderStore(s => s.deleteFile);
 
     return {
-        blocks,
-        addBlock,
-        updateData: updateBlock,
-        toggleBlock,
-        updateBlockPosition,
-        apiKey,
-        setApiKey,
-        customTemplate,
-        setCustomTemplate,
-        templateOptions,
-        setTemplateOptions,
-        setBlocks,
-        switchResume,
-        activeResumeIndex,
-        addResume,
-        deleteResume,
-        resumes,
-        token,
-        userEmail,
-        isVerified,
-        setToken,
-        setIsVerified,
-        logout,
-        viewState,
-        setViewState,
-        setResumeId,
-        loadResumes,
-        projectFiles,
-        activeFileName,
-        setProjectFiles,
-        updateFileContent,
-        setActiveFileName,
-        addFile,
-        deleteFile
+        // Blocks
+        blocks, addBlock, updateData: updateBlock, toggleBlock, updateBlockPosition, setBlocks,
+        // API key / template
+        apiKey, setApiKey, customTemplate, setCustomTemplate, templateOptions, setTemplateOptions,
+        // Resume management
+        resumes, activeResumeIndex, switchResume, addResume, deleteResume,
+        setResumeId, loadResumes, resetCanvas,
+        // Files
+        projectFiles, activeFileName, setProjectFiles, updateFileContent,
+        setActiveFileName, addFile, deleteFile,
     };
 };

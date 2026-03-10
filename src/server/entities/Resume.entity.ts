@@ -1,47 +1,42 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ValueTransformer } from "typeorm";
-import { ResumeBlock } from "../../shared/types.js";
-import { encryptionService } from "../core/encryption.js";
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { ResumeBlock } from '../../shared/types.js';
 
-const EncryptionTransformer: ValueTransformer = {
-    to: (value: any) => {
-        if (!value) return value;
-        const stringified = JSON.stringify(value);
-        return encryptionService.encrypt(stringified);
-    },
-    from: (value: string) => {
-        if (!value || typeof value !== 'string') return value;
-        try {
-            const decrypted = encryptionService.decrypt(value);
-            return JSON.parse(decrypted);
-        } catch (e) {
-            console.warn("[LOG_ENTITY] Failed to parse decrypted canvasData, returning raw value");
-            return value;
-        }
-    }
-};
-
-@Entity("resumes")
+@Entity('resumes')
 export class Resume {
-    @PrimaryGeneratedColumn("uuid")
+    @PrimaryGeneratedColumn('uuid')
     id!: string;
 
-    @Column({ type: "varchar" })
+    @Column({ type: 'varchar' })
     userId!: string;
 
-    @Column({ type: "varchar", default: "Untitled Resume" })
+    @Column({ type: 'varchar', default: 'Untitled Resume' })
     title!: string;
 
+    /**
+     * Stored as plain JSON text in local SQLite.
+     * No encryption needed for a local-only app.
+     */
     @Column({
-        type: "text",
+        type: 'text',
         nullable: true,
-        transformer: EncryptionTransformer
+        transformer: {
+            to: (value: any) => (value ? JSON.stringify(value) : null),
+            from: (value: string | null) => {
+                if (!value) return { nodes: [], customTemplate: '' };
+                try {
+                    return JSON.parse(value);
+                } catch {
+                    return { nodes: [], customTemplate: '' };
+                }
+            },
+        },
     })
     canvasData: {
         nodes: ResumeBlock[];
         customTemplate?: string;
         projectFiles?: any[];
         activeFileName?: string;
-    } = { nodes: [], customTemplate: "" };
+    } = { nodes: [], customTemplate: '' };
 
     @CreateDateColumn()
     createdAt!: Date;

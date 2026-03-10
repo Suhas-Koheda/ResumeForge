@@ -1,15 +1,16 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { ResumeBlock, BlockType } from '@shared/types';
-
 import { LatexGenerationOptions } from '../../shared/template.types';
 
-interface LatexFile {
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+export interface LatexFile {
     name: string;
     content: string;
 }
 
-interface ResumeStorage {
+export interface ResumeStorage {
     id?: string;
     title?: string;
     blocks: ResumeBlock[];
@@ -19,349 +20,335 @@ interface ResumeStorage {
 }
 
 interface BuilderStore {
+    // Multi-resume management
     resumes: ResumeStorage[];
     activeResumeIndex: number;
+
+    // Active resume state (mirrors the active entry in `resumes`)
     blocks: ResumeBlock[];
     projectFiles: LatexFile[];
     activeFileName: string | null;
     customTemplate: string;
     templateOptions: LatexGenerationOptions;
-    setResumeId: (index: number, id: string) => void;
+    apiKey: string;
+
+    // Block actions
     addBlock: (type: BlockType) => string;
     updateBlock: (id: string, data: any) => void;
     deleteBlock: (id: string) => void;
     toggleBlock: (id: string) => void;
     updateBlockPosition: (id: string, x: number, y: number) => void;
     setBlocks: (blocks: ResumeBlock[]) => void;
+
+    // File actions
     setProjectFiles: (files: LatexFile[]) => void;
     updateFileContent: (name: string, content: string) => void;
     setActiveFileName: (name: string | null) => void;
     addFile: (name: string) => void;
     deleteFile: (name: string) => void;
+
+    // Template actions
+    setCustomTemplate: (template: string) => void;
     setTemplateOptions: (options: Partial<LatexGenerationOptions>) => void;
+    setApiKey: (key: string) => void;
+
+    // Resume management
     switchResume: (index: number) => void;
     addResume: (data?: Partial<ResumeStorage>) => void;
     deleteResume: (index: number) => void;
-    apiKey: string;
-    setApiKey: (key: string) => void;
-    setCustomTemplate: (template: string) => void;
-    token: string | null;
-    userEmail: string | null;
-    isVerified: boolean;
-    setToken: (token: string | null, email?: string, isVerified?: boolean) => void;
-    setIsVerified: (isVerified: boolean) => void;
-    logout: () => void;
-    viewState: 'landing' | 'auth' | 'canvas' | 'verify';
-    setViewState: (viewState: 'landing' | 'auth' | 'canvas' | 'verify') => void;
+    setResumeId: (index: number, id: string) => void;
     loadResumes: (resumes: any[]) => void;
+    resetCanvas: () => void;
 }
 
-const generateId = () => Math.random().toString(36).substring(2, 9);
+// ── Constants ─────────────────────────────────────────────────────────────────
 
-const INITIAL_BLOCKS: ResumeBlock[] = [];
+const generateId = (): string => Math.random().toString(36).substring(2, 9);
+
+const DEFAULT_PROJECT_FILES: LatexFile[] = [{ name: 'main.tex', content: '' }];
 
 const DEFAULT_TEMPLATE_OPTIONS: LatexGenerationOptions = {
     template: 'modern',
     fontSize: 11,
     paperSize: 'a4',
-    colorScheme: {
-        primary: '#2563eb',
-        secondary: '#4b5563',
-        accent: '#3b82f6'
-    },
+    colorScheme: { primary: '#2563eb', secondary: '#4b5563', accent: '#3b82f6' },
     fontFamily: 'sans',
     showIcons: true,
-    sectionStyle: 'lined'
+    sectionStyle: 'lined',
 };
+
+const EMPTY_RESUME = (): ResumeStorage => ({
+    blocks: [],
+    projectFiles: [...DEFAULT_PROJECT_FILES],
+    activeFileName: 'main.tex',
+    templateOptions: DEFAULT_TEMPLATE_OPTIONS,
+});
+
+// ── Block position layout ─────────────────────────────────────────────────────
+
+const BASE_X_FOR_TYPE: Record<string, number> = {
+    header: 0,
+    summary: 500,
+    experience: 1000,
+    education: 1500,
+    project: 2000,
+    skills: 2500,
+    other: 3000,
+};
+
+// ── Store ─────────────────────────────────────────────────────────────────────
 
 export const useBuilderStore = create<BuilderStore>()(
     persist(
         (set, get) => ({
-            resumes: [
-                { blocks: INITIAL_BLOCKS, projectFiles: [{ name: 'main.tex', content: '' }], activeFileName: 'main.tex', templateOptions: DEFAULT_TEMPLATE_OPTIONS }
-            ],
+            resumes: [EMPTY_RESUME()],
             activeResumeIndex: 0,
-            blocks: INITIAL_BLOCKS,
-            projectFiles: [{ name: 'main.tex', content: '' }],
+            blocks: [],
+            projectFiles: [...DEFAULT_PROJECT_FILES],
             activeFileName: 'main.tex',
-            apiKey: '',
             customTemplate: '',
-            templateOptions: DEFAULT_TEMPLATE_OPTIONS,
-            token: null,
-            userEmail: null,
-            isVerified: false,
-            viewState: 'landing',
+            templateOptions: { ...DEFAULT_TEMPLATE_OPTIONS },
+            apiKey: '',
 
-            setToken: (token, email, isVerified) => set({
-                token,
-                userEmail: email || (token === 'local-bypass' ? 'local-host@dev.local' : null),
-                isVerified: isVerified ?? (token === 'local-bypass'),
-                viewState: token ? 'canvas' : 'landing'
-            }),
-            setIsVerified: (isVerified) => set({ isVerified }),
-            logout: () => {
-                set({
-                    token: null,
-                    userEmail: null,
-                    isVerified: false,
-                    viewState: 'landing',
-                    resumes: [{ blocks: INITIAL_BLOCKS, projectFiles: [{ name: 'main.tex', content: '' }], activeFileName: 'main.tex' }],
-                    activeResumeIndex: 0,
-                    blocks: INITIAL_BLOCKS,
-                    projectFiles: [{ name: 'main.tex', content: '' }],
-                    activeFileName: 'main.tex'
-                });
-                localStorage.removeItem('resume-builder-storage-v5');
-            },
-            setViewState: (viewState) => set({ viewState }),
-
-            loadResumes: (backendResumes) => {
-                const state = get();
-                const formattedResumes: ResumeStorage[] = backendResumes.map(r => ({
-                    id: r.id,
-                    title: r.title,
-                    blocks: r.canvasData?.nodes || [],
-                    projectFiles: r.canvasData?.projectFiles || (r.canvasData?.fullLatex ? [{ name: 'main.tex', content: r.canvasData.fullLatex }] : [{ name: 'main.tex', content: '' }]),
-                    activeFileName: r.canvasData?.activeFileName || 'main.tex'
-                }));
-
-                if (formattedResumes.length > 0) {
-                    // Try to preserve active index if possible, otherwise default to 0
-                    const newIndex = state.activeResumeIndex < formattedResumes.length
-                        ? state.activeResumeIndex
-                        : 0;
-
-                    set({
-                        resumes: formattedResumes,
-                        activeResumeIndex: newIndex,
-                        blocks: formattedResumes[newIndex].blocks,
-                        projectFiles: formattedResumes[newIndex].projectFiles,
-                        activeFileName: formattedResumes[newIndex].activeFileName,
-                        templateOptions: formattedResumes[newIndex].templateOptions || DEFAULT_TEMPLATE_OPTIONS
-                    });
-                }
-            },
-
-            setResumeId: (index, id) => set((state) => {
-                const newResumes = [...state.resumes];
-                if (newResumes[index]) {
-                    newResumes[index] = { ...newResumes[index], id };
-                }
-                return { resumes: newResumes };
-            }),
-
-            setBlocks: (blocks) => set((state) => {
-                const newResumes = [...state.resumes];
-                newResumes[state.activeResumeIndex] = {
-                    ...newResumes[state.activeResumeIndex],
-                    blocks
-                };
-                return { blocks, resumes: newResumes };
-            }),
-            setProjectFiles: (projectFiles) => set((state) => {
-                const newResumes = [...state.resumes];
-                newResumes[state.activeResumeIndex] = {
-                    ...newResumes[state.activeResumeIndex],
-                    projectFiles
-                };
-                return { projectFiles, resumes: newResumes };
-            }),
-            updateFileContent: (name, content) => set((state) => {
-                const projectFiles = state.projectFiles.map(f => f.name === name ? { ...f, content } : f);
-                const newResumes = [...state.resumes];
-                newResumes[state.activeResumeIndex] = {
-                    ...newResumes[state.activeResumeIndex],
-                    projectFiles
-                };
-                return { projectFiles, resumes: newResumes };
-            }),
-            setActiveFileName: (activeFileName) => set((state) => {
-                const newResumes = [...state.resumes];
-                newResumes[state.activeResumeIndex] = {
-                    ...newResumes[state.activeResumeIndex],
-                    activeFileName
-                };
-                return { activeFileName, resumes: newResumes };
-            }),
-            addFile: (name) => set((state) => {
-                if (state.projectFiles.some(f => f.name === name)) return state;
-                const projectFiles = [...state.projectFiles, { name, content: '' }];
-                const newResumes = [...state.resumes];
-                newResumes[state.activeResumeIndex] = { ...newResumes[state.activeResumeIndex], projectFiles };
-                return { projectFiles, resumes: newResumes, activeFileName: name };
-            }),
-            deleteFile: (name) => set((state) => {
-                const projectFiles = state.projectFiles.filter(f => f.name !== name);
-                const activeFileName = state.activeFileName === name ? (projectFiles[0]?.name || null) : state.activeFileName;
-                const newResumes = [...state.resumes];
-                newResumes[state.activeResumeIndex] = { ...newResumes[state.activeResumeIndex], projectFiles, activeFileName };
-                return { projectFiles, resumes: newResumes, activeFileName };
-            }),
-
-            setTemplateOptions: (options) => set((state) => {
-                const newOptions = { ...state.templateOptions, ...options };
-                const newResumes = [...state.resumes];
-                newResumes[state.activeResumeIndex] = {
-                    ...newResumes[state.activeResumeIndex],
-                    templateOptions: newOptions
-                };
-                return { templateOptions: newOptions, resumes: newResumes };
-            }),
-
-            switchResume: (index) => {
-                const state = get();
-                // Save current to index
-                const newResumes = [...state.resumes];
-                newResumes[state.activeResumeIndex] = {
-                    ...newResumes[state.activeResumeIndex],
-                    blocks: state.blocks,
-                    projectFiles: state.projectFiles,
-                    activeFileName: state.activeFileName,
-                    templateOptions: state.templateOptions
-                };
-
-                // Load new from index
-                const target = newResumes[index];
-                if (!target) return;
-
-                set({
-                    activeResumeIndex: index,
-                    blocks: target.blocks,
-                    projectFiles: target.projectFiles || [{ name: 'main.tex', content: '' }],
-                    activeFileName: target.activeFileName || 'main.tex',
-                    templateOptions: target.templateOptions || DEFAULT_TEMPLATE_OPTIONS,
-                    resumes: newResumes
-                });
-            },
-
-            addResume: (data) => {
-                const state = get();
-                const newResumes = [...state.resumes];
-
-                // Save current state to current active index first
-                newResumes[state.activeResumeIndex] = {
-                    ...newResumes[state.activeResumeIndex],
-                    blocks: state.blocks,
-                    projectFiles: state.projectFiles,
-                    activeFileName: state.activeFileName,
-                    templateOptions: state.templateOptions
-                };
-
-                // Create new resume entry
-                const newResume: ResumeStorage = {
-                    id: data?.id,
-                    title: data?.title || `Resume R_${newResumes.length + 1}`,
-                    blocks: data?.blocks || [],
-                    projectFiles: data?.projectFiles || [{ name: 'main.tex', content: '' }],
-                    activeFileName: data?.activeFileName || 'main.tex'
-                };
-                newResumes.push(newResume);
-
-                const newIndex = newResumes.length - 1;
-                set({
-                    resumes: newResumes,
-                    activeResumeIndex: newIndex,
-                    blocks: newResume.blocks,
-                    projectFiles: newResume.projectFiles || [{ name: 'main.tex', content: '' }],
-                    activeFileName: newResume.activeFileName || 'main.tex',
-                    templateOptions: newResume.templateOptions || DEFAULT_TEMPLATE_OPTIONS
-                });
-            },
-
-            deleteResume: (index) => {
-                const state = get();
-                if (state.resumes.length <= 1) return; // always keep at least one
-                const newResumes = state.resumes.filter((_, i) => i !== index);
-                const newIndex = Math.min(index, newResumes.length - 1);
-                const target = newResumes[newIndex];
-                set({
-                    resumes: newResumes,
-                    activeResumeIndex: newIndex,
-                    blocks: target.blocks,
-                    projectFiles: target.projectFiles || [{ name: 'main.tex', content: '' }],
-                    activeFileName: target.activeFileName || 'main.tex',
-                });
-            },
+            // ── Block actions ─────────────────────────────────────────────────
 
             addBlock: (type) => {
                 const id = generateId();
                 set((state) => {
                     const blocksOfType = state.blocks.filter(b => b.type === type);
-                    const BASE_X: Record<string, number> = {
-                        header: 0,
-                        summary: 500,
-                        experience: 1000,
-                        education: 1500,
-                        project: 2000,
-                        skills: 2500,
-                        other: 3000,
+                    const startX = BASE_X_FOR_TYPE[type as keyof typeof BASE_X_FOR_TYPE] ?? 0;
+
+                    const newX = blocksOfType.length > 0
+                        ? blocksOfType[blocksOfType.length - 1].position.x
+                        : startX;
+                    const newY = blocksOfType.length > 0
+                        ? blocksOfType[blocksOfType.length - 1].position.y + 200
+                        : 0;
+
+                    const newBlock: ResumeBlock = {
+                        id, type, position: { x: newX, y: newY }, data: {}, enabled: true,
                     };
-
-                    const startX = BASE_X[type as keyof typeof BASE_X] ?? 0;
-                    const startY = 0;
-                    let newX = startX;
-                    let newY = startY;
-
-                    if (blocksOfType.length > 0) {
-                        const lastBlock = blocksOfType[blocksOfType.length - 1];
-                        newX = lastBlock.position.x;
-                        newY = lastBlock.position.y + 200;
-                    }
-
-                    const newBlock: ResumeBlock = { id, type, position: { x: newX, y: newY }, data: {}, enabled: true };
                     const newBlocks = [...state.blocks, newBlock];
-
-                    const newResumes = [...state.resumes];
-                    newResumes[state.activeResumeIndex] = { ...newResumes[state.activeResumeIndex], blocks: newBlocks };
-
-                    return { blocks: newBlocks, resumes: newResumes };
+                    const resumes = syncActiveResume(state, { blocks: newBlocks });
+                    return { blocks: newBlocks, resumes };
                 });
                 return id;
             },
 
             updateBlock: (id, partialData) =>
                 set((state) => {
-                    const newBlocks = state.blocks.map((block) =>
-                        block.id === id ? { ...block, data: { ...block.data, ...partialData } } : block
+                    const newBlocks = state.blocks.map(b =>
+                        b.id === id ? { ...b, data: { ...b.data, ...partialData } } : b,
                     );
-                    const newResumes = [...state.resumes];
-                    newResumes[state.activeResumeIndex] = { ...newResumes[state.activeResumeIndex], blocks: newBlocks };
-                    return { blocks: newBlocks, resumes: newResumes };
+                    return { blocks: newBlocks, resumes: syncActiveResume(state, { blocks: newBlocks }) };
                 }),
 
             deleteBlock: (id) =>
                 set((state) => {
-                    const newBlocks = state.blocks.filter((block) => block.id !== id);
-                    const newResumes = [...state.resumes];
-                    newResumes[state.activeResumeIndex] = { ...newResumes[state.activeResumeIndex], blocks: newBlocks };
-                    return { blocks: newBlocks, resumes: newResumes };
+                    const newBlocks = state.blocks.filter(b => b.id !== id);
+                    return { blocks: newBlocks, resumes: syncActiveResume(state, { blocks: newBlocks }) };
                 }),
 
             toggleBlock: (id) =>
                 set((state) => {
-                    const newBlocks = state.blocks.map((block) =>
-                        block.id === id ? { ...block, enabled: block.enabled === false ? true : false } : block
+                    const newBlocks = state.blocks.map(b =>
+                        b.id === id ? { ...b, enabled: !b.enabled } : b,
                     );
-                    const newResumes = [...state.resumes];
-                    newResumes[state.activeResumeIndex] = { ...newResumes[state.activeResumeIndex], blocks: newBlocks };
-                    return { blocks: newBlocks, resumes: newResumes };
+                    return { blocks: newBlocks, resumes: syncActiveResume(state, { blocks: newBlocks }) };
                 }),
 
             updateBlockPosition: (id, x, y) =>
                 set((state) => {
-                    const newBlocks = state.blocks.map((block) =>
-                        block.id === id ? { ...block, position: { x, y } } : block
+                    const newBlocks = state.blocks.map(b =>
+                        b.id === id ? { ...b, position: { x, y } } : b,
                     );
-                    const newResumes = [...state.resumes];
-                    newResumes[state.activeResumeIndex] = { ...newResumes[state.activeResumeIndex], blocks: newBlocks };
-                    return { blocks: newBlocks, resumes: newResumes };
+                    return { blocks: newBlocks, resumes: syncActiveResume(state, { blocks: newBlocks }) };
                 }),
 
-            setApiKey: (apiKey) => set({ apiKey }),
+            setBlocks: (blocks) =>
+                set((state) => ({
+                    blocks,
+                    resumes: syncActiveResume(state, { blocks }),
+                })),
+
+            // ── File actions ──────────────────────────────────────────────────
+
+            setProjectFiles: (projectFiles) =>
+                set((state) => ({
+                    projectFiles,
+                    resumes: syncActiveResume(state, { projectFiles }),
+                })),
+
+            updateFileContent: (name, content) =>
+                set((state) => {
+                    const projectFiles = state.projectFiles.map(f =>
+                        f.name === name ? { ...f, content } : f,
+                    );
+                    return { projectFiles, resumes: syncActiveResume(state, { projectFiles }) };
+                }),
+
+            setActiveFileName: (activeFileName) =>
+                set((state) => ({
+                    activeFileName,
+                    resumes: syncActiveResume(state, { activeFileName }),
+                })),
+
+            addFile: (name) =>
+                set((state) => {
+                    if (state.projectFiles.some(f => f.name === name)) return state;
+                    const projectFiles = [...state.projectFiles, { name, content: '' }];
+                    return {
+                        projectFiles,
+                        activeFileName: name,
+                        resumes: syncActiveResume(state, { projectFiles, activeFileName: name }),
+                    };
+                }),
+
+            deleteFile: (name) =>
+                set((state) => {
+                    const projectFiles = state.projectFiles.filter(f => f.name !== name);
+                    const activeFileName = state.activeFileName === name
+                        ? (projectFiles[0]?.name ?? null)
+                        : state.activeFileName;
+                    return {
+                        projectFiles,
+                        activeFileName,
+                        resumes: syncActiveResume(state, { projectFiles, activeFileName }),
+                    };
+                }),
+
+            // ── Template / settings ───────────────────────────────────────────
+
             setCustomTemplate: (customTemplate) => set({ customTemplate }),
+            setApiKey: (apiKey) => set({ apiKey }),
+
+            setTemplateOptions: (options) =>
+                set((state) => {
+                    const templateOptions = { ...state.templateOptions, ...options };
+                    return { templateOptions, resumes: syncActiveResume(state, { templateOptions }) };
+                }),
+
+            // ── Resume management ─────────────────────────────────────────────
+
+            setResumeId: (index, id) =>
+                set((state) => {
+                    const resumes = [...state.resumes];
+                    if (resumes[index]) resumes[index] = { ...resumes[index], id };
+                    return { resumes };
+                }),
+
+            loadResumes: (backendResumes) => {
+                const state = get();
+                const formatted: ResumeStorage[] = backendResumes.map(r => ({
+                    id: r.id,
+                    title: r.title,
+                    blocks: r.canvasData?.nodes || [],
+                    projectFiles: r.canvasData?.projectFiles ||
+                        (r.canvasData?.fullLatex
+                            ? [{ name: 'main.tex', content: r.canvasData.fullLatex }]
+                            : [...DEFAULT_PROJECT_FILES]),
+                    activeFileName: r.canvasData?.activeFileName || 'main.tex',
+                }));
+
+                if (formatted.length === 0) return;
+
+                const newIndex = state.activeResumeIndex < formatted.length ? state.activeResumeIndex : 0;
+                const active = formatted[newIndex];
+                set({
+                    resumes: formatted,
+                    activeResumeIndex: newIndex,
+                    blocks: active.blocks,
+                    projectFiles: active.projectFiles,
+                    activeFileName: active.activeFileName,
+                    templateOptions: active.templateOptions ?? { ...DEFAULT_TEMPLATE_OPTIONS },
+                });
+            },
+
+            switchResume: (index) => {
+                const state = get();
+                const resumes = saveCurrentToResumes(state);
+                const target = resumes[index];
+                if (!target) return;
+                set({
+                    resumes,
+                    activeResumeIndex: index,
+                    blocks: target.blocks,
+                    projectFiles: target.projectFiles ?? [...DEFAULT_PROJECT_FILES],
+                    activeFileName: target.activeFileName ?? 'main.tex',
+                    templateOptions: target.templateOptions ?? { ...DEFAULT_TEMPLATE_OPTIONS },
+                });
+            },
+
+            addResume: (data) => {
+                const state = get();
+                const resumes = saveCurrentToResumes(state);
+                const newResume: ResumeStorage = {
+                    id: data?.id,
+                    title: data?.title || `Resume R_${resumes.length + 1}`,
+                    blocks: data?.blocks || [],
+                    projectFiles: data?.projectFiles || [...DEFAULT_PROJECT_FILES],
+                    activeFileName: data?.activeFileName || 'main.tex',
+                };
+                resumes.push(newResume);
+                const newIndex = resumes.length - 1;
+                set({
+                    resumes,
+                    activeResumeIndex: newIndex,
+                    blocks: newResume.blocks,
+                    projectFiles: newResume.projectFiles,
+                    activeFileName: newResume.activeFileName,
+                    templateOptions: newResume.templateOptions ?? { ...DEFAULT_TEMPLATE_OPTIONS },
+                });
+            },
+
+            deleteResume: (index) => {
+                const state = get();
+                if (state.resumes.length <= 1) return;
+                const resumes = state.resumes.filter((_, i) => i !== index);
+                const newIndex = Math.min(index, resumes.length - 1);
+                const target = resumes[newIndex];
+                set({
+                    resumes,
+                    activeResumeIndex: newIndex,
+                    blocks: target.blocks,
+                    projectFiles: target.projectFiles ?? [...DEFAULT_PROJECT_FILES],
+                    activeFileName: target.activeFileName ?? 'main.tex',
+                });
+            },
+
+            resetCanvas: () => {
+                set({
+                    resumes: [EMPTY_RESUME()],
+                    activeResumeIndex: 0,
+                    blocks: [],
+                    projectFiles: [...DEFAULT_PROJECT_FILES],
+                    activeFileName: 'main.tex',
+                    customTemplate: '',
+                });
+                if (typeof localStorage !== 'undefined') {
+                    localStorage.removeItem('resume-builder-storage-v6');
+                }
+            },
         }),
-        {
-            name: 'resume-builder-storage-v5',
-        }
-    )
+        { name: 'resume-builder-storage-v6' },
+    ),
 );
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+/** Returns a new resumes array with the active entry updated from current state. */
+function syncActiveResume(state: BuilderStore, patch: Partial<ResumeStorage>): ResumeStorage[] {
+    const resumes = [...state.resumes];
+    resumes[state.activeResumeIndex] = { ...resumes[state.activeResumeIndex], ...patch };
+    return resumes;
+}
+
+/** Persist current editor state back into the active resume slot. */
+function saveCurrentToResumes(state: BuilderStore): ResumeStorage[] {
+    return syncActiveResume(state, {
+        blocks: state.blocks,
+        projectFiles: state.projectFiles,
+        activeFileName: state.activeFileName,
+        templateOptions: state.templateOptions,
+    });
+}
