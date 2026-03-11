@@ -28,6 +28,13 @@ export const config = {
         return val.split(',').map(k => k.trim()).filter(Boolean);
     })(),
 
+    // Ollama AI
+    OLLAMA_MODEL: process.env.OLLAMA_MODEL || 'deepseek-r1:1.5b',
+    OLLAMA_BASE_URL: process.env.OLLAMA_BASE_URL || 'http://localhost:11434',
+    
+    // AI Provider Selection
+    AI_PROVIDER: process.env.AI_PROVIDER || 'gemini',
+
     // Encryption / JWT
     JWT_SECRET: process.env.JWT_SECRET || 'local-dev-secret',
 

@@ -6,4 +6,5 @@ export interface ResumeBlock {
   position: { x: number; y: number }; // 2D coordinates
   data: Record<string, any>;
   enabled?: boolean;
+  latexContent?: string;
 }

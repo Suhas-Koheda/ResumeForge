@@ -32,6 +32,34 @@ const parseSafeJson = (text: string) => {
 let rotationIndex = 0;
 
 /**
+ * Execute a task with Ollama.
+ */
+async function executeWithOllama(prompt: string, modelName: string = config.OLLAMA_MODEL): Promise<string> {
+    try {
+        const response = await fetch(`${config.OLLAMA_BASE_URL}/api/generate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                model: modelName,
+                prompt: prompt,
+                stream: false,
+            }),
+        });
+
+        if (!response.ok) {
+            const error = await response.text();
+            throw new Error(`Ollama API error (${response.status}): ${error}`);
+        }
+
+        const data = await response.json() as { response: string };
+        return data.response;
+    } catch (error: any) {
+        console.error("[LOG_AI_BACKEND] Ollama execution failed:", error.message);
+        throw new Error(`Ollama execution failed: ${error.message}`);
+    }
+}
+
+/**
  * Execute a task with API key rotation and retries for rate limits.
  */
 async function executeWithRotation<T>(task: (model: any) => Promise<T>, modelName: string = config.GEMINI_MODEL_NAME): Promise<T> {
@@ -66,10 +94,17 @@ async function executeWithRotation<T>(task: (model: any) => Promise<T>, modelNam
     throw lastError || new Error("All Gemini API keys are currently rate limited.");
 }
 
+async function runAiTask(geminiTask: (model: any) => Promise<string>, ollamaPrompt: string, provider: string = config.AI_PROVIDER): Promise<string> {
+    if (provider === 'ollama') {
+        return await executeWithOllama(ollamaPrompt);
+    } else {
+        return await executeWithRotation(geminiTask);
+    }
+}
+
 export const aiService = {
-    async polishExperience(rawText: string) {
-        return executeWithRotation(async (model) => {
-            const prompt = `
+    async polishExperience(rawText: string, provider?: string) {
+        const prompt = `
                 You are an expert resume writer and LaTeX specialist. 
                 Convert the following raw job experience description into professional, high-impact bullet points.
                 Input: "${rawText}"
@@ -85,15 +120,15 @@ export const aiService = {
                 - Do NOT include markdown code fences (\`\`\`json).
                 - Do NOT include notes or explanations.
             `;
-            const result = await model.generateContent(prompt);
-            const textResponse = result.response.text();
-            return JSON.stringify(parseSafeJson(textResponse));
-        });
+        const result = await runAiTask(async (model) => {
+            const res = await model.generateContent(prompt);
+            return res.response.text();
+        }, prompt, provider);
+        return JSON.stringify(parseSafeJson(result));
     },
 
-    async polishSkills(rawText: string) {
-        return executeWithRotation(async (model) => {
-            const prompt = `
+    async polishSkills(rawText: string, provider?: string) {
+        const prompt = `
                 Extract and categorize technical skills from the following text.
                 Input: "${rawText}"
                 Return the response in strictly valid JSON format:
@@ -102,14 +137,15 @@ export const aiService = {
                     "latexCode": "\\\\customItemListStart\\n  \\\\customItem{\\\\textbf{Category 1}{: Skill A, Skill B}}\\n\\\\customItemListEnd"
                 }
             `;
-            const result = await model.generateContent(prompt);
-            return JSON.stringify(parseSafeJson(result.response.text()));
-        });
+        const result = await runAiTask(async (model) => {
+            const res = await model.generateContent(prompt);
+            return res.response.text();
+        }, prompt, provider);
+        return JSON.stringify(parseSafeJson(result));
     },
 
-    async polishProject(rawText: string) {
-        return executeWithRotation(async (model) => {
-            const prompt = `
+    async polishProject(rawText: string, provider?: string) {
+        const prompt = `
                 Convert the following project description into professional bullet points.
                 Input: "${rawText}"
                 Return the response in strictly valid JSON format:
@@ -119,14 +155,15 @@ export const aiService = {
                     "latexCode": "\\\\customItemListStart\\n  \\\\customItem{...}\\n\\\\customItemListEnd"
                 }
             `;
-            const result = await model.generateContent(prompt);
-            return JSON.stringify(parseSafeJson(result.response.text()));
-        });
+        const result = await runAiTask(async (model) => {
+            const res = await model.generateContent(prompt);
+            return res.response.text();
+        }, prompt, provider);
+        return JSON.stringify(parseSafeJson(result));
     },
 
-    async polishEducation(rawText: string) {
-        return executeWithRotation(async (model) => {
-            const prompt = `
+    async polishEducation(rawText: string, provider?: string) {
+        const prompt = `
                 Extract education details (Institution, Degree, Year) from the following text.
                 Input: "${rawText}"
                 Return the response in strictly valid JSON format:
@@ -137,49 +174,48 @@ export const aiService = {
                     "latexCode": "\\\\customSubHeading{...}{...}{...}"
                 }
             `;
-            const result = await model.generateContent(prompt);
-            return JSON.stringify(parseSafeJson(result.response.text()));
-        });
+        const result = await runAiTask(async (model) => {
+            const res = await model.generateContent(prompt);
+            return res.response.text();
+        }, prompt, provider);
+        return JSON.stringify(parseSafeJson(result));
     },
 
-    async assembleResume(blocks: ResumeBlock[], template: string) {
-        return executeWithRotation(async (model) => {
-            // ── TEMPLATE CLEANING ──────────────────────────────────
-            let cleanTemplate = (template || '').trim();
-            const docClassCount = (cleanTemplate.match(/\\documentclass/g) || []).length;
-            if (docClassCount > 1) {
-                const firstIdx = cleanTemplate.indexOf('\\documentclass');
-                const secondIdx = cleanTemplate.indexOf('\\documentclass', firstIdx + 1);
-                const endDocBefore = cleanTemplate.lastIndexOf('\\end{document}', secondIdx);
-                if (endDocBefore > firstIdx) {
-                    cleanTemplate = cleanTemplate.substring(0, endDocBefore + '\\end{document}'.length);
-                } else {
-                    cleanTemplate = cleanTemplate.substring(0, secondIdx).trim();
-                }
+    async assembleResume(blocks: ResumeBlock[], template: string, provider?: string) {
+        // ── TEMPLATE CLEANING ──────────────────────────────────
+        let cleanTemplate = (template || '').trim();
+        const docClassCount = (cleanTemplate.match(/\\documentclass/g) || []).length;
+        if (docClassCount > 1) {
+            const firstIdx = cleanTemplate.indexOf('\\documentclass');
+            const secondIdx = cleanTemplate.indexOf('\\documentclass', firstIdx + 1);
+            const endDocBefore = cleanTemplate.lastIndexOf('\\end{document}', secondIdx);
+            if (endDocBefore > firstIdx) {
+                cleanTemplate = cleanTemplate.substring(0, endDocBefore + '\\end{document}'.length);
+            } else {
+                cleanTemplate = cleanTemplate.substring(0, secondIdx).trim();
             }
+        }
 
-            const docClassMatch = cleanTemplate.match(/\\documentclass(?:\[[^\]]*\])?\{([^}]*)\}/);
-            const docClass = docClassMatch ? docClassMatch[1] : 'article';
-            const isCurve = docClass === 'curve';
-            const standardClasses = ['article', 'report', 'book', 'letter', 'beamer', 'memoir', 'standalone', 'minimal', 'curve', 'resume'];
-            const isCustomClass = !standardClasses.includes(docClass);
-            const isFullDocument = cleanTemplate.includes('\\documentclass');
+        const docClassMatch = cleanTemplate.match(/\\documentclass(?:\[[^\]]*\])?\{([^}]*)\}/);
+        const docClass = docClassMatch ? docClassMatch[1] : 'article';
+        const isFullDocument = cleanTemplate.includes('\\documentclass');
 
-            // Strip embedded .cls/.sty source after \end{document}
-            const endDocIdx = cleanTemplate.lastIndexOf('\\end{document}');
-            if (endDocIdx > -1) {
-                cleanTemplate = cleanTemplate.substring(0, endDocIdx + '\\end{document}'.length);
-            }
+        // Strip embedded .cls/.sty source after \end{document}
+        const endDocIdx = cleanTemplate.lastIndexOf('\\end{document}');
+        if (endDocIdx > -1) {
+            cleanTemplate = cleanTemplate.substring(0, endDocIdx + '\\end{document}'.length);
+        }
 
-            const prompt = cleanTemplate
-                ? `You are a LaTeX Template Processor. Your ONLY job is to take the TEMPLATE provided and swap its placeholder data with the JSON DATA.
+        const enabledBlocks = blocks.filter(b => b.enabled !== false);
+        const prompt = cleanTemplate
+            ? `You are a LaTeX Template Processor. Your ONLY job is to take the TEMPLATE provided and swap its placeholder data with the JSON DATA.
 Output MUST be the full document.
 
 TEMPLATE:
 ${cleanTemplate}
 
 JSON DATA:
-${JSON.stringify(blocks)}
+${JSON.stringify(enabledBlocks)}
 
 STRICT DIRECTIVES:
 1. NO STYLE HALLUCINATION: Use ONLY the structure and macros present in the TEMPLATE.
@@ -187,34 +223,36 @@ STRICT DIRECTIVES:
 3. NO MARKDOWN: Output ONLY raw LaTeX. No backticks or explanations.
 4. ESCAPING: You MUST escape special fragments: & -> \\&, % -> \\%, $ -> \\$, _ -> \\_, # -> \\#, etc.
 5. NO CONVERSATION: Return ONLY the code.`
-                : `You are an expert LaTeX Resume Architect.
+            : `You are an expert LaTeX Resume Architect.
 Create a complete, professional, compilable LaTeX resume using the following JSON DATA.
 Use a standard, high-quality resume document class (like article) and professional formatting.
 
 JSON DATA:
-${JSON.stringify(blocks)}
+${JSON.stringify(enabledBlocks)}
 
 DIRECTIVES:
 1. FULL DOCUMENT: Output a complete, self-contained LaTeX document from \\documentclass to \\end{document}.
 2. NO MARKDOWN: Output ONLY raw LaTeX.
 3. ESCAPING: You MUST escape special fragments: & -> \\&, % -> \\%, $ -> \\$, _ -> \\_, # -> \\#, etc.
 4. MODERN STYLE: Use professional fonts, clear sections, and good whitespace.`;
-            const result = await model.generateContent(prompt);
-            const text = result.response.text();
-            let extracted = text;
-            const match = text.match(/```(?:latex|tex)?\n([\s\S]*?)```/);
-            if (match) {
-                extracted = match[1];
-            } else {
-                extracted = text.replace(/```(?:latex|tex)?\n?|```\n?/g, "");
-            }
-            return extracted.trim();
-        });
+
+        const result = await runAiTask(async (model) => {
+            const res = await model.generateContent(prompt);
+            return res.response.text();
+        }, prompt, provider);
+
+        let extracted = result;
+        const match = result.match(/```(?:latex|tex)?\n([\s\S]*?)```/);
+        if (match) {
+            extracted = match[1];
+        } else {
+            extracted = result.replace(/```(?:latex|tex)?\n?|```\n?/g, "");
+        }
+        return extracted.trim();
     },
 
-    async parseResume(content: string) {
-        return executeWithRotation(async (model) => {
-            const prompt = `
+    async parseResume(content: string, provider?: string) {
+        const prompt = `
                 You are a resume data extractor. 
                 Extract all information from the provided text/LaTeX and return it as a JSON array of ResumeBlock objects.
                 
@@ -243,19 +281,19 @@ DIRECTIVES:
                 INPUT:
                 ${content}
             `;
-            const result = await model.generateContent(prompt);
-            const textResponse = result.response.text();
+        const result = await runAiTask(async (model) => {
+            const res = await model.generateContent(prompt);
+            return res.response.text();
+        }, prompt, provider);
 
-            console.log("[LOG_AI_BACKEND] Raw response received:", textResponse.substring(0, 100) + "...");
+        console.log("[LOG_AI_BACKEND] Raw response received:", result.substring(0, 100) + "...");
 
-            const parsed = parseSafeJson(textResponse);
-            return JSON.stringify(parsed);
-        });
+        const parsed = parseSafeJson(result);
+        return JSON.stringify(parsed);
     },
 
-    async optimizeForJD(blocks: ResumeBlock[], jobDescription: string) {
-        return executeWithRotation(async (model) => {
-            const prompt = `
+    async optimizeForJD(blocks: ResumeBlock[], jobDescription: string, provider?: string) {
+        const prompt = `
                 You are an expert resume optimizer. 
                 Your task is to take the current resume blocks (JSON) and a Job Description (JD) text.
                 Modify the content of each block to better align with the requirements, keywords, and tone of the JD.
@@ -273,17 +311,19 @@ DIRECTIVES:
                 RESUME BLOCKS:
                 ${JSON.stringify(blocks)}
             `;
-            const result = await model.generateContent(prompt);
-            const textResponse = result.response.text();
-            return JSON.stringify(parseSafeJson(textResponse));
-        });
+        const result = await runAiTask(async (model) => {
+            const res = await model.generateContent(prompt);
+            return res.response.text();
+        }, prompt, provider);
+        return JSON.stringify(parseSafeJson(result));
     },
 
-    async genericAiCommand(prompt: string) {
-        return executeWithRotation(async (model) => {
-            const result = await model.generateContent(prompt);
-            return result.response.text().replace(/```latex\n?|```\n?/g, "").trim();
-        });
+    async genericAiCommand(prompt: string, provider?: string) {
+        const result = await runAiTask(async (model) => {
+            const res = await model.generateContent(prompt);
+            return res.response.text();
+        }, prompt, provider);
+        return result.replace(/```latex\n?|```\n?/g, "").trim();
     },
 
     async editLatexFile(content: string, instruction: string, workspaceFiles?: { path: string, content: string }[]) {
