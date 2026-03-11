@@ -91,13 +91,21 @@ export function MultiFileEditor({ onCompile, isCompiling }: MultiFileEditorProps
         const textToSave = overrideContent !== undefined ? overrideContent : content;
         setIsSaving(true);
         try {
+            // 1. Update memory/store
             updateFileContent(activeFile, textToSave, 'code');
             const fileStore = useBuilderStore.getState().projectFiles.find(f => f.name === activeFile);
             if (fileStore) {
                  lastStoreContent.current = { version: fileStore.version, content: fileStore.content };
             }
+
+            // 2. Persist to Disk if reachable (Belt and Suspenders for LOCAL mode)
+            const { fileService } = await import('../../services/files');
+            await fileService.writeFile(activeFile, textToSave);
+            
+            toast.success(`Saved ${activeFile} to disk.`);
         } catch (e: any) {
-            toast.error(e.message);
+            console.warn('[EDITOR] Disk save skipped or failed:', e.message);
+            // toast.error(e.message); // Silent fail if not supported or not logged in
         } finally {
             setIsSaving(false);
         }
@@ -229,7 +237,7 @@ export function MultiFileEditor({ onCompile, isCompiling }: MultiFileEditorProps
                                 onChange={(v: string | undefined) => setContent(v || '')}
                                 theme="vs-dark"
                                 options={{
-                                    fontSize: 13,
+                                    fontSize: 15,
                                     fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
                                     minimap: { enabled: false },
                                     scrollBeyondLastLine: false,
@@ -250,7 +258,7 @@ export function MultiFileEditor({ onCompile, isCompiling }: MultiFileEditorProps
                                         <input 
                                             autoFocus
                                             placeholder="Ask AI to modify this file... (e.g. 'Add a new section for certifications')"
-                                            className="flex-1 bg-transparent border-none outline-none py-3 px-2 text-[12px] font-medium text-zinc-800 dark:text-zinc-200"
+                                            className="flex-1 bg-transparent border-none outline-none py-3 px-2 text-[14px] font-medium text-zinc-800 dark:text-zinc-200"
                                             value={aiInstruction}
                                             onChange={(e) => setAiInstruction(e.target.value)}
                                             onKeyDown={(e) => {

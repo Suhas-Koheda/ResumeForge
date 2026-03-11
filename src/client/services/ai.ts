@@ -14,7 +14,7 @@ const API_BASE_URL = (import.meta as any).env.VITE_API_URL || '/api/v1';
 
 // ── Rate limiter (client-side, belt-and-suspenders) ───────────────────────────
 let lastRequestTime = 0;
-const MIN_API_DELAY_MS = 500;
+const MIN_API_DELAY_MS = 100; // Server enforces real rate limits; this just prevents double-fires
 
 async function applyRateLimit(): Promise<void> {
     const now = Date.now();
@@ -37,37 +37,51 @@ async function getAuthHeaders() {
 async function postJson<T = any>(path: string, body: unknown): Promise<T> {
     await applyRateLimit();
     const headers = await getAuthHeaders();
-    const res = await fetch(`${API_BASE_URL}${path}`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-            ...(body as any),
-            provider: useBuilderStore.getState().aiProvider
-        }),
-    });
-    if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
-        throw new Error(err.error || err.details || `Request failed: ${res.status}`);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 90_000);
+    try {
+        const res = await fetch(`${API_BASE_URL}${path}`, {
+            method: 'POST',
+            headers,
+            signal: controller.signal,
+            body: JSON.stringify({
+                ...(body as any),
+                provider: useBuilderStore.getState().aiProvider
+            }),
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+            throw new Error(err.error || err.details || `Request failed: ${res.status}`);
+        }
+        return res.json();
+    } finally {
+        clearTimeout(timeout);
     }
-    return res.json();
 }
 
 async function postText(path: string, body: unknown): Promise<string> {
     await applyRateLimit();
     const headers = await getAuthHeaders();
-    const res = await fetch(`${API_BASE_URL}${path}`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-            ...(body as any),
-            provider: useBuilderStore.getState().aiProvider
-        }),
-    });
-    if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
-        throw new Error(err.error || err.details || `Request failed: ${res.status}`);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 90_000);
+    try {
+        const res = await fetch(`${API_BASE_URL}${path}`, {
+            method: 'POST',
+            headers,
+            signal: controller.signal,
+            body: JSON.stringify({
+                ...(body as any),
+                provider: useBuilderStore.getState().aiProvider
+            }),
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+            throw new Error(err.error || err.details || `Request failed: ${res.status}`);
+        }
+        return res.text();
+    } finally {
+        clearTimeout(timeout);
     }
-    return res.text();
 }
 
 // ── Service ───────────────────────────────────────────────────────────────────

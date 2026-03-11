@@ -142,7 +142,7 @@ export const AdvancedEditor: React.FC<AdvancedEditorProps> = ({ onCompile, isCom
                             onChange={(value) => updateFileContent(activeFile.name, value || '')}
                             onMount={handleEditorDidMount}
                             options={{
-                                fontSize: 13,
+                                fontSize: 18,
                                 minimap: { enabled: false },
                                 scrollBeyondLastLine: false,
                                 lineNumbers: 'on',
@@ -176,7 +176,7 @@ export const AdvancedEditor: React.FC<AdvancedEditorProps> = ({ onCompile, isCom
                                 <div className="relative">
                                     <textarea
                                         autoFocus
-                                        className="w-full bg-zinc-50 dark:bg-black border border-zinc-200 dark:border-zinc-800 rounded-lg p-3 text-xs outline-none focus:border-blue-500/50 transition-all min-h-[80px] resize-none pr-12 text-zinc-800 dark:text-zinc-200"
+                                        className="w-full bg-zinc-50 dark:bg-black border border-zinc-200 dark:border-zinc-800 rounded-lg p-3 text-base outline-none focus:border-blue-500/50 transition-all min-h-[80px] resize-none pr-12 text-zinc-800 dark:text-zinc-200"
                                         placeholder="Ask AI to write some LaTeX, refactor code, or fix errors..."
                                         value={aiPrompt}
                                         onChange={(e) => setAiPrompt(e.target.value)}

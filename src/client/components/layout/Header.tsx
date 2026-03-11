@@ -40,6 +40,7 @@ interface HeaderProps {
     handleAssemble: () => void;
     setIsMobileMenuOpen: (val: boolean) => void;
     isMobileMenuOpen: boolean;
+    isAssembling: boolean;
 }
 
 function DropdownBtn({ icon: Icon, label, onClick, highlighted = false }: {
@@ -48,7 +49,7 @@ function DropdownBtn({ icon: Icon, label, onClick, highlighted = false }: {
     return (
         <button
             onClick={onClick}
-            className={`w-full flex items-center gap-3 px-3 py-2 text-[9px] font-bold uppercase tracking-widest rounded transition-all text-left ${highlighted
+            className={`w-full flex items-center gap-3 px-3 py-2 text-[11px] font-bold uppercase tracking-widest rounded transition-all text-left ${highlighted
                 ? 'text-zinc-800 dark:text-zinc-100 bg-zinc-50 dark:bg-zinc-900 hover:bg-zinc-100 dark:hover:bg-zinc-800 border-t border-zinc-100 dark:border-zinc-800 mt-1'
                 : 'text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-900/20'}`}
         >
@@ -63,7 +64,7 @@ export const Header: React.FC<HeaderProps> = ({
     hasUnsavedChanges, isSaving, saveToServer, showBuildOutput, setShowBuildOutput,
     projectFiles, updateFileContent, manualLatexGenerator, aiProvider, setAiProvider,
     isDark, setIsDark, showExportMenu, setShowExportMenu, downloadPdf, downloadTex,
-    downloadJson, handleAssemble, setIsMobileMenuOpen, isMobileMenuOpen
+    downloadJson, handleAssemble, setIsMobileMenuOpen, isMobileMenuOpen, isAssembling
 }) => {
     return (
         <header className="h-10 sm:h-12 border-b border-zinc-200 dark:border-[#2d3042] bg-white dark:bg-[#1e2028] flex items-center justify-between px-2 sm:px-4 z-[60] relative shrink-0">
@@ -71,7 +72,7 @@ export const Header: React.FC<HeaderProps> = ({
                 {/* Logo */}
                 <div className="flex items-center gap-1.5 sm:gap-2 mr-2">
                     <TerminalIcon size={12} className="text-black dark:text-white" />
-                    <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-[0.15em] sm:tracking-[0.2em] text-black dark:text-white whitespace-nowrap">
+                    <span className="text-[10px] sm:text-[10.5px] font-black uppercase tracking-[0.12em] sm:tracking-[0.15em] text-black dark:text-white whitespace-nowrap">
                         ResumeForge<span className="hidden sm:inline">.{serverMode.toLowerCase()}</span>
                     </span>
                 </div>
@@ -84,7 +85,7 @@ export const Header: React.FC<HeaderProps> = ({
                             className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full border border-black dark:border-white bg-black dark:bg-white text-white dark:text-black hover:opacity-80 transition-all font-bold whitespace-nowrap"
                         >
                             <Sparkles size={10} className="sm:w-3 sm:h-3" />
-                            <span className="text-[8px] sm:text-[10px] font-black uppercase tracking-widest">INITIALISE</span>
+                            <span className="text-[9.5px] sm:text-[10.5px] font-black uppercase tracking-widest">INITIALISE</span>
                         </button>
                     )}
 
@@ -92,8 +93,8 @@ export const Header: React.FC<HeaderProps> = ({
                         <div className="flex items-center gap-2">
                             {token && userEmail && (
                                 <div className="hidden md:flex flex-col items-end mr-1">
-                                    <span className="text-[7px] font-black text-zinc-400 uppercase tracking-widest leading-none">Register_ID</span>
-                                    <span className="text-[9px] font-bold text-black dark:text-white leading-tight">{userEmail}</span>
+                                    <span className="text-[9px] font-black text-zinc-400 uppercase tracking-widest leading-none">Register_ID</span>
+                                    <span className="text-[11px] font-bold text-black dark:text-white leading-tight">{userEmail}</span>
                                 </div>
                             )}
                             <button
@@ -101,7 +102,7 @@ export const Header: React.FC<HeaderProps> = ({
                                 className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all font-bold text-zinc-600 dark:text-zinc-400"
                             >
                                 <User size={10} className="sm:w-3 sm:h-3" />
-                                <span className="text-[8px] sm:text-[10px] uppercase font-black tracking-widest">
+                                <span className="text-[10px] sm:text-[12px] uppercase font-black tracking-widest">
                                     {token ? 'LOGOUT' : 'LOGIN'}
                                 </span>
                             </button>
@@ -163,22 +164,22 @@ export const Header: React.FC<HeaderProps> = ({
             <div className="flex items-center gap-1 sm:gap-4">
                 {/* Saving indicator + controls (desktop) */}
                 <div className="hidden lg:flex items-center gap-4">
-                    {hasUnsavedChanges && !isSaving && (
+                     {hasUnsavedChanges && !isSaving && (
                         <button 
                             onClick={() => saveToServer(true)}
                             className="flex items-center gap-1.5 px-3 py-1 bg-amber-500 text-white rounded-full hover:bg-amber-600 transition-all shadow-sm active:scale-95"
                         >
                             <RefreshCw size={10} className="animate-spin" />
-                            <span className="text-[8px] font-black uppercase tracking-widest">SYNC PENDING</span>
+                            <span className="text-[9.5px] font-black uppercase tracking-widest">SYNC PENDING</span>
                         </button>
                     )}
                     {isSaving && (
-                        <div className="flex items-center gap-2 text-[8px] font-bold text-zinc-400 uppercase tracking-widest animate-pulse">
+                        <div className="flex items-center gap-2 text-[10px] font-bold text-zinc-400 uppercase tracking-widest animate-pulse">
                             <Save size={10} /> Saving…
                         </div>
                     )}
                     {!hasUnsavedChanges && !isSaving && (
-                        <div className="flex items-center gap-2 text-[8px] font-bold text-emerald-500 uppercase tracking-widest opacity-60">
+                        <div className="flex items-center gap-2 text-[10px] font-bold text-emerald-500 uppercase tracking-widest opacity-60">
                             <Save size={10} /> All Synced
                         </div>
                     )}
@@ -189,7 +190,9 @@ export const Header: React.FC<HeaderProps> = ({
                             const freshLatex = manualLatexGenerator.generate(blocks);
                             const mainFile = projectFiles.find((f: any) => f.name === 'main.tex');
                             if (!mainFile?.content || mainFile.content.trim().length < 50) {
-                                updateFileContent('main.tex', freshLatex, 'code');
+                                // Use 'system' so opening the editor doesn't dirty the save indicator
+                                // or invalidate the AI assembly cache
+                                updateFileContent('main.tex', freshLatex, 'system');
                             }
                         }
                         setShowBuildOutput(!showBuildOutput);
@@ -199,23 +202,26 @@ export const Header: React.FC<HeaderProps> = ({
                 >
                     <TerminalIcon size={14} />
                 </button>
-                <button
-                    onClick={() => setAiProvider(aiProvider === 'gemini' ? 'ollama' : 'gemini')}
-                    className={`flex items-center gap-1.5 px-2 py-1 rounded-full border transition-all font-bold ${aiProvider === 'ollama' ? 'border-purple-500 bg-purple-500/10 text-purple-500' : 'border-blue-500 bg-blue-500/10 text-blue-500'}`}
-                    title={`Switch to ${aiProvider === 'gemini' ? 'Ollama' : 'Gemini'}`}
-                >
-                    <Sparkles size={10} className={aiProvider === 'ollama' ? 'text-purple-500' : 'text-blue-500'} />
-                    <span className="text-[8px] font-black uppercase tracking-widest">{aiProvider}</span>
-                </button>
+                <div className={`relative flex items-center gap-1 border rounded-full px-2 py-1 transition-all ${aiProvider === 'ollama' ? 'border-purple-500 bg-purple-500/10' : 'border-blue-500 bg-blue-500/10'}`} title="AI Provider">
+                    <Sparkles size={9} className={aiProvider === 'ollama' ? 'text-purple-500' : 'text-blue-500'} />
+                    <select
+                        value={aiProvider}
+                        onChange={e => setAiProvider(e.target.value as any)}
+                        className={`bg-transparent border-none outline-none text-[9px] font-black uppercase tracking-widest cursor-pointer appearance-none pr-1 ${aiProvider === 'ollama' ? 'text-purple-500' : 'text-blue-500'}`}
+                    >
+                        <option value="gemini">Gemini</option>
+                        <option value="ollama">Ollama</option>
+                    </select>
+                </div>
                 <button onClick={() => setIsDark(!isDark)} className="text-zinc-400 hover:text-black dark:hover:text-white p-1" title="Toggle Theme">
                     {isDark ? <Sun size={14} /> : <Moon size={14} />}
                 </button>
 
                 {/* Export menu */}
                 <div className="flex items-center gap-1 border border-zinc-200 dark:border-zinc-800 p-0.5 sm:p-1 relative">
-                    <button
+                     <button
                         onClick={() => setShowExportMenu(!showExportMenu)}
-                        className="px-2 sm:px-3 py-1.5 text-[9px] font-bold uppercase tracking-[0.2em] bg-black dark:bg-white text-white dark:text-black hover:opacity-90 transition-all flex items-center gap-1 sm:gap-2"
+                        className="px-2 sm:px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.2em] bg-black dark:bg-white text-white dark:text-black hover:opacity-90 transition-all flex items-center gap-1 sm:gap-2"
                     >
                         <Download size={10} />
                         <span className="hidden sm:inline">EXPORT</span>
@@ -227,14 +233,14 @@ export const Header: React.FC<HeaderProps> = ({
                             <div className="fixed inset-0 z-[60]" onClick={() => setShowExportMenu(false)} />
                             <div className="absolute top-full right-0 mt-2 w-56 bg-white dark:bg-[#1e2028] border border-zinc-200 dark:border-[#2d3042] p-1 z-[70] shadow-2xl rounded shadow-black/20">
                                 <div className="p-2 border-b border-zinc-100 dark:border-[#2d3042] mb-1">
-                                    <p className="text-[8px] font-black text-zinc-400 uppercase tracking-widest">Download_Vector</p>
+                                    <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Download_Vector</p>
                                 </div>
                                 <DropdownBtn icon={FileText} label="Export PDF (.pdf)" onClick={() => { downloadPdf(); setShowExportMenu(false); }} />
                                 <DropdownBtn icon={Type} label="Export LaTeX (.tex)" onClick={() => { downloadTex(); setShowExportMenu(false); }} />
                                 <DropdownBtn icon={Layers} label="Export JSON (.rf.json)" onClick={() => { downloadJson(); setShowExportMenu(false); }} highlighted />
                                 
                                 <div className="p-2 border-t border-zinc-100 dark:border-[#2d3042] mt-1 mb-1">
-                                    <p className="text-[8px] font-black text-zinc-400 uppercase tracking-widest">Inbound_Data</p>
+                                    <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Inbound_Data</p>
                                 </div>
                                 <DropdownBtn icon={FileDown} label="Import JSON (.rf.json)" onClick={() => { (document.getElementById('json-import-input') as any)?.click(); setShowExportMenu(false); }} />
                             </div>
@@ -243,7 +249,8 @@ export const Header: React.FC<HeaderProps> = ({
 
                     <button
                         onClick={() => handleAssemble()}
-                        className="hidden sm:flex px-3 py-1.5 text-[9px] font-bold uppercase tracking-[0.2em] border border-black dark:border-white text-black dark:text-white hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black transition-all items-center gap-2"
+                        disabled={isAssembling}
+                        className="hidden sm:flex px-3 py-1.5 text-[10.5px] font-bold uppercase tracking-[0.15em] border border-black dark:border-white text-black dark:text-white hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black transition-all items-center gap-2 disabled:opacity-50"
                     >
                         <Sparkles size={10} /> SYNC & COMPILE
                     </button>

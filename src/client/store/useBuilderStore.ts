@@ -142,7 +142,7 @@ export const useBuilderStore = create<BuilderStore>()(
                     const blocksOfType = state.blocks.filter(b => b.type === type);
                     const newX = BASE_X_FOR_TYPE[type as keyof typeof BASE_X_FOR_TYPE] ?? 0;
                     const newY = blocksOfType.length > 0
-                        ? Math.max(...blocksOfType.map(b => b.position.y)) + 250
+                        ? Math.max(...blocksOfType.map(b => b.position.y)) + 600
                         : 0;
 
                     const newBlock: ResumeBlock = {
@@ -177,18 +177,19 @@ export const useBuilderStore = create<BuilderStore>()(
             return { blocks: newBlocks, resumes: syncActiveResume(state, { blocks: newBlocks }) };
         });
 
-        // After toggling, attempt a local assembly to update main.tex instantly
+        // After toggling, attempt a local assembly to update main.tex instantly WITHOUT API CALLS
         const state = get();
         const baseTemplate = state.customTemplate || state.projectFiles.find(f => f.name === 'main.tex')?.content || '';
         if (baseTemplate) {
             try {
-                const { geminiService } = await import('../services/ai');
-                const localLatex = await geminiService.assembleLocal(state.blocks, baseTemplate);
+                const { LatexBlockManager } = await import('../../shared/latexBlockManager');
+                const manager = new LatexBlockManager();
+                const localLatex = manager.assembleLocal(baseTemplate, state.blocks);
                 if (localLatex) {
-                    state.updateFileContent('main.tex', localLatex);
+                    state.updateFileContent('main.tex', localLatex, 'system');
                 }
             } catch (e) {
-                console.warn('[STORE] Local assembly skipped or failed:', e);
+                console.warn('[STORE] Local assembly failed:', e);
             }
         }
     },
@@ -244,7 +245,7 @@ export const useBuilderStore = create<BuilderStore>()(
                 set((state) => {
                     if (state.projectFiles.some(f => f.name === name)) return state;
                     const projectFiles = [
-                        ...state.projectFiles, 
+                        ...state.projectFiles,
                         { name, content: '', version: 1, lastEditor: 'system' as const, timestamp: Date.now() }
                     ];
                     return {

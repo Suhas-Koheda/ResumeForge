@@ -26,7 +26,7 @@ export const FileExplorer: React.FC = () => {
     return (
         <div className="w-64 border-r border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-[#111215] flex flex-col h-full overflow-hidden">
             <header className="h-10 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between px-3 bg-white dark:bg-[#1e2028]">
-                <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Project_Files</h3>
+                <h3 className="text-[14px] font-black uppercase tracking-widest text-zinc-500">Project_Files</h3>
                 <button
                     onClick={() => setIsAdding(true)}
                     className="p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded transition-colors"
@@ -40,7 +40,7 @@ export const FileExplorer: React.FC = () => {
                     <div className="flex items-center gap-1 mb-2">
                         <input
                             autoFocus
-                            className="flex-1 text-[11px] bg-white dark:bg-black border border-blue-500 rounded px-2 py-1 outline-none"
+                            className="flex-1 text-[13px] bg-white dark:bg-black border border-blue-500 rounded px-2 py-1 outline-none"
                             placeholder="filename.tex"
                             value={newFileName}
                             onChange={(e) => setNewFileName(e.target.value)}
@@ -64,7 +64,7 @@ export const FileExplorer: React.FC = () => {
                         >
                             <div className="flex items-center gap-2 overflow-hidden">
                                 {file.name.endsWith('.tex') ? <FileText size={14} /> : <File size={14} />}
-                                <span className="text-[11px] truncate whitespace-nowrap">{file.name}</span>
+                                <span className="text-[14px] truncate whitespace-nowrap">{file.name}</span>
                             </div>
                             {file.name !== 'main.tex' && (
                                 <button
@@ -72,7 +72,7 @@ export const FileExplorer: React.FC = () => {
                                         e.stopPropagation();
                                         toast((t) => (
                                             <div className="flex items-center gap-3">
-                                                <span className="text-[10px] font-bold uppercase tracking-widest text-[#1e2028]">Delete {file.name}?</span>
+                                                <span className="text-[13px] font-bold uppercase tracking-widest text-[#1e2028]">Delete {file.name}?</span>
                                                 <div className="flex gap-2">
                                                     <button 
                                                         onClick={() => { deleteFile(file.name); toast.dismiss(t.id); }}

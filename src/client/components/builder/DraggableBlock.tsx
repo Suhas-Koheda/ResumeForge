@@ -1,7 +1,7 @@
 import React, { memo, useRef, useEffect, useState } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical, Briefcase, GraduationCap, Code, Rocket, Trash2, User, Power } from 'lucide-react';
+import { GripVertical, Briefcase, GraduationCap, Code, Rocket, Trash2, User, Power, FileText } from 'lucide-react';
 import { ResumeBlock } from '@shared/types';
 import { BlockRenderer } from './BlockRenderer';
 import { useBlock } from '../../hooks/useResume';
@@ -17,6 +17,7 @@ const getBlockMeta = (type: string) => {
         case 'education':  return { icon: GraduationCap, accent: '#10b981', label: 'Education' };
         case 'skills':     return { icon: Code,          accent: '#f59e0b', label: 'Skills' };
         case 'project':    return { icon: Rocket,        accent: '#ec4899', label: 'Project' };
+        case 'summary':    return { icon: FileText,      accent: '#8b5cf6', label: 'Summary' };
         default:           return { icon: Briefcase,     accent: '#71717a', label: type };
     }
 };
@@ -177,11 +178,11 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = memo(({ block }) =>
 
                     {/* Type + subtitle */}
                     <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 10, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.18em', color: meta.accent }}>
+                        <div style={{ fontSize: 13, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.18em', color: meta.accent }}>
                             {meta.label}
                         </div>
                         {subtitle && (
-                            <div style={{ fontSize: 9, color: '#6b7280', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            <div style={{ fontSize: 11, color: '#6b7280', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                 {subtitle}
                             </div>
                         )}

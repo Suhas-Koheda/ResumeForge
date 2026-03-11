@@ -27,13 +27,13 @@ const API_BASE_URL = (import.meta as any).env.VITE_API_URL || 'api/v1';
 
 // ── Block sidebar configuration ───────────────────────────────────────────────
 const BLOCK_BUTTONS: { type: BlockType; label: string; icon: React.ElementType }[] = [
-    { type: 'header',     label: 'Header',     icon: User },
-    { type: 'summary',    label: 'Summary',    icon: FileText },
+    { type: 'header', label: 'Header', icon: User },
+    { type: 'summary', label: 'Summary', icon: FileText },
     { type: 'experience', label: 'Experience', icon: Briefcase },
-    { type: 'education',  label: 'Education',  icon: GraduationCap },
-    { type: 'skills',     label: 'Skills',     icon: Code },
-    { type: 'project',    label: 'Project',    icon: Rocket },
-    { type: 'other',      label: 'Other',      icon: Layers },
+    { type: 'education', label: 'Education', icon: GraduationCap },
+    { type: 'skills', label: 'Skills', icon: Code },
+    { type: 'project', label: 'Project', icon: Rocket },
+    { type: 'other', label: 'Other', icon: Layers },
 ];
 
 // ── App ───────────────────────────────────────────────────────────────────────
@@ -52,12 +52,17 @@ function App() {
     // ── Local UI state ────────────────────────────────────────────────────────
     const [isDark, setIsDark] = useState(false);
     const [isAssembling, setIsAssembling] = useState(false);
+    const [assembleElapsed, setAssembleElapsed] = useState(0);
     const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
     const [pdfUrl, setPdfUrl] = useState<string | null>(null);
     const [previewMode, setPreviewMode] = useState<'code' | 'pdf'>('pdf');
     const [showBuildOutput, setShowBuildOutput] = useState(false);
     const [compilationLog, setCompilationLog] = useState<string | null>(null);
     const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
+
+    // Cache for compilation — key is blocks+template hash, value is the generated LaTeX
+    const lastAssembledStateRef = useRef<string>('');
+    const lastAssembledDocRef = useRef<string>('');
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [showExportMenu, setShowExportMenu] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
@@ -133,10 +138,19 @@ function App() {
     };
 
     // Track changes for the manual save indicator
+    // NOTE: only blocks+customTemplate+resumeIndex invalidate the AI cache.
+    // projectFiles changes constantly (e.g. when main.tex is written after compile)
+    // so we deliberately exclude it from the cache-invalidation logic.
     useEffect(() => {
         if (!isInitialLoadFinished) return;
         setHasUnsavedChanges(true);
     }, [blocks, projectFiles, activeFileName, customTemplate, activeResumeIndex]);
+
+    // Invalidate assembly cache only when user-editable content changes
+    useEffect(() => {
+        if (!isInitialLoadFinished) return;
+        lastAssembledStateRef.current = ''; // force re-assembly on next click
+    }, [blocks, customTemplate, activeResumeIndex]);
 
     // ── Initial data load ─────────────────────────────────────────────────────
     useEffect(() => {
@@ -202,6 +216,14 @@ function App() {
         document.documentElement.classList.toggle('dark', isDark);
     }, [isDark]);
 
+    // ── Assembly elapsed timer ────────────────────────────────────────────────
+    useEffect(() => {
+        if (!isAssembling) { setAssembleElapsed(0); return; }
+        setAssembleElapsed(0);
+        const t = setInterval(() => setAssembleElapsed(s => s + 1), 1000);
+        return () => clearInterval(t);
+    }, [isAssembling]);
+
     // ── Reset PDF on resume switch ────────────────────────────────────────────
     useEffect(() => {
         setPdfUrl(null);
@@ -213,8 +235,8 @@ function App() {
         setIsGeneratingPdf(true);
         setCompilationLog(null);
         try {
-            const filesToCompile: { name: string, content: string, version: number, lastEditor: string, timestamp: number }[] = projectFiles.map(f => ({ 
-                name: f.name, 
+            const filesToCompile: { name: string, content: string, version: number, lastEditor: string, timestamp: number }[] = projectFiles.map(f => ({
+                name: f.name,
                 content: f.content,
                 version: f.version || 1,
                 lastEditor: f.lastEditor || 'system',
@@ -262,7 +284,7 @@ function App() {
     // ── Manual assemble (blocks → LaTeX → compile) ────────────────────────────
     function handleManualAssemble(forcedLatex?: string, filename?: string, forceFromBlocks = false) {
         let latex = forcedLatex;
-        
+
         if (!latex) {
             const mainFile = projectFiles.find(f => f.name === 'main.tex');
             if (mainFile && mainFile.content && mainFile.content.trim().length > 50) {
@@ -283,18 +305,33 @@ function App() {
 
     // ── AI assemble ───────────────────────────────────────────────────────────
     async function handleAssemble() {
+        const baseTemplate = customTemplate || projectFiles.find(f => f.name === 'main.tex')?.content || '';
+        // Build a cache key from only user-controlled content (blocks + base template)
+        // Excluding main.tex from projectFiles because it gets overwritten every compile
+        const cacheKey = JSON.stringify(blocks.filter(b => b.enabled !== false)) + '|||' + baseTemplate.slice(0, 500);
+
+        // 🛑 Fast path: same blocks+template as last time, PDF already rendered — just show it
+        if (lastAssembledStateRef.current === cacheKey && lastAssembledDocRef.current && pdfUrl) {
+            setShowBuildOutput(true);
+            setPreviewMode('pdf');
+            toast.success('No changes — showing cached PDF.', { position: 'bottom-center' });
+            return;
+        }
+
         setIsAssembling(true);
         setShowBuildOutput(true);
         const toastId = toast.loading('Syncing Canvas to Template…', { position: 'bottom-center' });
         try {
-            const baseTemplate = customTemplate || projectFiles.find(f => f.name === 'main.tex')?.content || '';
-            
+
             let finalDoc = '';
             let usedLocal = false;
 
-            // Attempt local assembly first
+            // Attempt local assembly first WITHOUT API CALL
             try {
-                const localResult = await geminiService.assembleLocal(blocks, baseTemplate);
+                const { LatexBlockManager } = await import('../shared/latexBlockManager');
+                const manager = new LatexBlockManager();
+                const localResult = manager.assembleLocal(baseTemplate, blocks);
+
                 if (localResult) {
                     finalDoc = localResult;
                     usedLocal = true;
@@ -331,11 +368,19 @@ function App() {
             }
 
             updateFileContent('main.tex', finalDoc);
+
+            // Cache the result — store the key that produced this PDF
+            lastAssembledStateRef.current = cacheKey;
+            lastAssembledDocRef.current = finalDoc;
+
             if (!usedLocal) toast.success('main.tex updated in memory.');
-            downloadPdf(false, finalDoc);
-            
+
+            // IMPORTANT: Proactively save to server/disk so main.tex is updated
+            saveToServer(false);
+
             if (pdfUrl) URL.revokeObjectURL(pdfUrl);
             setPdfUrl(null);
+            downloadPdf(false, finalDoc);
         } catch (err: any) {
             toast.dismiss(toastId);
             toast.error(err.message || 'Failed to assemble resume.');
@@ -377,8 +422,8 @@ function App() {
                 setBlocks(nodes || []);
                 setCustomTemplate(tmpl || null);
                 if (pf) setProjectFiles(pf);
-                else if (json.canvasData.fullLatex) setProjectFiles([{ 
-                    name: 'main.tex', 
+                else if (json.canvasData.fullLatex) setProjectFiles([{
+                    name: 'main.tex',
                     content: json.canvasData.fullLatex,
                     version: 1,
                     lastEditor: 'system',
@@ -419,7 +464,7 @@ function App() {
         <div className="h-screen h-[100dvh] w-screen flex flex-col bg-white dark:bg-[#111215] text-zinc-900 dark:text-zinc-100 overflow-hidden font-mono selection:bg-black selection:text-white dark:selection:bg-white dark:selection:text-black">
             <Toaster position="bottom-right" />
 
-            <Header 
+            <Header
                 serverMode={serverMode}
                 blocks={blocks}
                 setIsOnboardingOpen={setIsOnboardingOpen}
@@ -452,6 +497,7 @@ function App() {
                 handleAssemble={handleAssemble}
                 setIsMobileMenuOpen={setIsMobileMenuOpen}
                 isMobileMenuOpen={isMobileMenuOpen}
+                isAssembling={isAssembling}
             />
 
             {/* ── Main layout ───────────────────────────────────────────────── */}
@@ -461,7 +507,7 @@ function App() {
                 {/* Canvas */}
                 <main className="flex-1 relative overflow-hidden">
                     <ResumeCanvas />
-                    <BuildOutputOverlay 
+                    <BuildOutputOverlay
                         showBuildOutput={showBuildOutput}
                         setShowBuildOutput={setShowBuildOutput}
                         previewMode={previewMode}
@@ -484,7 +530,7 @@ function App() {
                 </div>
             )}
 
-            <MobileDrawer 
+            <MobileDrawer
                 isMobileMenuOpen={isMobileMenuOpen}
                 setIsMobileMenuOpen={setIsMobileMenuOpen}
                 setIsDark={setIsDark}
@@ -497,6 +543,36 @@ function App() {
                 BLOCK_BUTTONS={BLOCK_BUTTONS}
                 addBlock={addBlock}
             />
+
+            {isAssembling && (
+                <div className="fixed inset-0 z-[150] bg-white/80 dark:bg-black/80 backdrop-blur-md flex flex-col items-center justify-center font-mono">
+                    <div className="flex flex-col items-center gap-6 animate-in fade-in zoom-in duration-300">
+                        <div className="relative">
+                            <Loader2 className="w-16 h-16 animate-spin text-black dark:text-white" />
+                            <Sparkles className="absolute -top-2 -right-2 w-6 h-6 text-blue-500 animate-pulse" />
+                        </div>
+                        <div className="flex flex-col items-center gap-2">
+                            <h2 className="text-2xl font-black uppercase tracking-[0.3em]">Syncing_Nodes</h2>
+                            <p className="text-[12px] font-bold text-zinc-500 uppercase tracking-widest animate-pulse">Forging Your Masterpiece...</p>
+                        </div>
+                        {/* Timer + estimated time */}
+                        <div className="flex flex-col items-center gap-1.5">
+                            <div className="flex items-center gap-3 text-[11px] font-bold text-zinc-400 uppercase tracking-widest">
+                                <span className="tabular-nums">{assembleElapsed}s elapsed</span>
+                                <span className="opacity-40">·</span>
+                                <span>Est. ~{aiProvider === 'ollama' ? '15' : '25'}s</span>
+                            </div>
+                            {/* Progress bar */}
+                            <div className="w-48 h-0.5 bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
+                                <div
+                                    className="h-full bg-black dark:bg-white rounded-full transition-all duration-1000 ease-linear"
+                                    style={{ width: `${Math.min((assembleElapsed / (aiProvider === 'ollama' ? 15 : 75)) * 100, 95)}%` }}
+                                />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <input id="json-import-input" type="file" accept=".json" className="hidden" onChange={handleImportJson} />
         </div>
