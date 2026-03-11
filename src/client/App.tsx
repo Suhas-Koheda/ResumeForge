@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { Auth } from './components/ui/Auth';
+import { Landing } from './components/ui/Landing';
 import { ResumeCanvas } from './components/builder/ResumeCanvas';
 import { MultiFileEditor } from './components/builder/MultiFileEditor';
 import { useResumeActions } from './hooks/useResume';
@@ -39,6 +41,7 @@ function App() {
         setResumeId, loadResumes, resetCanvas,
         templateOptions, projectFiles, activeFileName, updateFileContent,
         setProjectFiles, setActiveFileName, addFile, deleteFile,
+        token, userEmail, setToken,
     } = useResumeActions();
 
     // ── Local UI state ────────────────────────────────────────────────────────
@@ -54,35 +57,61 @@ function App() {
     const [showExportMenu, setShowExportMenu] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+    const [showAuth, setShowAuth] = useState(false);
+    const [serverMode, setServerMode] = useState<'LOCAL' | 'CLOUD' | 'LOADING'>('LOADING');
 
     const isSyncInProgress = useRef(false);
     const hasTriggeredOnboarding = useRef(false);
 
     const [isInitialLoadFinished, setIsInitialLoadFinished] = useState(false);
 
+    // ── Mode Detection ────────────────────────────────────────────────────────
+    useEffect(() => {
+        const checkMode = async () => {
+            try {
+                const res = await fetch(`${API_BASE_URL}/health`);
+                if (res.ok) {
+                    const data = await res.json();
+                    setServerMode(data.mode || 'LOCAL');
+                }
+            } catch (e) {
+                console.error('[APP] Mode check failed:', e);
+                setServerMode('LOCAL'); // fallback
+            }
+        };
+        checkMode();
+    }, []);
+
     // ── Auto-save to SQLite ───────────────────────────────────────────────────
     const saveToServer = async (isManual = false) => {
         if (!isInitialLoadFinished && !isManual) return;
         if (blocks.length === 0 && projectFiles.length === 0) return;
         if (isSyncInProgress.current && !isManual) return;
+        if (serverMode === 'CLOUD' && !token) return;
 
         try {
             isSyncInProgress.current = true;
             setIsSaving(true);
             const currentResume = resumes[activeResumeIndex];
+            const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+
             const res = await fetch(`${API_BASE_URL}/resumes`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers,
                 body: JSON.stringify({
                     id: currentResume?.id,
                     title: currentResume?.title || `Resume R_${activeResumeIndex + 1}`,
-                    canvasData: { nodes: blocks, customTemplate, projectFiles, activeFileName },
+                    canvasData: { nodes: blocks, customTemplate, projectFiles, activeFileName, templateOptions },
                 }),
             });
             if (res.ok) {
                 const saved = await res.json();
                 if (!currentResume?.id && saved.id) setResumeId(activeResumeIndex, saved.id);
                 setHasUnsavedChanges(false);
+                if (isManual) toast.success('Sync Successful');
+            } else {
+                if (isManual) toast.error('Sync Failed');
             }
         } catch (e) {
             console.error('[APP] Save error:', e);
@@ -100,9 +129,18 @@ function App() {
 
     // ── Initial data load ─────────────────────────────────────────────────────
     useEffect(() => {
+        if (serverMode === 'LOADING') return;
+        if (serverMode === 'CLOUD' && !token) {
+            setIsInitialLoadFinished(true);
+            return;
+        }
+
         const fetchResumes = async () => {
             try {
-                const res = await fetch(`${API_BASE_URL}/resumes`);
+                const headers: Record<string, string> = {};
+                if (token) headers['Authorization'] = `Bearer ${token}`;
+
+                const res = await fetch(`${API_BASE_URL}/resumes`, { headers });
                 if (res.ok) {
                     const data = await res.json();
                     if (data.length > 0) loadResumes(data);
@@ -114,16 +152,26 @@ function App() {
             }
         };
         fetchResumes();
-    }, []); // run once on mount
+    }, [serverMode, token]); // re-run when mode or token changes
 
     // ── Resume deletion ───────────────────────────────────────────────────────
     const handleDeleteResume = async (idx: number) => {
+        if (serverMode === 'CLOUD' && !token) return;
+
         const toDelete = resumes[idx];
         if (toDelete?.id) {
             try {
-                await fetch(`${API_BASE_URL}/resumes/${toDelete.id}`, { method: 'DELETE' });
+                const headers: Record<string, string> = {};
+                if (token) headers['Authorization'] = `Bearer ${token}`;
+                const res = await fetch(`${API_BASE_URL}/resumes/${toDelete.id}`, { method: 'DELETE', headers });
+                if (res.ok) {
+                    toast.success('Resume Purged from DB');
+                } else {
+                    toast.error('DB Purge Failed');
+                }
             } catch (e) {
                 console.error('[APP] Delete resume error:', e);
+                toast.error('Network Error during Purge');
             }
         }
         deleteResume(idx);
@@ -315,6 +363,26 @@ function App() {
     };
 
     // ── Render ────────────────────────────────────────────────────────────────
+    if (serverMode === 'LOADING') {
+        return (
+            <div className="h-screen w-screen bg-white dark:bg-[#111215] flex items-center justify-center font-mono">
+                <div className="flex flex-col items-center gap-4">
+                    <Loader2 className="w-8 h-8 animate-spin text-black dark:text-white" />
+                    <p className="text-[10px] uppercase font-black tracking-widest text-zinc-400">Syncing_Nodes...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (serverMode === 'CLOUD' && !token && !showAuth) {
+        return (
+            <div className="h-screen w-screen overflow-hidden">
+                <Toaster position="bottom-right" />
+                <Landing onGetStarted={() => setShowAuth(true)} />
+            </div>
+        );
+    }
+
     return (
         <div className="h-screen h-[100dvh] w-screen flex flex-col bg-white dark:bg-[#111215] text-zinc-900 dark:text-zinc-100 overflow-hidden font-mono selection:bg-black selection:text-white dark:selection:bg-white dark:selection:text-black">
             <Toaster position="bottom-right" />
@@ -325,24 +393,38 @@ function App() {
                     {/* Logo */}
                     <div className="flex items-center gap-1.5 sm:gap-2 mr-2">
                         <Terminal size={12} className="text-black dark:text-white" />
-                        <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-[0.15em] sm:tracking-[0.2em] text-black dark:text-white whitespace-nowrap">
-                            ResumeForge<span className="hidden sm:inline">.local</span>
-                        </span>
-                    </div>
+                            <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-[0.15em] sm:tracking-[0.2em] text-black dark:text-white whitespace-nowrap">
+                                ResumeForge<span className="hidden sm:inline">.{serverMode.toLowerCase()}</span>
+                            </span>
+                        </div>
 
-                    {/* Onboarding Button */}
-                    <button
-                        onClick={() => setIsOnboardingOpen(true)}
-                        className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full border border-black dark:border-white bg-black dark:bg-white text-white dark:text-black hover:opacity-80 transition-all font-bold whitespace-nowrap"
-                    >
-                        <Sparkles size={10} className="sm:w-3 sm:h-3" />
-                        <span className="text-[8px] sm:text-[10px] font-black uppercase tracking-widest">INITIALISE</span>
-                    </button>
+                        {/* Onboarding / Auth Button */}
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => setIsOnboardingOpen(true)}
+                                className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full border border-black dark:border-white bg-black dark:bg-white text-white dark:text-black hover:opacity-80 transition-all font-bold whitespace-nowrap"
+                            >
+                                <Sparkles size={10} className="sm:w-3 sm:h-3" />
+                                <span className="text-[8px] sm:text-[10px] font-black uppercase tracking-widest">INITIALISE</span>
+                            </button>
 
-                    <div className="hidden lg:block w-px h-4 bg-zinc-200 dark:bg-zinc-800" />
+                            {serverMode === 'CLOUD' && (
+                                <button
+                                    onClick={() => token ? setToken(null, null) : setShowAuth(true)}
+                                    className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all font-bold text-zinc-600 dark:text-zinc-400"
+                                >
+                                    <User size={10} className="sm:w-3 sm:h-3" />
+                                    <span className="text-[8px] sm:text-[10px] uppercase font-black tracking-widest">
+                                        {token ? 'LOGOUT' : 'LOGIN'}
+                                    </span>
+                                </button>
+                            )}
+                        </div>
 
-                    {/* Resume tabs */}
-                    <div className="hidden sm:flex gap-1 bg-zinc-100 dark:bg-[#111215] p-0.5 sm:p-1 border border-zinc-200 dark:border-[#2d3042] rounded-full overflow-x-auto no-scrollbar">
+                        <div className="hidden lg:block w-px h-4 bg-zinc-200 dark:bg-zinc-800" />
+
+                        {/* Resume tabs */}
+                        <div className="hidden sm:flex gap-1 bg-zinc-100 dark:bg-[#111215] p-0.5 sm:p-1 border border-zinc-200 dark:border-[#2d3042] rounded-full overflow-x-auto no-scrollbar">
                         {resumes.map((_, idx) => (
                             <div key={idx} className="relative group/pill flex items-center shrink-0">
                                 <button
@@ -509,6 +591,12 @@ function App() {
             </div>
 
             <OnboardingModal isOpen={isOnboardingOpen} onClose={() => setIsOnboardingOpen(false)} />
+
+            {showAuth && (
+                <div className="fixed inset-0 z-[100] bg-white dark:bg-black">
+                    <Auth onBack={() => setShowAuth(false)} onSuccess={() => setShowAuth(false)} />
+                </div>
+            )}
 
             {/* ── Mobile Drawer ─────────────────────────────────────────────── */}
             {isMobileMenuOpen && (

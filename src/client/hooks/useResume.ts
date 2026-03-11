@@ -57,7 +57,13 @@ export const useResumeActions = () => {
     const addFile = useBuilderStore(s => s.addFile);
     const deleteFile = useBuilderStore(s => s.deleteFile);
 
+    const token = useBuilderStore(s => s.token);
+    const userEmail = useBuilderStore(s => s.userEmail);
+    const setToken = useBuilderStore(s => s.setToken);
+
     return {
+        // Auth
+        token, userEmail, setToken,
         // Blocks
         blocks, addBlock, updateData: updateBlock, toggleBlock, updateBlockPosition, setBlocks,
         // API key / template

@@ -53,188 +53,36 @@ const ensureDb = async (_req: express.Request, res: express.Response, next: expr
     }
 };
 
+// ── Routers ──────────────────────────────────────────────────────────────────
+import authRouter from './api/v1/auth.js';
+import resumeRouter from './api/v1/resume.js';
+import templateRouter from './api/v1/templates.js'; // Using templates.js for multi-template support
+import filesRouter from './api/v1/files.js';
+import importRouter from './api/v1/import.js';
+import exportRouter from './api/v1/export.js';
+
 // ── Routes ───────────────────────────────────────────────────────────────────
 const apiRouter = express.Router();
 apiRouter.use(ensureDb);
 
 // Health check
 apiRouter.get('/health', (_req, res) => {
-    res.json({ status: 'ok', mode: 'LOCAL', db: 'sqlite' });
+    res.json({
+        status: 'ok',
+        mode: config.IS_LOCAL ? 'LOCAL' : 'CLOUD',
+        db: config.IS_LOCAL ? 'sqlite' : 'postgres'
+    });
 });
 
-// ── Resume CRUD ───────────────────────────────────────────────────────────────
-apiRouter.get('/resumes', authMiddleware, async (req: AuthRequest, res) => {
-    try {
-        const repo = AppDataSource.getRepository(Resume);
-        const resumes = await repo.find({ where: { userId: req.userId! }, order: { updatedAt: 'DESC' } });
-        res.json(resumes);
-    } catch (e: any) {
-        res.status(500).json({ error: 'Failed to fetch resumes', details: e.message });
-    }
-});
+// Modular Routers
+apiRouter.use('/auth', authRouter);
+apiRouter.use('/resumes', resumeRouter);
+apiRouter.use('/templates', templateRouter);
+apiRouter.use('/files', filesRouter);
+apiRouter.use('/import', importRouter);
+apiRouter.use('/export', exportRouter);
 
-apiRouter.post('/resumes', authMiddleware, async (req: AuthRequest, res) => {
-    try {
-        const { title, canvasData, id } = req.body;
-        const repo = AppDataSource.getRepository(Resume);
-        const normalizedTitle = (title || 'Untitled Resume').trim();
-
-        // Try updating by ID
-        if (id) {
-            const existing = await repo.findOne({ where: { id, userId: req.userId! } });
-            if (existing) {
-                existing.title = normalizedTitle;
-                existing.canvasData = canvasData;
-                await repo.save(existing);
-                return res.json(existing);
-            }
-        }
-
-        // Try updating by title
-        const byTitle = await repo.findOne({ where: { title: normalizedTitle, userId: req.userId! } });
-        if (byTitle) {
-            byTitle.canvasData = canvasData;
-            await repo.save(byTitle);
-            return res.json(byTitle);
-        }
-
-        // Create new
-        const resume = repo.create({ userId: req.userId!, title: normalizedTitle, canvasData });
-        await repo.save(resume);
-        return res.status(201).json(resume);
-    } catch (e: any) {
-        res.status(500).json({ error: 'Failed to save resume', details: e.message });
-    }
-});
-
-apiRouter.delete('/resumes/:id', authMiddleware, async (req: AuthRequest, res) => {
-    try {
-        const repo = AppDataSource.getRepository(Resume);
-        const result = await repo.delete({ id: req.params.id, userId: req.userId! });
-        if (result.affected === 0) return res.status(404).json({ error: 'Resume not found' });
-        res.json({ message: 'Resume deleted' });
-    } catch (e: any) {
-        res.status(500).json({ error: 'Delete failed', details: e.message });
-    }
-});
-
-// ── Template CRUD (simple: title + content string) ────────────────────────────
-apiRouter.get('/templates', authMiddleware, async (req: AuthRequest, res) => {
-    try {
-        const repo = AppDataSource.getRepository(Template);
-        const templates = await repo.find({ where: { userId: req.userId! }, order: { updatedAt: 'DESC' } });
-        res.json(templates);
-    } catch (e: any) {
-        res.status(500).json({ error: 'Failed to fetch templates', details: e.message });
-    }
-});
-
-apiRouter.post('/templates', authMiddleware, async (req: AuthRequest, res) => {
-    try {
-        const { title, content } = req.body;
-        const repo = AppDataSource.getRepository(Template);
-        const template = repo.create({ name: title, preamble: content, userId: req.userId!, version: 1 });
-        await repo.save(template);
-        res.status(201).json(template);
-    } catch (e: any) {
-        res.status(500).json({ error: 'Failed to save template', details: e.message });
-    }
-});
-
-apiRouter.delete('/templates/:id', authMiddleware, async (req: AuthRequest, res) => {
-    try {
-        const repo = AppDataSource.getRepository(Template);
-        const result = await repo.delete({ id: req.params.id, userId: req.userId! });
-        if (result.affected === 0) return res.status(404).json({ error: 'Template not found' });
-        res.json({ message: 'Template deleted' });
-    } catch (e: any) {
-        res.status(500).json({ error: 'Delete failed', details: e.message });
-    }
-});
-
-// ── File Service ──────────────────────────────────────────────────────────────
-apiRouter.get('/files', authMiddleware, async (req: AuthRequest, res) => {
-    try {
-        const files = await getFileServiceClient(req).listFiles();
-        res.json(files);
-    } catch (e: any) {
-        res.status(500).json({ error: e.message });
-    }
-});
-
-apiRouter.get('/files/:path(*)', authMiddleware, async (req: AuthRequest, res) => {
-    try {
-        const content = await getFileServiceClient(req).readFile(req.params.path);
-        res.json({ content });
-    } catch (e: any) {
-        res.status(404).json({ error: e.message });
-    }
-});
-
-apiRouter.post('/files', authMiddleware, async (req: AuthRequest, res) => {
-    try {
-        const { path: filePath, content } = req.body;
-        if (!filePath || content === undefined) return res.status(400).json({ error: 'path and content are required' });
-        await getFileServiceClient(req).writeFile(filePath, content);
-        res.json({ success: true });
-    } catch (e: any) {
-        res.status(500).json({ error: e.message });
-    }
-});
-
-apiRouter.delete('/files/:path(*)', authMiddleware, async (req: AuthRequest, res) => {
-    try {
-        await getFileServiceClient(req).deleteFile(req.params.path);
-        res.json({ success: true });
-    } catch (e: any) {
-        res.status(500).json({ error: e.message });
-    }
-});
-
-apiRouter.post('/files/rename', authMiddleware, async (req: AuthRequest, res) => {
-    try {
-        const { oldPath, newPath } = req.body;
-        if (!oldPath || !newPath) return res.status(400).json({ error: 'oldPath and newPath are required' });
-        await getFileServiceClient(req).renameFile(oldPath, newPath);
-        res.json({ success: true });
-    } catch (e: any) {
-        res.status(500).json({ error: e.message });
-    }
-});
-
-// ── PDF Export ────────────────────────────────────────────────────────────────
-apiRouter.post('/export/pdf', authMiddleware, async (req: AuthRequest, res) => {
-    const { files } = req.body;
-    if (!files || !Array.isArray(files) || files.length === 0) {
-        return res.status(400).json({ error: 'Files array is required' });
-    }
-    try {
-        const fileService = getFileServiceClient(req);
-        const result = await latexCompiler.compile(files, { workspacePath: fileService.workspaceRoot });
-        if (!result.success || !result.pdf) {
-            return res.status(500).json({ error: 'PDF compilation failed.', details: result.logs });
-        }
-        res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', 'attachment; filename=resume.pdf');
-        return res.status(200).send(result.pdf);
-    } catch (e: any) {
-        return res.status(500).json({ error: 'PDF compilation failed.', details: e.message });
-    }
-});
-
-// ── LaTeX Import ──────────────────────────────────────────────────────────────
-apiRouter.post('/import/latex', async (req, res) => {
-    const { latexCode } = req.body;
-    if (!latexCode) return res.status(400).json({ error: 'LaTeX code is required' });
-    try {
-        const result = await latexParserService.parse(latexCode);
-        res.json(result);
-    } catch (e: any) {
-        res.status(500).json({ error: 'Failed to parse LaTeX. ' + e.message, blocks: [] });
-    }
-});
-
-// ── AI Routes ─────────────────────────────────────────────────────────────────
+// AI Routes (keeping inline for now as they are central to this branch, or could move to aiRouter)
 apiRouter.post('/ai/experience', authMiddleware, async (req, res) => {
     try {
         const result = await aiService.polishExperience(req.body.text);
@@ -293,7 +141,7 @@ apiRouter.post('/ai/command', authMiddleware, async (req, res) => {
 apiRouter.post('/ai/parse', authMiddleware, async (req: AuthRequest, res) => {
     try {
         const { content, autoSave, title, id } = req.body;
-        
+
         // ALWAYS use the AI for parsing, regardless of whether it's LaTeX or Plain Text.
         const resultText = await aiService.parseResume(content);
         let blocksArray: any[] = JSON.parse(resultText);

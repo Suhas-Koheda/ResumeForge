@@ -34,6 +34,9 @@ interface BuilderStore {
     customTemplate: string;
     templateOptions: LatexGenerationOptions;
     apiKey: string;
+    // Auth state
+    token: string | null;
+    userEmail: string | null;
 
     // Block actions
     addBlock: (type: BlockType) => string;
@@ -54,6 +57,9 @@ interface BuilderStore {
     setCustomTemplate: (template: string) => void;
     setTemplateOptions: (options: Partial<LatexGenerationOptions>) => void;
     setApiKey: (key: string) => void;
+
+    // Auth actions
+    setToken: (token: string | null, email: string | null) => void;
 
     // Resume management
     switchResume: (index: number) => void;
@@ -118,6 +124,12 @@ export const useBuilderStore = create<BuilderStore>()(
             customTemplate: '',
             templateOptions: { ...DEFAULT_TEMPLATE_OPTIONS },
             apiKey: '',
+            token: null,
+            userEmail: null,
+
+            // ── Auth actions ──────────────────────────────────────────────────
+
+            setToken: (token, userEmail) => set({ token, userEmail }),
 
             // ── Block actions ─────────────────────────────────────────────────
 
@@ -275,6 +287,8 @@ export const useBuilderStore = create<BuilderStore>()(
                             ? [{ name: 'main.tex', content: r.canvasData.fullLatex, version: 1, lastEditor: 'system', timestamp: Date.now() }]
                             : [...DEFAULT_PROJECT_FILES]),
                     activeFileName: r.canvasData?.activeFileName || 'main.tex',
+                    customTemplate: r.canvasData?.customTemplate || '',
+                    templateOptions: r.canvasData?.templateOptions,
                 }));
 
                 if (formatted.length === 0) return;

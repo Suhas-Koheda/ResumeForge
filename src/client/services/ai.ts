@@ -8,6 +8,8 @@
 
 import { ResumeBlock } from '@shared/types';
 
+import { useBuilderStore } from '../store/useBuilderStore';
+
 const API_BASE_URL = (import.meta as any).env.VITE_API_URL || '/api/v1';
 
 // ── Rate limiter (client-side, belt-and-suspenders) ───────────────────────────
@@ -24,13 +26,20 @@ async function applyRateLimit(): Promise<void> {
 }
 
 // ── HTTP helpers ──────────────────────────────────────────────────────────────
-const JSON_HEADERS = { 'Content-Type': 'application/json' };
+async function getAuthHeaders() {
+    const token = useBuilderStore.getState().token;
+    return {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+    };
+}
 
 async function postJson<T = any>(path: string, body: unknown): Promise<T> {
     await applyRateLimit();
+    const headers = await getAuthHeaders();
     const res = await fetch(`${API_BASE_URL}${path}`, {
         method: 'POST',
-        headers: JSON_HEADERS,
+        headers,
         body: JSON.stringify(body),
     });
     if (!res.ok) {
@@ -42,9 +51,10 @@ async function postJson<T = any>(path: string, body: unknown): Promise<T> {
 
 async function postText(path: string, body: unknown): Promise<string> {
     await applyRateLimit();
+    const headers = await getAuthHeaders();
     const res = await fetch(`${API_BASE_URL}${path}`, {
         method: 'POST',
-        headers: JSON_HEADERS,
+        headers,
         body: JSON.stringify(body),
     });
     if (!res.ok) {
