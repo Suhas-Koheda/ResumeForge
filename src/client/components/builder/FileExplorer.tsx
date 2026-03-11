@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useResumeActions } from '../../hooks/useResume';
 import { FileText, Plus, Trash2, X, ChevronRight, File } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 export const FileExplorer: React.FC = () => {
     const {
@@ -69,7 +70,25 @@ export const FileExplorer: React.FC = () => {
                                 <button
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        if (confirm(`Delete ${file.name}?`)) deleteFile(file.name);
+                                        toast((t) => (
+                                            <div className="flex items-center gap-3">
+                                                <span className="text-[10px] font-bold uppercase tracking-widest text-[#1e2028]">Delete {file.name}?</span>
+                                                <div className="flex gap-2">
+                                                    <button 
+                                                        onClick={() => { deleteFile(file.name); toast.dismiss(t.id); }}
+                                                        className="px-2 py-1 bg-red-500 text-white rounded text-[8px] font-black uppercase"
+                                                    >
+                                                        Confirm
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => toast.dismiss(t.id)}
+                                                        className="px-2 py-1 bg-zinc-200 text-zinc-600 rounded text-[8px] font-black uppercase"
+                                                    >
+                                                        Cancel
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ), { duration: 5000, position: 'top-center' });
                                     }}
                                     className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-500 transition-all"
                                 >

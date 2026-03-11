@@ -12,11 +12,13 @@ export class LatexBlockManager {
     public assembleLocal(template: string, blocks: ResumeBlock[]): string {
         const enabledBlocks = blocks.filter(b => b.enabled !== false);
         
-        // Check if all enabled blocks have latexContent (or latexCode from parse)
-        const canAssembleLocally = enabledBlocks.every(b => !!b.latexContent || !!(b as any).latexCode);
+        console.log(`[LatexBlockManager] Attempting local assemble for ${enabledBlocks.length} enabled blocks.`);
         
-        if (!canAssembleLocally) {
-            return ""; // Indicate we can't assemble locally
+        // Check if all enabled blocks have latexContent (or latexCode from parse)
+        const missing = enabledBlocks.filter(b => !b.latexContent && !(b as any).latexCode);
+        if (missing.length > 0) {
+            console.log(`[LatexBlockManager] Local assemble impossible: ${missing.length} blocks missing LaTeX content. Types: ${missing.map(m => m.type).join(', ')}`);
+            return ""; 
         }
 
         // Extract preamble and postamble from the template
@@ -24,7 +26,8 @@ export class LatexBlockManager {
         const documentEndIdx = template.lastIndexOf('\\end{document}');
 
         if (documentStartIdx === -1 || documentEndIdx === -1) {
-            return ""; // Not a full document template
+            console.log(`[LatexBlockManager] Local assemble failed: Template missing \\begin{document} or \\end{document} markers.`);
+            return ""; 
         }
 
         const preamble = template.substring(0, documentStartIdx + '\\begin{document}'.length);
@@ -35,6 +38,7 @@ export class LatexBlockManager {
             .map(b => b.latexContent || (b as any).latexCode)
             .join('\n\n');
 
+        console.log(`[LatexBlockManager] Local assemble successful. Final length: ${preamble.length + body.length + postamble.length}`);
         return `${preamble}\n${body}\n${postamble}`;
     }
 

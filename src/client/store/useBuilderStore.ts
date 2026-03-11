@@ -140,13 +140,9 @@ export const useBuilderStore = create<BuilderStore>()(
                 const id = generateId();
                 set((state) => {
                     const blocksOfType = state.blocks.filter(b => b.type === type);
-                    const startX = BASE_X_FOR_TYPE[type as keyof typeof BASE_X_FOR_TYPE] ?? 0;
-
-                    const newX = blocksOfType.length > 0
-                        ? blocksOfType[blocksOfType.length - 1].position.x
-                        : startX;
+                    const newX = BASE_X_FOR_TYPE[type as keyof typeof BASE_X_FOR_TYPE] ?? 0;
                     const newY = blocksOfType.length > 0
-                        ? blocksOfType[blocksOfType.length - 1].position.y + 200
+                        ? Math.max(...blocksOfType.map(b => b.position.y)) + 250
                         : 0;
 
                     const newBlock: ResumeBlock = {

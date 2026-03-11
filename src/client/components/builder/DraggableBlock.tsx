@@ -80,8 +80,23 @@ export const DraggableBlock: React.FC<DraggableBlockProps> = memo(({ block }) =>
         opacity: isExcluded ? 0.4 : 1,
     };
 
+    const [isHovered, setIsHovered] = useState(false);
+
     return (
-        <div ref={setNodeRef} style={wrapperStyle} className="nodrag">
+        <div 
+            ref={setNodeRef} 
+            style={wrapperStyle} 
+            className="nodrag group/card"
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
+        >
+            {/* Hover Tooltip/Badge */}
+            {isHovered && !isDragging && (
+                <div className="absolute -top-8 left-1/2 -translate-x-1/2 px-2 py-1 bg-zinc-900 text-white text-[10px] font-black uppercase tracking-widest rounded shadow-xl animate-in fade-in zoom-in duration-200 pointer-events-none z-[1100] whitespace-nowrap border border-zinc-700">
+                    {meta.label}: {subtitle || 'Empty'}
+                </div>
+            )}
+
             {/* Input port */}
             <Port side="left" accent={meta.accent} />
             {/* Output port */}

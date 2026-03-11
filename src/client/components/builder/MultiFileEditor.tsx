@@ -5,6 +5,7 @@ import { Save, Play, Sparkles, Loader2, FileCode, RefreshCcw, X, Wand2 } from 'l
 import { useBuilderStore } from '../../store/useBuilderStore';
 import { manualLatexGenerator } from '../../services/manualLatex';
 import { geminiService } from '../../services/ai';
+import toast from 'react-hot-toast';
 
 interface MultiFileEditorProps {
     onCompile?: (latex: string, filename?: string) => void;
@@ -96,7 +97,7 @@ export function MultiFileEditor({ onCompile, isCompiling }: MultiFileEditorProps
                  lastStoreContent.current = { version: fileStore.version, content: fileStore.content };
             }
         } catch (e: any) {
-            alert(e.message);
+            toast.error(e.message);
         } finally {
             setIsSaving(false);
         }
@@ -104,10 +105,30 @@ export function MultiFileEditor({ onCompile, isCompiling }: MultiFileEditorProps
 
     const handleSyncFromCanvas = () => {
         if (!activeFile) return;
-        if (confirm("Overwrite current file with content from visual builder?")) {
-            const freshLatex = manualLatexGenerator.generate(blocks);
-            setContent(freshLatex);
-        }
+        toast((t) => (
+            <div className="flex items-center gap-3">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-[#1e2028]">Overwrite with Visual Builder?</span>
+                <div className="flex gap-2">
+                    <button 
+                        onClick={() => { 
+                            const freshLatex = manualLatexGenerator.generate(blocks);
+                            setContent(freshLatex);
+                            toast.dismiss(t.id); 
+                            toast.success("Synced from Visual Builder");
+                        }}
+                        className="px-2 py-1 bg-blue-500 text-white rounded text-[8px] font-black uppercase"
+                    >
+                        Confirm
+                    </button>
+                    <button 
+                        onClick={() => toast.dismiss(t.id)}
+                        className="px-2 py-1 bg-zinc-200 text-zinc-600 rounded text-[8px] font-black uppercase"
+                    >
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        ), { duration: 5000, position: 'top-center' });
     };
 
     const handleAiEdit = async () => {
@@ -125,9 +146,9 @@ export function MultiFileEditor({ onCompile, isCompiling }: MultiFileEditorProps
             
             setShowAiPrompt(false);
             setAiInstruction('');
-            alert(`AI Edit successfully saved to ${fileToSave}!`);
+            toast.success(`AI Edit saved to ${fileToSave}`);
         } catch (e: any) {
-            alert(`AI Edit failed: ${e.message}`);
+            toast.error(`AI Edit failed: ${e.message}`);
         } finally {
             setIsAiLoading(false);
         }

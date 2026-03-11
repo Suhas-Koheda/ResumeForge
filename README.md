@@ -100,6 +100,41 @@ Cloud deployment involves full authentication and a robust Postgres database for
 
 ---
 
+## Modular Architecture
+
+The application has been refactored from a monolithic `App.tsx` into a high-performance, modular layout system:
+- **`Header.tsx`**: Manages session state, multi-resume registers, and export vectors.
+- **`Sidebar.tsx`**: Context-aware node injection system.
+- **`BuildOutputOverlay.tsx`**: Dual-pane LaTeX source engine and Tectonic PDF previewer.
+- **`MobileDrawer.tsx`**: Optimized mobile navigation and quick-action hub.
+
+---
+
+## Implementation Flow
+
+### 1. Robust Resume Parsing
+ResumeForge employs a multi-stage parsing strategy:
+- **`RobustLatexParser` (Cloud)**: Server-side engine using regex and AST-like analysis to decompose complex LaTeX templates.
+- **`offlineLatexParser` (Local)**: Client-side fallback that ensures import functionality works even without an active server connection.
+- **Block Extraction**: Identifies `Header`, `Experience`, `Education`, and `Skills` nodes, generating structured JSON data and raw LaTeX fragments.
+
+### 2. Surgical Local Assembly (Local-First)
+To achieve near-zero latency, the app prioritizes **Local Synthesis**:
+- **Atomic Stitching**: When you toggle a block, the `LatexBlockManager` surgically inserts the block's LaTeX fragment into the template structure.
+- **State Synchronization**: `handleAssemble` first attempts a local build. if successful, the `main.tex` is updated locally, enabling instant compilation without LLM round-trips.
+
+### 3. AI-Powered Neural Polisher
+When local assembly isn't enough (e.g., generating new content or complex reformatting):
+- **Provider Switching**: Seamlessly toggle between **Google Gemini** (Cloud) and **Ollama** (Local) for AI operations.
+- **Contextual Fallback**: If structured data changes significantly, the AI rebuilds the document while strictly adhering to the template's `.cls` and `.tex` constraints.
+
+### 4. Tectonic Compilation Engine
+- **VIRTUAL_PDF_PATH**: LaTeX is compiled in a virtualized memory space.
+- **Asset Resolution**: Automatically bundles `.cls` files and images for the compiler.
+- **Live Streaming**: The PDF buffer is streamed directly to the frontend `iframe` for immediate feedback.
+
+---
+
 ## Security Best Practices Implemented
 1. **AES-256 Encryption at Rest**: The `canvasData` (which holds all user resume content) is encrypted at rest in the database.
 2. **JWT Authentication**: Protects cloud routes and scopes queries to the active user.

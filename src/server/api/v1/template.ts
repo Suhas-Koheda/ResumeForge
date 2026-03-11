@@ -7,7 +7,7 @@ const router = express.Router();
 router.get('/', async (req: any, res) => {
     try {
         const repo = AppDataSource.getRepository(Template);
-        const templates = await repo.find({ where: { user: { id: req.userId } } });
+        const templates = await repo.find({ where: { userId: req.userId } });
         res.json(templates);
     } catch (error) {
         console.error("[TEMPLATE] Get error:", error);
@@ -23,9 +23,9 @@ router.post('/', async (req: any, res) => {
         const template = repo.create({
             name: title,
             preamble: content,
-            user: { id: req.userId },
-            config: {}, // Required field in entity
-            styles: {}  // Required field in entity
+            userId: req.userId,
+            config: '{}', // Required field in entity
+            styles: '{}'  // Required field in entity
         });
 
         await repo.save(template);
@@ -41,7 +41,7 @@ router.put('/:id', async (req: any, res) => {
         const { title, content } = req.body;
         const repo = AppDataSource.getRepository(Template);
         
-        const template = await repo.findOne({ where: { id: req.params.id, user: { id: req.userId } } });
+        const template = await repo.findOne({ where: { id: req.params.id, userId: req.userId } });
         if (!template) return res.status(404).json({ error: 'Template not found' });
 
         if (title) template.name = title;
@@ -58,7 +58,7 @@ router.put('/:id', async (req: any, res) => {
 router.delete('/:id', async (req: any, res) => {
     try {
         const repo = AppDataSource.getRepository(Template);
-        const result = await repo.delete({ id: req.params.id, user: { id: req.userId } });
+        const result = await repo.delete({ id: req.params.id, userId: req.userId });
         
         if (result.affected === 0) return res.status(404).json({ error: 'Template not found' });
         

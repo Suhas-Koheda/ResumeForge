@@ -122,9 +122,11 @@ apiRouter.post('/ai/education', authMiddleware, async (req, res) => {
 apiRouter.post('/ai/assemble', authMiddleware, async (req, res) => {
     try {
         const { blocks, template, provider } = req.body;
+        console.log(`[SERVER] /ai/assemble called. Provider: ${provider}, Blocks: ${blocks?.length}`);
         const result = await aiService.assembleResume(blocks, template, provider);
         res.send(result);
     } catch (e: any) {
+        console.error(`[SERVER] /ai/assemble failed: ${e.message}`);
         res.status(500).json({ error: 'AI assembly failed', details: e.message });
     }
 });
@@ -132,14 +134,18 @@ apiRouter.post('/ai/assemble', authMiddleware, async (req, res) => {
 apiRouter.post('/ai/assemble-local', authMiddleware, async (req, res) => {
     try {
         const { blocks, template } = req.body;
+        console.log(`[SERVER] /ai/assemble-local called. Blocks: ${blocks?.length}`);
         const manager = new (await import('./services/parser/latexBlockManager.js')).LatexBlockManager();
         const result = manager.assembleLocal(template, blocks);
         if (result) {
+            console.log(`[SERVER] /ai/assemble-local SUCCESS.`);
             res.send(result);
         } else {
+            console.log(`[SERVER] /ai/assemble-local FAILED (returned empty).`);
             res.status(400).json({ error: 'Local assembly not possible. Some blocks may be missing LaTeX content.' });
         }
     } catch (e: any) {
+        console.error(`[SERVER] /ai/assemble-local ERROR: ${e.message}`);
         res.status(500).json({ error: 'Local assembly failed', details: e.message });
     }
 });
