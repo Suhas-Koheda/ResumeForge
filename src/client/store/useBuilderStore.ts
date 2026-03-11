@@ -43,7 +43,7 @@ interface BuilderStore {
     addBlock: (type: BlockType) => string;
     updateBlock: (id: string, data: any) => void;
     deleteBlock: (id: string) => void;
-    toggleBlock: (id: string) => void;
+    toggleBlock: (id: string) => Promise<void>;
     updateBlockPosition: (id: string, x: number, y: number) => void;
     setBlocks: (blocks: ResumeBlock[]) => void;
 
@@ -173,13 +173,29 @@ export const useBuilderStore = create<BuilderStore>()(
                     return { blocks: newBlocks, resumes: syncActiveResume(state, { blocks: newBlocks }) };
                 }),
 
-            toggleBlock: (id) =>
-                set((state) => {
-                    const newBlocks = state.blocks.map(b =>
-                        b.id === id ? { ...b, enabled: b.enabled === false } : b,
-                    );
-                    return { blocks: newBlocks, resumes: syncActiveResume(state, { blocks: newBlocks }) };
-                }),
+            toggleBlock: async (id) => {
+        set((state) => {
+            const newBlocks = state.blocks.map(b =>
+                b.id === id ? { ...b, enabled: b.enabled === false } : b,
+            );
+            return { blocks: newBlocks, resumes: syncActiveResume(state, { blocks: newBlocks }) };
+        });
+
+        // After toggling, attempt a local assembly to update main.tex instantly
+        const state = get();
+        const baseTemplate = state.customTemplate || state.projectFiles.find(f => f.name === 'main.tex')?.content || '';
+        if (baseTemplate) {
+            try {
+                const { geminiService } = await import('../services/ai');
+                const localLatex = await geminiService.assembleLocal(state.blocks, baseTemplate);
+                if (localLatex) {
+                    state.updateFileContent('main.tex', localLatex);
+                }
+            } catch (e) {
+                console.warn('[STORE] Local assembly skipped or failed:', e);
+            }
+        }
+    },
 
             updateBlockPosition: (id, x, y) =>
                 set((state) => {

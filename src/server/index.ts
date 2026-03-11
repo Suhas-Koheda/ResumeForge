@@ -129,6 +129,21 @@ apiRouter.post('/ai/assemble', authMiddleware, async (req, res) => {
     }
 });
 
+apiRouter.post('/ai/assemble-local', authMiddleware, async (req, res) => {
+    try {
+        const { blocks, template } = req.body;
+        const manager = new (await import('./services/parser/latexBlockManager.js')).LatexBlockManager();
+        const result = manager.assembleLocal(template, blocks);
+        if (result) {
+            res.send(result);
+        } else {
+            res.status(400).json({ error: 'Local assembly not possible. Some blocks may be missing LaTeX content.' });
+        }
+    } catch (e: any) {
+        res.status(500).json({ error: 'Local assembly failed', details: e.message });
+    }
+});
+
 apiRouter.post('/ai/command', authMiddleware, async (req, res) => {
     try {
         const result = await aiService.genericAiCommand(req.body.prompt, req.body.provider);

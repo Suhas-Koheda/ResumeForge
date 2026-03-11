@@ -249,19 +249,26 @@ DIRECTIVES:
                 3. For Projects, if a date or time period exists, map it to the "duration" field.
                 4. For Experience, map the date or time period to "duration".
 
-                JSON Structure for each type (inside 'data' field):
-                - 'header': { "name": "", "email": "", "phone": "", "location": "", "website": "", "linkedin": "", "github": "" }
-                - 'experience': { "company": "", "role": "", "duration": "", "location": "", "highlights": ["Point 1", "..."] }
-                - 'education': { "school": "", "degree": "", "year": "", "location": "" }
-                - 'skills': { "category": "", "skills": "List, separated by commas" }
-                - 'project': { "title": "", "duration": "", "technologies": "", "highlights": ["Point 1", "..."] }
-                - 'summary': { "summary": "Full text of professional description" }
-                - 'other': { "title": "CUSTOM TITLE", "highlights": ["Item 1"], "content": "OR plain text if no list" }
+                JSON Structure for each object in the array:
+                {
+                    "type": "blockType",
+                    "data": { 
+                        // For 'header': { "name", "email", "phone", "location", "website", "linkedin", "github" }
+                        // For 'experience': { "company", "role", "duration", "location", "highlights" }
+                        // For 'education': { "school", "degree", "year", "location" }
+                        // For 'skills': { "category", "skills" }
+                        // For 'project': { "title", "duration", "technologies", "highlights" }
+                        // For 'summary': { "summary" }
+                        // For 'other': { "title", "highlights", "content" }
+                    },
+                    "latexCode": "The EXACT raw LaTeX code for this section from the input"
+                }
 
                 Rules:
-                - Output ONLY a valid JSON array of objects: [{ "type": BlockType, "data": { ... } }]
+                - Output ONLY a valid JSON array of objects: [{ "type": BlockType, "data": { ... }, "latexCode": "..." }]
                 - Do NOT include markdown code fences (\`\`\`json).
                 - Do NOT include any preamble or commentary.
+                - For "latexCode", extract the original LaTeX exactly as it appears in the input.
                 
                 INPUT:
                 ${content}

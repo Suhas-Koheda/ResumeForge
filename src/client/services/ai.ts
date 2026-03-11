@@ -90,6 +90,9 @@ export const geminiService = {
             template 
         }),
 
+    assembleLocal: (blocks: ResumeBlock[], template: string) =>
+        postText('/ai/assemble-local', { blocks, template }),
+
     parseResume: (content: string | Blob, _type: 'text' | 'file', _apiKey?: string, autoSave = false, title?: string, id?: string): Promise<any> =>
         postJson('/ai/parse', { content, autoSave, title, id }),
 

@@ -10,21 +10,32 @@ export class LatexBlockManager {
      * If the template has specific markers, it uses them. Otherwise, it uses heuristic matching.
      */
     public assembleLocal(template: string, blocks: ResumeBlock[]): string {
-        // Simple implementation: If we have blocks with pre-generated latex, 
-        // we can try to stitch them. For now, this is a placeholder for the logic
-        // that will eventually replace the AI-based assembly for toggling.
-        
-        let result = template;
-        
-        // Filter enabled blocks
         const enabledBlocks = blocks.filter(b => b.enabled !== false);
         
-        // TODO: Implement sophisticated AST-like replacement
-        // For now, we still return the template if we can't do a local assemble.
-        // The goal is to move the logic from aiService.assembleResume here
-        // once we have a stable way to identify block locations in templates.
+        // Check if all enabled blocks have latexContent (or latexCode from parse)
+        const canAssembleLocally = enabledBlocks.every(b => !!b.latexContent || !!(b as any).latexCode);
         
-        return result;
+        if (!canAssembleLocally) {
+            return ""; // Indicate we can't assemble locally
+        }
+
+        // Extract preamble and postamble from the template
+        const documentStartIdx = template.indexOf('\\begin{document}');
+        const documentEndIdx = template.lastIndexOf('\\end{document}');
+
+        if (documentStartIdx === -1 || documentEndIdx === -1) {
+            return ""; // Not a full document template
+        }
+
+        const preamble = template.substring(0, documentStartIdx + '\\begin{document}'.length);
+        const postamble = template.substring(documentEndIdx);
+
+        // Stitch blocks
+        const body = enabledBlocks
+            .map(b => b.latexContent || (b as any).latexCode)
+            .join('\n\n');
+
+        return `${preamble}\n${body}\n${postamble}`;
     }
 
     /**

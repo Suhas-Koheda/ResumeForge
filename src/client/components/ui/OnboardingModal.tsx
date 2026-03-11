@@ -100,6 +100,7 @@ export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }>
                     type: b.type,
                     position: { x: 0, y: 0 },
                     data: b.data || {},
+                    latexContent: b.latexCode || b.latexContent,
                     enabled: true
                 }));
 

@@ -278,32 +278,51 @@ function App() {
         const toastId = toast.loading('Syncing Canvas to Template…', { position: 'bottom-center' });
         try {
             const baseTemplate = customTemplate || projectFiles.find(f => f.name === 'main.tex')?.content || '';
-            const sectionContent = await geminiService.assembleFullResume(blocks, baseTemplate);
-            if (!sectionContent) {
-                toast.dismiss(toastId);
-                throw new Error('AI returned empty content. Verify your API key and template.');
+            
+            let finalDoc = '';
+            let usedLocal = false;
+
+            // Attempt local assembly first
+            try {
+                const localResult = await geminiService.assembleLocal(blocks, baseTemplate);
+                if (localResult) {
+                    finalDoc = localResult;
+                    usedLocal = true;
+                    toast.success('Local Assembly complete.', { id: toastId });
+                }
+            } catch (e) {
+                console.warn('[APP] Local assembly failed, falling back to AI:', e);
             }
 
-            toast.success('AI Assembly complete. Compiling PDF…', { id: toastId });
-            setPreviewMode('pdf');
+            // Fallback to AI if local assembly was not possible
+            if (!usedLocal) {
+                const sectionContent = await geminiService.assembleFullResume(blocks, baseTemplate);
+                if (!sectionContent) {
+                    toast.dismiss(toastId);
+                    throw new Error('AI returned empty content. Verify your API key and template.');
+                }
 
-            const cleaned = sectionContent
-                .replace(/[\u0107\u0106\u0131\u00E7\u00C7]/g, ' ')
-                .replace(/(^|\s)\]\s+([~|]|http|\\href|\\url)/g, '$1$2')
-                .replace(/^\s*[\-\]]\s*$/gm, '')
-                .trim();
+                toast.success('AI Assembly complete. Compiling PDF…', { id: toastId });
 
-            let finalDoc = cleaned;
-            if (!cleaned.includes('\\documentclass') && cleaned.length > 100 && !cleaned.includes('\\begin{document}')) {
-                const headerData = blocks.find(b => b.type === 'header')?.data || {};
-                finalDoc = manualLatexGenerator.generatePreamble(headerData) + '\n' + cleaned + '\n' + manualLatexGenerator.generatePostamble();
-            } else if (cleaned.length < 50) {
-                finalDoc = manualLatexGenerator.generate(blocks);
+                const cleaned = sectionContent
+                    .replace(/[\u0107\u0106\u0131\u00E7\u00C7]/g, ' ')
+                    .replace(/(^|\s)\]\s+([~|]|http|\\href|\\url)/g, '$1$2')
+                    .replace(/^\s*[\-\]]\s*$/gm, '')
+                    .trim();
+
+                finalDoc = cleaned;
+                if (!cleaned.includes('\\documentclass') && cleaned.length > 100 && !cleaned.includes('\\begin{document}')) {
+                    const headerData = blocks.find(b => b.type === 'header')?.data || {};
+                    finalDoc = manualLatexGenerator.generatePreamble(headerData) + '\n' + cleaned + '\n' + manualLatexGenerator.generatePostamble();
+                } else if (cleaned.length < 50) {
+                    finalDoc = manualLatexGenerator.generate(blocks);
+                }
             }
 
             updateFileContent('main.tex', finalDoc);
-            toast.success('main.tex updated in memory.');
+            if (!usedLocal) toast.success('main.tex updated in memory.');
             downloadPdf(false, finalDoc);
+            
             if (pdfUrl) URL.revokeObjectURL(pdfUrl);
             setPdfUrl(null);
         } catch (err: any) {
