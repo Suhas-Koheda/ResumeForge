@@ -40,7 +40,7 @@ class FileOperationQueue {
 
 export function useFiles() {
   const [files, setFiles] = useState<string[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
   // Persist queue across re-renders

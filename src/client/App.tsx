@@ -32,7 +32,6 @@ const BLOCK_BUTTONS: { type: BlockType; label: string; icon: React.ElementType }
 
 // ── App ───────────────────────────────────────────────────────────────────────
 function App() {
-    const { writeFile } = useFiles();
     const {
         addBlock, apiKey, setApiKey, blocks, setBlocks,
         customTemplate, setCustomTemplate,
@@ -54,65 +53,16 @@ function App() {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [showExportMenu, setShowExportMenu] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
     const isSyncInProgress = useRef(false);
     const hasTriggeredOnboarding = useRef(false);
 
-    // ── Initial data load ─────────────────────────────────────────────────────
-    useEffect(() => {
-        const fetchResumes = async () => {
-            try {
-                const res = await fetch(`${API_BASE_URL}/resumes`);
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data.length > 0) loadResumes(data);
-                }
-            } catch (e) {
-                console.error('[APP] Failed to fetch resumes:', e);
-            }
-        };
-        fetchResumes();
-    }, []); // run once on mount
-
-    // ── LaTeX → blocks (offline AST sync) ────────────────────────────────────
-    useEffect(() => {
-        const mainFile = projectFiles.find(f => f.name === 'main.tex');
-        const mainContent = mainFile?.content;
-        if (previewMode !== 'code' || !mainContent) return;
-
-        const timer = setTimeout(() => {
-            const extracted = offlineLatexParser.parseLatexBlocks(mainContent);
-            if (extracted.length === 0) return;
-
-            const byType = blocks.reduce((acc, b) => {
-                (acc[b.type] = acc[b.type] || []).push(b);
-                return acc;
-            }, {} as Record<string, ResumeBlock[]>);
-
-            const usedIndices: Record<string, number> = {};
-            const merged = extracted.map(parsed => {
-                const type = parsed.type as BlockType;
-                const idx = usedIndices[type] || 0;
-                usedIndices[type] = idx + 1;
-                const existing = byType[type]?.[idx];
-                return existing
-                    ? { ...existing, data: { ...existing.data, ...parsed.data } }
-                    : {
-                        id: Math.random().toString(36).substring(7),
-                        type, position: { x: 0, y: 0 },
-                        data: parsed.data || {}, enabled: true,
-                    } as ResumeBlock;
-            });
-
-            const preserved = blocks.filter(b => ['summary', 'other'].includes(b.type));
-            setBlocks([...preserved, ...merged]);
-        }, 1000);
-
-        return () => clearTimeout(timer);
-    }, [projectFiles, previewMode]);
+    const [isInitialLoadFinished, setIsInitialLoadFinished] = useState(false);
 
     // ── Auto-save to SQLite ───────────────────────────────────────────────────
     const saveToServer = async (isManual = false) => {
+        if (!isInitialLoadFinished && !isManual) return;
         if (blocks.length === 0 && projectFiles.length === 0) return;
         if (isSyncInProgress.current && !isManual) return;
 
@@ -132,6 +82,7 @@ function App() {
             if (res.ok) {
                 const saved = await res.json();
                 if (!currentResume?.id && saved.id) setResumeId(activeResumeIndex, saved.id);
+                setHasUnsavedChanges(false);
             }
         } catch (e) {
             console.error('[APP] Save error:', e);
@@ -141,11 +92,29 @@ function App() {
         }
     };
 
-    // Debounced auto-save on any change
+    // Track changes for the manual save indicator
     useEffect(() => {
-        const timer = setTimeout(() => saveToServer(), 3000);
-        return () => clearTimeout(timer);
+        if (!isInitialLoadFinished) return;
+        setHasUnsavedChanges(true);
     }, [blocks, projectFiles, activeFileName, customTemplate, activeResumeIndex]);
+
+    // ── Initial data load ─────────────────────────────────────────────────────
+    useEffect(() => {
+        const fetchResumes = async () => {
+            try {
+                const res = await fetch(`${API_BASE_URL}/resumes`);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.length > 0) loadResumes(data);
+                }
+            } catch (e) {
+                console.error('[APP] Failed to fetch resumes:', e);
+            } finally {
+                setIsInitialLoadFinished(true);
+            }
+        };
+        fetchResumes();
+    }, []); // run once on mount
 
     // ── Resume deletion ───────────────────────────────────────────────────────
     const handleDeleteResume = async (idx: number) => {
@@ -185,20 +154,26 @@ function App() {
         setIsGeneratingPdf(true);
         setCompilationLog(null);
         try {
-            const filesToCompile = projectFiles.map(f => ({ name: f.name, content: f.content }));
+            const filesToCompile: { name: string, content: string, version: number, lastEditor: string, timestamp: number }[] = projectFiles.map(f => ({ 
+                name: f.name, 
+                content: f.content,
+                version: f.version || 1,
+                lastEditor: f.lastEditor || 'system',
+                timestamp: f.timestamp || Date.now()
+            }));
 
             if (forcedContent) {
                 const targetName = filename || 'main.tex';
                 const idx = filesToCompile.findIndex(f => f.name === targetName);
                 if (idx > -1) filesToCompile[idx].content = forcedContent;
-                else filesToCompile.push({ name: targetName, content: forcedContent });
+                else filesToCompile.push({ name: targetName, content: forcedContent, version: 1, lastEditor: 'system', timestamp: Date.now() });
             }
 
             const mainFile = filesToCompile.find(f => f.name === 'main.tex');
             if (!mainFile || mainFile.content.trim().length < 50) {
                 const generated = manualLatexGenerator.generate(blocks);
                 if (mainFile) mainFile.content = generated;
-                else filesToCompile.push({ name: 'main.tex', content: generated });
+                else filesToCompile.push({ name: 'main.tex', content: generated, version: 1, lastEditor: 'system', timestamp: Date.now() });
             }
 
             if (filesToCompile.length === 0) { toast.error('No files to compile'); return; }
@@ -227,10 +202,19 @@ function App() {
 
     // ── Manual assemble (blocks → LaTeX → compile) ────────────────────────────
     function handleManualAssemble(forcedLatex?: string, filename?: string) {
-        const latex = forcedLatex || manualLatexGenerator.generate(blocks);
+        let latex = forcedLatex;
+        
+        if (!latex) {
+            const mainFile = projectFiles.find(f => f.name === 'main.tex');
+            if (mainFile && mainFile.content && mainFile.content.trim().length > 50) {
+                latex = mainFile.content;
+            } else {
+                latex = manualLatexGenerator.generate(blocks);
+            }
+        }
+
         if (!forcedLatex || filename === 'main.tex') {
-            updateFileContent('main.tex', latex);
-            writeFile('main.tex', latex).catch(e => console.error('Failed to write main.tex:', e));
+            updateFileContent('main.tex', latex, 'code');
         }
         setPdfUrl(null);
         setShowBuildOutput(true);
@@ -268,8 +252,7 @@ function App() {
             }
 
             updateFileContent('main.tex', finalDoc);
-            await writeFile('main.tex', finalDoc);
-            toast.success('main.tex updated on disk.');
+            toast.success('main.tex updated in memory.');
             downloadPdf(false, finalDoc);
             if (pdfUrl) URL.revokeObjectURL(pdfUrl);
             setPdfUrl(null);
@@ -314,7 +297,13 @@ function App() {
                 setBlocks(nodes || []);
                 setCustomTemplate(tmpl || null);
                 if (pf) setProjectFiles(pf);
-                else if (json.canvasData.fullLatex) setProjectFiles([{ name: 'main.tex', content: json.canvasData.fullLatex }]);
+                else if (json.canvasData.fullLatex) setProjectFiles([{ 
+                    name: 'main.tex', 
+                    content: json.canvasData.fullLatex,
+                    version: 1,
+                    lastEditor: 'system',
+                    timestamp: Date.now()
+                }]);
                 setActiveFileName(af || 'main.tex');
                 toast.success('Resume imported successfully.');
             } catch {
@@ -383,9 +372,23 @@ function App() {
                 <div className="flex items-center gap-1 sm:gap-4">
                     {/* Saving indicator + controls (desktop) */}
                     <div className="hidden lg:flex items-center gap-4">
+                        {hasUnsavedChanges && !isSaving && (
+                            <button 
+                                onClick={() => saveToServer(true)}
+                                className="flex items-center gap-1.5 px-3 py-1 bg-amber-500 text-white rounded-full hover:bg-amber-600 transition-all shadow-sm active:scale-95"
+                            >
+                                <RefreshCw size={10} className="animate-spin" />
+                                <span className="text-[8px] font-black uppercase tracking-widest">SYNC PENDING</span>
+                            </button>
+                        )}
                         {isSaving && (
                             <div className="flex items-center gap-2 text-[8px] font-bold text-zinc-400 uppercase tracking-widest animate-pulse">
                                 <Save size={10} /> Saving…
+                            </div>
+                        )}
+                        {!hasUnsavedChanges && !isSaving && (
+                            <div className="flex items-center gap-2 text-[8px] font-bold text-emerald-500 uppercase tracking-widest opacity-60">
+                                <Save size={10} /> All Synced
                             </div>
                         )}
                         <button
@@ -430,6 +433,11 @@ function App() {
                                     <DropdownBtn icon={FileText} label="Export PDF (.pdf)" onClick={() => { downloadPdf(); setShowExportMenu(false); }} />
                                     <DropdownBtn icon={Type} label="Export LaTeX (.tex)" onClick={() => { downloadTex(); setShowExportMenu(false); }} />
                                     <DropdownBtn icon={Layers} label="Export JSON (.rf.json)" onClick={() => { downloadJson(); setShowExportMenu(false); }} highlighted />
+                                    
+                                    <div className="p-2 border-t border-zinc-100 dark:border-[#2d3042] mt-1 mb-1">
+                                        <p className="text-[8px] font-black text-zinc-400 uppercase tracking-widest">Inbound_Data</p>
+                                    </div>
+                                    <DropdownBtn icon={FileDown} label="Import JSON (.rf.json)" onClick={() => { document.getElementById('json-import-input')?.click(); setShowExportMenu(false); }} />
                                 </div>
                             </>
                         )}

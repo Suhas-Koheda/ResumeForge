@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, User, Mail, Phone, MapPin, Globe, Sparkles, Rocket, Loader2 } from 'lucide-react';
+import { X, User, Mail, Phone, MapPin, Globe, Sparkles, Rocket, Loader2, FileDown } from 'lucide-react';
 import { useResumeActions } from '../../hooks/useResume';
 import { ResumeBlock, BlockType } from '@shared/types';
 import { geminiService } from '../../services/ai';
@@ -10,9 +10,8 @@ export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }>
     const [tab, setTab] = useState<'profile' | 'import'>('profile');
     const [importText, setImportText] = useState('');
     const [isImporting, setIsImporting] = useState(false);
-    const { addBlock, blocks, updateData, apiKey, setApiKey, updateFileContent, setBlocks, setResumeId, activeResumeIndex, resumes } = useResumeActions();
+    const { addBlock, blocks, updateData, apiKey, setApiKey, updateFileContent, setBlocks, setResumeId, activeResumeIndex, resumes, setCustomTemplate, setProjectFiles, setActiveFileName } = useResumeActions();
     const [localKey, setLocalKey] = useState(apiKey || '');
-    const [useAiForLatex, setUseAiForLatex] = useState(true);
 
     // Find header data
     const headerBlock = blocks.find((b: ResumeBlock) => b.type === 'header');
@@ -48,9 +47,9 @@ export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }>
         setIsImporting(true);
         try {
             const isLatex = importText.includes('\\documentclass');
-            console.log(`[OnboardingModal] Detected ${isLatex ? 'LaTeX' : 'Text'} source. useAiForLatex is ${useAiForLatex}`);
+            console.log(`[OnboardingModal] Detected ${isLatex ? 'LaTeX' : 'Text'} source.`);
 
-            if (isLatex && !useAiForLatex && false) {
+            if (isLatex && false) {
                 console.log("[OnboardingModal] Skipping AI completely, using local LaTeX parser.");
                 updateFileContent('main.tex', importText);
 
@@ -117,6 +116,32 @@ export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }>
             setIsImporting(false);
             console.log("[OnboardingModal] isImporting set to false.");
         }
+    };
+
+    const handleImportJson = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            try {
+                const json = JSON.parse(ev.target?.result as string);
+                if (json.source !== 'ResumeForge') {
+                    toast.error('Invalid file format.');
+                    return;
+                }
+                const { nodes, customTemplate: tmpl, projectFiles: pf, activeFileName: af } = json.canvasData;
+                setBlocks(nodes || []);
+                setCustomTemplate(tmpl || null);
+                if (pf) setProjectFiles(pf);
+                setActiveFileName(af || 'main.tex');
+                toast.success('Resume restored successfully.');
+                onClose();
+            } catch {
+                toast.error('Failed to parse JSON file.');
+            }
+        };
+        reader.readAsText(file);
+        e.target.value = '';
     };
 
     return (
@@ -258,20 +283,17 @@ export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }>
                                     />
                                 </div>
 
-                                {importText.includes('\\documentclass') && (
-                                    <div className="flex items-center gap-2">
-                                        <input
-                                            type="checkbox"
-                                            id="useAiForLatex"
-                                            checked={useAiForLatex}
-                                            onChange={(e) => setUseAiForLatex(e.target.checked)}
-                                            className="w-3 h-3 accent-black dark:accent-white"
-                                        />
-                                        <label htmlFor="useAiForLatex" className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest cursor-pointer">
-                                            Enable AI Structure Parsing (Recommended for deeply nested LaTeX)
-                                        </label>
+                                    <div className="flex flex-col gap-4">
+                                        <div className="h-px bg-zinc-100 dark:bg-zinc-800 my-2" />
+                                        <p className="text-[8px] font-bold text-zinc-400 uppercase tracking-widest text-center">Or restore from your machine</p>
+                                        <button 
+                                            onClick={() => document.getElementById('onboarding-json-import')?.click()}
+                                            className="w-full flex items-center justify-center gap-3 p-4 border border-dashed border-zinc-200 dark:border-zinc-800 rounded-xl bg-zinc-50/50 dark:bg-zinc-900/20 hover:bg-zinc-100 transition-all text-[10px] font-bold uppercase tracking-widest text-zinc-500"
+                                        >
+                                            <FileDown size={14} /> RESTORE FROM .RF.JSON
+                                        </button>
+                                        <input id="onboarding-json-import" type="file" accept=".rf.json" className="hidden" onChange={handleImportJson} />
                                     </div>
-                                )}
                             </div>
                         )}
                     </div>

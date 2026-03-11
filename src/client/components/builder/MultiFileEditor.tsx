@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Editor from '@monaco-editor/react';
 import { FileTree } from './FileTree';
-import { useFiles } from '../../hooks/useFiles';
 import { Save, Play, Sparkles, Loader2, FileCode, RefreshCcw, X, Wand2 } from 'lucide-react';
 import { useBuilderStore } from '../../store/useBuilderStore';
 import { manualLatexGenerator } from '../../services/manualLatex';
@@ -13,7 +12,6 @@ interface MultiFileEditorProps {
 }
 
 export function MultiFileEditor({ onCompile, isCompiling }: MultiFileEditorProps) {
-    const { readFile, writeFile, files, createFile, loading } = useFiles();
     const [activeFile, setActiveFile] = useState<string | null>(null);
     const [content, setContent] = useState<string>('');
     const [isSaving, setIsSaving] = useState(false);
@@ -24,22 +22,17 @@ export function MultiFileEditor({ onCompile, isCompiling }: MultiFileEditorProps
     const initialSyncDone = useRef(false);
     const lastStoreContent = useRef<{ version: number, content: string } | null>(null);
 
-    // Auto-select first file if none active or create main.tex if empty
+    // Auto-select first file if none active
     useEffect(() => {
-        if (!loading && files.length === 0 && !activeFile && !initialSyncDone.current) {
+        if (!activeFile && !initialSyncDone.current && projectFiles.length > 0) {
             initialSyncDone.current = true;
-            const freshLatex = manualLatexGenerator.generate(blocks);
-            createFile('main.tex', freshLatex).then(() => {
-                handleFileSelect('main.tex');
-            });
-        } else if (files.length > 0 && !activeFile) {
-            if (files.includes('main.tex')) {
+            if (projectFiles.some(f => f.name === 'main.tex')) {
                 handleFileSelect('main.tex');
             } else {
-                handleFileSelect(files[0]);
+                handleFileSelect(projectFiles[0].name);
             }
         }
-    }, [files, activeFile, loading]);
+    }, [activeFile, projectFiles]);
     // Sync local content with store when projectFiles change
     useEffect(() => {
         if (activeFile) {
@@ -71,19 +64,20 @@ export function MultiFileEditor({ onCompile, isCompiling }: MultiFileEditorProps
             const mainFile = projectFiles.find(f => f.name === 'main.tex');
             
             // Only auto-update if last editor was NOT code, or we choose to overwrite to keep them in sync
-            if (files.includes('main.tex') && mainFile) {
+            if (mainFile) {
                  const freshLatex = manualLatexGenerator.generate(blocks);
                  if (freshLatex !== mainFile.content && mainFile.lastEditor !== 'code') {
                      updateFileContent('main.tex', freshLatex, 'canvas');
-                     writeFile('main.tex', freshLatex).catch(console.error);
                  }
             }
         }
-    }, [blocks, projectFiles, updateFileContent, writeFile, files]);
+    }, [blocks, projectFiles, updateFileContent]);
 
     const handleFileSelect = async (path: string) => {
         try {
-            const text = await readFile(path);
+            const fileStore = useBuilderStore.getState().projectFiles.find(f => f.name === path);
+            const text = fileStore?.content || '';
+            
             setActiveFile(path);
             setContent(text);
         } catch (e: any) {
@@ -91,41 +85,15 @@ export function MultiFileEditor({ onCompile, isCompiling }: MultiFileEditorProps
         }
     };
 
-    const handleSave = async () => {
+    const handleSave = async (overrideContent?: string) => {
         if (!activeFile) return;
+        const textToSave = overrideContent !== undefined ? overrideContent : content;
         setIsSaving(true);
         try {
-            await writeFile(activeFile, content);
-            updateFileContent(activeFile, content, 'code');
+            updateFileContent(activeFile, textToSave, 'code');
             const fileStore = useBuilderStore.getState().projectFiles.find(f => f.name === activeFile);
             if (fileStore) {
                  lastStoreContent.current = { version: fileStore.version, content: fileStore.content };
-            }
-            
-            // Sync Code -> Canvas if it's main.tex
-            if (activeFile === 'main.tex') {
-                 // Try parsing the updated latex back to blocks
-                 try {
-                     const { offlineLatexParser } = await import('../../services/offlineParser');
-                     const newBlocks = offlineLatexParser.parseLatexBlocks(content);
-                     if (newBlocks && newBlocks.length > 0) {
-                         // Preserve positions of existing blocks by matching types
-                         const currentBlocks = useBuilderStore.getState().blocks;
-                         const updatedBlocks: any[] = newBlocks.map(nb => {
-                             const existing = currentBlocks.find(b => b.type === nb.type);
-                             return {
-                                 ...nb,
-                                 id: nb.id || existing?.id || Math.random().toString(36).substring(7),
-                                 position: existing?.position || { x: 0, y: 0 },
-                                 enabled: existing?.enabled !== false
-                             };
-                         });
-                         useBuilderStore.getState().setBlocks(updatedBlocks);
-                         lastBlocksRef.current = updatedBlocks; // Prevent auto-reverting
-                     }
-                 } catch (parseErr) {
-                     console.warn("Could not sync to canvas:", parseErr);
-                 }
             }
         } catch (e: any) {
             alert(e.message);
@@ -145,17 +113,19 @@ export function MultiFileEditor({ onCompile, isCompiling }: MultiFileEditorProps
     const handleAiEdit = async () => {
         if (!aiInstruction.trim() || !activeFile) return;
         setIsAiLoading(true);
+        const fileToSave = activeFile; // capture
         try {
             const result = await geminiService.editFile(content, aiInstruction, undefined, apiKey);
             setContent(result);
-            await writeFile(activeFile, result);
-            updateFileContent(activeFile, result, 'code');
-            const fileStore = useBuilderStore.getState().projectFiles.find(f => f.name === activeFile);
-            if (fileStore) {
-               lastStoreContent.current = { version: fileStore.version, content: fileStore.content };
-            }
+            
+            updateFileContent(fileToSave, result, 'code');
+            
+            // Run standard save pipeline for AST sync
+            await handleSave(result); 
+            
             setShowAiPrompt(false);
             setAiInstruction('');
+            alert(`AI Edit successfully saved to ${fileToSave}!`);
         } catch (e: any) {
             alert(`AI Edit failed: ${e.message}`);
         } finally {
@@ -168,12 +138,11 @@ export function MultiFileEditor({ onCompile, isCompiling }: MultiFileEditorProps
         if (onCompile) {
             let compileContent = content;
             let compileFile = activeFile;
-            if (activeFile !== 'main.tex' && files.includes('main.tex')) {
-                try {
-                    compileContent = await readFile('main.tex');
+            if (activeFile !== 'main.tex') {
+                const mainFileFromStore = projectFiles.find(f => f.name === 'main.tex');
+                if (mainFileFromStore) {
+                    compileContent = mainFileFromStore.content;
                     compileFile = 'main.tex';
-                } catch (e) {
-                    console.error("Failed to read main.tex", e);
                 }
             }
             onCompile(compileContent, compileFile || undefined);
@@ -211,7 +180,7 @@ export function MultiFileEditor({ onCompile, isCompiling }: MultiFileEditorProps
                             <RefreshCcw size={14} />
                         </button>
                         <button 
-                            onClick={handleSave}
+                            onClick={() => handleSave()}
                             disabled={isSaving || !activeFile}
                             className="flex items-center gap-2 px-3 py-1.5 bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 rounded text-[9px] font-bold uppercase tracking-widest hover:bg-zinc-200 dark:hover:bg-zinc-700 disabled:opacity-50 transition-all"
                         >
