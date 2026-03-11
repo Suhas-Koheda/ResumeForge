@@ -42,6 +42,7 @@ function App() {
         templateOptions, projectFiles, activeFileName, updateFileContent,
         setProjectFiles, setActiveFileName, addFile, deleteFile,
         token, userEmail, setToken,
+        aiProvider, setAiProvider,
     } = useResumeActions();
 
     // ── Local UI state ────────────────────────────────────────────────────────
@@ -489,6 +490,14 @@ function App() {
                             title="Open Editor"
                         >
                             <Terminal size={14} />
+                        </button>
+                        <button
+                            onClick={() => setAiProvider(aiProvider === 'gemini' ? 'ollama' : 'gemini')}
+                            className={`flex items-center gap-1.5 px-2 py-1 rounded-full border transition-all font-bold ${aiProvider === 'ollama' ? 'border-purple-500 bg-purple-500/10 text-purple-500' : 'border-blue-500 bg-blue-500/10 text-blue-500'}`}
+                            title={`Switch to ${aiProvider === 'gemini' ? 'Ollama' : 'Gemini'}`}
+                        >
+                            <Sparkles size={10} className={aiProvider === 'ollama' ? 'text-purple-500' : 'text-blue-500'} />
+                            <span className="text-[8px] font-black uppercase tracking-widest">{aiProvider}</span>
                         </button>
                         <button onClick={() => setIsDark(!isDark)} className="text-zinc-400 hover:text-black dark:hover:text-white p-1" title="Toggle Theme">
                             {isDark ? <Sun size={14} /> : <Moon size={14} />}

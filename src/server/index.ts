@@ -85,7 +85,7 @@ apiRouter.use('/export', exportRouter);
 // AI Routes (keeping inline for now as they are central to this branch, or could move to aiRouter)
 apiRouter.post('/ai/experience', authMiddleware, async (req, res) => {
     try {
-        const result = await aiService.polishExperience(req.body.text);
+        const result = await aiService.polishExperience(req.body.text, req.body.provider);
         res.json(JSON.parse(result));
     } catch (e: any) {
         res.status(500).json({ error: 'AI processing failed', details: e.message });
@@ -94,7 +94,7 @@ apiRouter.post('/ai/experience', authMiddleware, async (req, res) => {
 
 apiRouter.post('/ai/skills', authMiddleware, async (req, res) => {
     try {
-        const result = await aiService.polishSkills(req.body.text);
+        const result = await aiService.polishSkills(req.body.text, req.body.provider);
         res.json(JSON.parse(result));
     } catch (e: any) {
         res.status(500).json({ error: 'AI processing failed', details: e.message });
@@ -103,7 +103,7 @@ apiRouter.post('/ai/skills', authMiddleware, async (req, res) => {
 
 apiRouter.post('/ai/project', authMiddleware, async (req, res) => {
     try {
-        const result = await aiService.polishProject(req.body.text);
+        const result = await aiService.polishProject(req.body.text, req.body.provider);
         res.json(JSON.parse(result));
     } catch (e: any) {
         res.status(500).json({ error: 'AI processing failed', details: e.message });
@@ -112,7 +112,7 @@ apiRouter.post('/ai/project', authMiddleware, async (req, res) => {
 
 apiRouter.post('/ai/education', authMiddleware, async (req, res) => {
     try {
-        const result = await aiService.polishEducation(req.body.text);
+        const result = await aiService.polishEducation(req.body.text, req.body.provider);
         res.json(JSON.parse(result));
     } catch (e: any) {
         res.status(500).json({ error: 'AI processing failed', details: e.message });
@@ -121,8 +121,8 @@ apiRouter.post('/ai/education', authMiddleware, async (req, res) => {
 
 apiRouter.post('/ai/assemble', authMiddleware, async (req, res) => {
     try {
-        const { blocks, template } = req.body;
-        const result = await aiService.assembleResume(blocks, template);
+        const { blocks, template, provider } = req.body;
+        const result = await aiService.assembleResume(blocks, template, provider);
         res.send(result);
     } catch (e: any) {
         res.status(500).json({ error: 'AI assembly failed', details: e.message });
@@ -131,7 +131,7 @@ apiRouter.post('/ai/assemble', authMiddleware, async (req, res) => {
 
 apiRouter.post('/ai/command', authMiddleware, async (req, res) => {
     try {
-        const result = await aiService.genericAiCommand(req.body.prompt);
+        const result = await aiService.genericAiCommand(req.body.prompt, req.body.provider);
         res.send(result);
     } catch (e: any) {
         res.status(500).json({ error: 'AI command failed', details: e.message });
@@ -140,10 +140,10 @@ apiRouter.post('/ai/command', authMiddleware, async (req, res) => {
 
 apiRouter.post('/ai/parse', authMiddleware, async (req: AuthRequest, res) => {
     try {
-        const { content, autoSave, title, id } = req.body;
+        const { content, autoSave, title, id, provider } = req.body;
 
         // ALWAYS use the AI for parsing, regardless of whether it's LaTeX or Plain Text.
-        const resultText = await aiService.parseResume(content);
+        const resultText = await aiService.parseResume(content, provider);
         let blocksArray: any[] = JSON.parse(resultText);
 
         if (autoSave && req.userId && blocksArray) {
@@ -169,8 +169,8 @@ apiRouter.post('/ai/parse', authMiddleware, async (req: AuthRequest, res) => {
 
 apiRouter.post('/ai/optimize', authMiddleware, async (req, res) => {
     try {
-        const { blocks, jd } = req.body;
-        const result = await aiService.optimizeForJD(blocks, jd);
+        const { blocks, jd, provider } = req.body;
+        const result = await aiService.optimizeForJD(blocks, jd, provider);
         res.json(JSON.parse(result));
     } catch (e: any) {
         res.status(500).json({ error: 'AI optimization failed', details: e.message });
@@ -179,9 +179,9 @@ apiRouter.post('/ai/optimize', authMiddleware, async (req, res) => {
 
 apiRouter.post('/ai/edit-file', authMiddleware, async (req, res) => {
     try {
-        const { content, instruction, workspaceFiles } = req.body;
+        const { content, instruction, workspaceFiles, provider } = req.body;
         if (!content && !instruction) return res.status(400).json({ error: 'content and instruction are required' });
-        const result = await aiService.editLatexFile(content, instruction, workspaceFiles);
+        const result = await aiService.editLatexFile(content, instruction, workspaceFiles, provider);
         res.send(result);
     } catch (e: any) {
         res.status(500).json({ error: 'AI file editing failed', details: e.message });

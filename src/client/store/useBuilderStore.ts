@@ -34,6 +34,7 @@ interface BuilderStore {
     customTemplate: string;
     templateOptions: LatexGenerationOptions;
     apiKey: string;
+    aiProvider: 'gemini' | 'ollama';
     // Auth state
     token: string | null;
     userEmail: string | null;
@@ -57,6 +58,7 @@ interface BuilderStore {
     setCustomTemplate: (template: string) => void;
     setTemplateOptions: (options: Partial<LatexGenerationOptions>) => void;
     setApiKey: (key: string) => void;
+    setAiProvider: (provider: 'gemini' | 'ollama') => void;
 
     // Auth actions
     setToken: (token: string | null, email: string | null) => void;
@@ -124,6 +126,7 @@ export const useBuilderStore = create<BuilderStore>()(
             customTemplate: '',
             templateOptions: { ...DEFAULT_TEMPLATE_OPTIONS },
             apiKey: '',
+            aiProvider: 'gemini',
             token: null,
             userEmail: null,
 
@@ -256,6 +259,7 @@ export const useBuilderStore = create<BuilderStore>()(
 
             setCustomTemplate: (customTemplate) => set({ customTemplate }),
             setApiKey: (apiKey) => set({ apiKey }),
+            setAiProvider: (aiProvider) => set({ aiProvider }),
 
             setTemplateOptions: (options) =>
                 set((state) => {

@@ -61,6 +61,9 @@ export const useResumeActions = () => {
     const userEmail = useBuilderStore(s => s.userEmail);
     const setToken = useBuilderStore(s => s.setToken);
 
+    const aiProvider = useBuilderStore(s => s.aiProvider);
+    const setAiProvider = useBuilderStore(s => s.setAiProvider);
+
     return {
         // Auth
         token, userEmail, setToken,
@@ -74,5 +77,7 @@ export const useResumeActions = () => {
         // Files
         projectFiles, activeFileName, setProjectFiles, updateFileContent,
         setActiveFileName, addFile, deleteFile,
+        // AI Provider
+        aiProvider, setAiProvider,
     };
 };
