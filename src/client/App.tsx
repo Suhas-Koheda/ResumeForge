@@ -551,7 +551,11 @@ function App() {
                 </main>
             </div>
 
-            <OnboardingModal isOpen={isOnboardingOpen} onClose={() => setIsOnboardingOpen(false)} />
+            <OnboardingModal 
+                isOpen={isOnboardingOpen} 
+                onClose={() => setIsOnboardingOpen(false)} 
+                serverMode={serverMode}
+            />
 
             {showAuth && (
                 <div className="fixed inset-0 z-[100] bg-white dark:bg-black">

@@ -6,11 +6,17 @@ import { geminiService } from '../../services/ai';
 import { offlineLatexParser } from '../../services/offlineParser';
 import toast from 'react-hot-toast';
 
-export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
+export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void; serverMode: 'LOCAL' | 'CLOUD' | 'LOADING' }> = ({ isOpen, onClose, serverMode }) => {
     const [tab, setTab] = useState<'profile' | 'import'>('profile');
     const [importText, setImportText] = useState('');
     const [isImporting, setIsImporting] = useState(false);
-    const { addBlock, blocks, updateData, apiKey, setApiKey, updateFileContent, setBlocks, setResumeId, activeResumeIndex, resumes, setCustomTemplate, setProjectFiles, setActiveFileName } = useResumeActions();
+    const { 
+        addBlock, blocks, updateData, apiKey, setApiKey, 
+        updateFileContent, setBlocks, setResumeId, 
+        activeResumeIndex, resumes, setCustomTemplate, 
+        setProjectFiles, setActiveFileName,
+        aiProvider, setAiProvider
+    } = useResumeActions();
     const [localKey, setLocalKey] = useState(apiKey || '');
 
     // Find header data
@@ -255,9 +261,9 @@ export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }>
                         ) : (
                             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
                                 <div className="space-y-2">
-                                    <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-2">
-                                        <Sparkles size={10} />
-                                        AI_ENGINE_KEY {(import.meta as any).env.IS_LOCAL !== 'true' ? '(Optional - Uses shared quota if empty)' : '(Optional)'}
+                                    <label className="text-[11px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-2">
+                                        <Sparkles size={12} />
+                                        AI_ENGINE_KEY {(import.meta as any).env.IS_LOCAL !== 'true' ? '(Optional - Shared Quota)' : '(Optional)'}
                                     </label>
                                     <input
                                         type="password"
@@ -266,11 +272,63 @@ export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }>
                                         value={localKey}
                                         onChange={e => setLocalKey(e.target.value)}
                                     />
-                                    {!localKey && (import.meta as any).env.IS_LOCAL !== 'true' && (
-                                        <p className="text-[8px] text-zinc-400/60 font-medium uppercase tracking-tight italic">
-                                            Note: You can provide your own Gemini API key to avoid shared rate limits in cloud environments.
-                                        </p>
+                                    {serverMode === 'CLOUD' && (
+                                        <div className="space-y-1.5 mt-3">
+                                            <p className="text-[10px] text-zinc-400/60 font-medium uppercase tracking-tight italic">
+                                                Note: You can provide your own Gemini API key to avoid shared rate limits in cloud environments.
+                                            </p>
+                                            <p className="text-[10px] text-amber-500/80 font-bold uppercase tracking-tight">
+                                                Note_: Ollama engine is disabled in cloud environments.
+                                            </p>
+                                        </div>
                                     )}
+                                </div>
+
+                                <div className="space-y-4">
+                                    <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <Sparkles size={10} /> AI_ENGINE_PROVIDER
+                                        </div>
+                                        {serverMode === 'CLOUD' && <span className="text-[8px] text-zinc-500 italic lowercase tracking-normal font-medium">ollama not available in cloud</span>}
+                                    </label>
+                                    
+                                    <div className="flex gap-2 p-1 bg-zinc-50 dark:bg-zinc-950 border border-zinc-100 dark:border-zinc-800 rounded-xl relative">
+                                        <button
+                                            onClick={() => setAiProvider('gemini')}
+                                            className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest transition-all rounded-lg z-10 ${
+                                                aiProvider === 'gemini' 
+                                                    ? 'text-blue-500 bg-white dark:bg-zinc-900 shadow-sm border border-zinc-100 dark:border-zinc-800' 
+                                                    : 'text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300'
+                                            }`}
+                                        >
+                                            Gemini
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                if (serverMode === 'CLOUD') {
+                                                    toast.error('Ollama is only available in Local mode.');
+                                                    return;
+                                                }
+                                                setAiProvider('ollama');
+                                            }}
+                                            className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest transition-all rounded-lg z-10 ${
+                                                aiProvider === 'ollama' && serverMode !== 'CLOUD'
+                                                    ? 'text-purple-500 bg-white dark:bg-zinc-900 shadow-sm border border-zinc-100 dark:border-zinc-800' 
+                                                    : 'text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300'
+                                            } ${serverMode === 'CLOUD' ? 'opacity-30 cursor-not-allowed' : ''}`}
+                                        >
+                                            Ollama
+                                        </button>
+                                    </div>
+                                    
+                                    <div className="p-4 bg-zinc-50 dark:bg-zinc-900/40 rounded-xl border border-zinc-100 dark:border-zinc-800/50 space-y-2">
+                                        <p className="text-[11px] text-zinc-500 leading-relaxed uppercase tracking-widest font-black">
+                                            Privacy_Notice:
+                                        </p>
+                                        <p className="text-[12px] text-zinc-400 leading-relaxed font-medium">
+                                            Your resume data and engine keys are used solely for generation. When using Gemini, your data is processed by Google's servers. By proceeding, you agree to the <a href="https://ai.google.dev/terms" target="_blank" rel="noreferrer" className="text-blue-500 hover:underline inline-flex items-center gap-0.5">Gemini Terms</a> and <a href="https://policies.google.com/privacy" target="_blank" rel="noreferrer" className="text-blue-500 hover:underline">Google Privacy</a>. Local Ollama instances process data entirely on your machine.
+                                        </p>
+                                    </div>
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-2">
@@ -309,18 +367,18 @@ export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void }>
                         {tab === 'profile' ? (
                             <button
                                 onClick={handleSave}
-                                className="w-full sm:w-auto bg-black dark:bg-white text-white dark:text-black px-6 sm:px-10 py-3 sm:py-4 text-[10px] font-bold uppercase tracking-[0.3em] flex items-center justify-center gap-3 hover:opacity-80 transition-all border border-black dark:border-white shadow-lg order-1 sm:order-2"
+                                className="w-full sm:w-auto bg-black dark:bg-white text-white dark:text-black px-8 sm:px-14 py-4 sm:py-5 text-[13px] font-black uppercase tracking-[0.3em] flex items-center justify-center gap-4 hover:scale-[1.02] active:scale-[0.98] transition-all border border-black dark:border-white shadow-2xl order-1 sm:order-2"
                             >
-                                <Sparkles size={14} />
+                                <Sparkles size={18} />
                                 Deploy_Node
                             </button>
                         ) : (
                             <button
                                 onClick={handleImport}
                                 disabled={isImporting || !importText.trim()}
-                                className="w-full sm:w-auto bg-black dark:bg-white text-white dark:text-black px-6 sm:px-10 py-3 sm:py-4 text-[10px] font-bold uppercase tracking-[0.3em] flex items-center justify-center gap-3 hover:opacity-80 disabled:opacity-30 transition-all border border-black dark:border-white shadow-lg order-1 sm:order-2"
+                                className="w-full sm:w-auto bg-black dark:bg-white text-white dark:text-black px-8 sm:px-14 py-4 sm:py-5 text-[13px] font-black uppercase tracking-[0.3em] flex items-center justify-center gap-4 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-30 transition-all border border-black dark:border-white shadow-2xl order-1 sm:order-2"
                             >
-                                {isImporting ? <Loader2 size={14} className="animate-spin" /> : <Rocket size={14} />}
+                                {isImporting ? <Loader2 size={18} className="animate-spin" /> : <Rocket size={18} />}
                                 {isImporting ? "Parsing..." : "Import_Digest"}
                             </button>
                         )}

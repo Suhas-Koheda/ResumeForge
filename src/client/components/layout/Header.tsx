@@ -202,17 +202,26 @@ export const Header: React.FC<HeaderProps> = ({
                 >
                     <TerminalIcon size={14} />
                 </button>
-                <div className={`relative flex items-center gap-1 border rounded-full px-2 py-1 transition-all ${aiProvider === 'ollama' ? 'border-purple-500 bg-purple-500/10' : 'border-blue-500 bg-blue-500/10'}`} title="AI Provider">
-                    <Sparkles size={9} className={aiProvider === 'ollama' ? 'text-purple-500' : 'text-blue-500'} />
-                    <select
-                        value={aiProvider}
-                        onChange={e => setAiProvider(e.target.value as any)}
-                        className={`bg-transparent border-none outline-none text-[9px] font-black uppercase tracking-widest cursor-pointer appearance-none pr-1 ${aiProvider === 'ollama' ? 'text-purple-500' : 'text-blue-500'}`}
-                    >
-                        <option value="gemini">Gemini</option>
-                        <option value="ollama">Ollama</option>
-                    </select>
-                </div>
+                <button
+                    onClick={() => {
+                        if (serverMode === 'CLOUD') {
+                            toast.error('Ollama is only available in Local mode.');
+                            return;
+                        }
+                        setAiProvider(aiProvider === 'gemini' ? 'ollama' : 'gemini');
+                    }}
+                    className={`relative flex items-center gap-1.5 border rounded-full px-3 py-1 transition-all hover:scale-105 active:scale-95 ${
+                        aiProvider === 'ollama' && serverMode !== 'CLOUD' 
+                            ? 'border-purple-500 bg-purple-500/10 text-purple-500' 
+                            : 'border-blue-500 bg-blue-500/10 text-blue-500'
+                    } ${serverMode === 'CLOUD' ? 'opacity-70 grayscale-[0.5]' : ''}`}
+                    title={serverMode === 'CLOUD' ? "Gemini Engine (Ollama not available in Cloud)" : `Provider: ${aiProvider.toUpperCase()}`}
+                >
+                    <Sparkles size={10} className={aiProvider === 'ollama' && serverMode !== 'CLOUD' ? 'text-purple-500' : 'text-blue-500'} />
+                    <span className="text-[9px] font-black uppercase tracking-widest whitespace-nowrap">
+                        {serverMode === 'CLOUD' ? 'Gemini' : aiProvider}
+                    </span>
+                </button>
                 <button onClick={() => setIsDark(!isDark)} className="text-zinc-400 hover:text-black dark:hover:text-white p-1" title="Toggle Theme">
                     {isDark ? <Sun size={14} /> : <Moon size={14} />}
                 </button>
