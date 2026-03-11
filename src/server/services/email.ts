@@ -19,7 +19,7 @@ class EmailService {
             return;
         }
 
-        const verificationUrl = `${config.APP_URL}/verify?token=${token}`;
+        const verificationUrl = `${config.APP_URL}/?token=${token}`;
 
         try {
             const { data, error } = await this.resend.emails.send({
@@ -56,12 +56,12 @@ class EmailService {
         if (!this.resend) {
             console.warn("[EMAIL_SERVICE] Resend API Key is missing. Email not sent.");
             if (config.IS_LOCAL) {
-                console.log(`[DEV_ONLY] Reset Link: ${config.APP_URL}/auth?resetToken=${token}`);
+                console.log(`[DEV_ONLY] Reset Link: ${config.APP_URL}/?resetToken=${token}`);
             }
             return;
         }
 
-        const resetUrl = `${config.APP_URL}/auth?resetToken=${token}`;
+        const resetUrl = `${config.APP_URL}/?resetToken=${token}`;
 
         try {
             const { data, error } = await this.resend.emails.send({

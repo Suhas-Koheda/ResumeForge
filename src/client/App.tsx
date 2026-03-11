@@ -85,6 +85,12 @@ function App() {
             }
         };
         checkMode();
+
+        // Auto-show Auth if token is present
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('token') || params.get('resetToken')) {
+            setShowAuth(true);
+        }
     }, []);
 
     // ── Auto-save to SQLite ───────────────────────────────────────────────────
