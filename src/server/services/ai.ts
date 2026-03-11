@@ -23,8 +23,6 @@ const parseSafeJson = (text: string) => {
         return JSON.parse(jsonStr);
     } catch (e) {
         console.error("[LOG_AI_BACKEND] Failed to parse AI JSON. Raw Output:", text);
-        // If it's not JSON, try to return it as a string instead of throwing if possible,
-        // or re-throw with better context.
         throw new Error(`AI response was not valid JSON: ${e instanceof Error ? e.message : 'Invalid format'}`);
     }
 };
@@ -78,14 +76,12 @@ async function executeWithRotation<T>(task: (model: any) => Promise<T>, modelNam
             return await task(model);
         } catch (error: any) {
             lastError = error;
-            // Check for rate limit error (429)
             if (error?.status === 429 || error?.message?.includes("429") || error?.message?.includes("Quota exceeded")) {
                 console.warn(`[LOG_AI_BACKEND] API Key ${rotationIndex % keys.length} rate limited. Rotating...`);
-                rotationIndex++; // Switch to next key
+                rotationIndex++;
                 attempts++;
                 continue;
             }
-            // If it's not a rate limit error, throw immediately
             throw error;
         }
     }
@@ -182,7 +178,6 @@ export const aiService = {
     },
 
     async assembleResume(blocks: ResumeBlock[], template: string, provider?: string) {
-        // ── TEMPLATE CLEANING ──────────────────────────────────
         let cleanTemplate = (template || '').trim();
         const docClassCount = (cleanTemplate.match(/\\documentclass/g) || []).length;
         if (docClassCount > 1) {
@@ -194,16 +189,6 @@ export const aiService = {
             } else {
                 cleanTemplate = cleanTemplate.substring(0, secondIdx).trim();
             }
-        }
-
-        const docClassMatch = cleanTemplate.match(/\\documentclass(?:\[[^\]]*\])?\{([^}]*)\}/);
-        const docClass = docClassMatch ? docClassMatch[1] : 'article';
-        const isFullDocument = cleanTemplate.includes('\\documentclass');
-
-        // Strip embedded .cls/.sty source after \end{document}
-        const endDocIdx = cleanTemplate.lastIndexOf('\\end{document}');
-        if (endDocIdx > -1) {
-            cleanTemplate = cleanTemplate.substring(0, endDocIdx + '\\end{document}'.length);
         }
 
         const enabledBlocks = blocks.filter(b => b.enabled !== false);
@@ -326,9 +311,8 @@ DIRECTIVES:
         return result.replace(/```latex\n?|```\n?/g, "").trim();
     },
 
-    async editLatexFile(content: string, instruction: string, workspaceFiles?: { path: string, content: string }[]) {
-        return executeWithRotation(async (model) => {
-            const prompt = `
+    async editLatexFile(content: string, instruction: string, workspaceFiles?: { path: string, content: string }[], provider?: string) {
+        const prompt = `
 You are a LaTeX expert. Modify the following LaTeX content based on the instruction.
 Maintain the overall structure and document class. Use professional resume formatting.
 
@@ -341,18 +325,20 @@ STRICT DIRECTIVES:
 1. ESCAPING: You MUST escape special fragments: & -> \\&, % -> \\%, $ -> \\$, _ -> \\_, # -> \\#, etc.
 2. FULL DOCUMENT: If the input is empty or a partial, return a FULL compilable document starting with \\documentclass and ending with \\end{document}.
 3. NO MARKDOWN: Return ONLY the raw LaTeX string.
-4. NO CONVERSATION: Return ONLY the raw code.
+4. NO CONVERSATION: Return ONLY the code.
 `;
-            const result = await model.generateContent(prompt);
-            const text = result.response.text();
-            let extracted = text;
-            const match = text.match(/```(?:latex|tex)?\n([\s\S]*?)```/);
-            if (match) {
-                extracted = match[1];
-            } else {
-                extracted = text.replace(/```(?:latex|tex)?\n?|```\n?/g, "");
-            }
-            return extracted.trim();
-        });
+        const result = await runAiTask(async (model) => {
+            const res = await model.generateContent(prompt);
+            return res.response.text();
+        }, prompt, provider);
+
+        let extracted = result;
+        const match = result.match(/```(?:latex|tex)?\n([\s\S]*?)```/);
+        if (match) {
+            extracted = match[1];
+        } else {
+            extracted = result.replace(/```(?:latex|tex)?\n?|```\n?/g, "");
+        }
+        return extracted.trim();
     }
 };

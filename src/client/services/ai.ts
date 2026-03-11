@@ -40,7 +40,10 @@ async function postJson<T = any>(path: string, body: unknown): Promise<T> {
     const res = await fetch(`${API_BASE_URL}${path}`, {
         method: 'POST',
         headers,
-        body: JSON.stringify(body),
+        body: JSON.stringify({
+            ...(body as any),
+            provider: useBuilderStore.getState().aiProvider
+        }),
     });
     if (!res.ok) {
         const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
@@ -55,7 +58,10 @@ async function postText(path: string, body: unknown): Promise<string> {
     const res = await fetch(`${API_BASE_URL}${path}`, {
         method: 'POST',
         headers,
-        body: JSON.stringify(body),
+        body: JSON.stringify({
+            ...(body as any),
+            provider: useBuilderStore.getState().aiProvider
+        }),
     });
     if (!res.ok) {
         const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
