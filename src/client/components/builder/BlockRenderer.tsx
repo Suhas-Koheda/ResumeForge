@@ -7,6 +7,7 @@ import { ProjectBlock } from '../blocks/ProjectBlock';
 import { HeaderBlock } from '../blocks/HeaderBlock';
 import { SummaryBlock } from '../blocks/SummaryBlock';
 import { OtherBlock } from '../blocks/OtherBlock';
+import { TemplateBlock } from '../blocks/TemplateBlock';
 
 /**
  * Scalable Block Registry
@@ -23,6 +24,7 @@ const BLOCK_REGISTRY: Record<BlockType, React.FC<{ id: string; data: any }>> = {
     header: HeaderBlock,
     summary: SummaryBlock,
     other: OtherBlock,
+    template: TemplateBlock,
 };
 
 interface BlockRendererProps {

@@ -8,7 +8,7 @@ import {
     Plus, Terminal, Sun, Moon,
     Briefcase, GraduationCap, Code, Rocket, FileText, Layers,
     Loader2, Sparkles, X, User, Download, Trash2, Menu, ChevronDown,
-    Save, RefreshCw, FileDown, Type, Play,
+    Save, RefreshCw, FileDown, Type, Play, FileCode,
 } from 'lucide-react';
 import { ResumeBlock, BlockType } from '@shared/types';
 import { OnboardingModal } from './components/ui/OnboardingModal';
@@ -34,6 +34,7 @@ const BLOCK_BUTTONS: { type: BlockType; label: string; icon: React.ElementType }
     { type: 'skills', label: 'Skills', icon: Code },
     { type: 'project', label: 'Project', icon: Rocket },
     { type: 'other', label: 'Other', icon: Layers },
+    { type: 'template', label: 'Template', icon: FileCode },
 ];
 
 // ── App ───────────────────────────────────────────────────────────────────────
@@ -127,7 +128,10 @@ function App() {
                 setHasUnsavedChanges(false);
                 if (isManual) toast.success('Sync Successful');
             } else {
-                if (isManual) toast.error('Sync Failed');
+                const errBody = await res.json().catch(() => null);
+                const errMsg = errBody?.message || errBody?.error || 'Sync Failed';
+                if (isManual || res.status === 403) toast.error(errMsg, { duration: 8000 });
+                else if (isManual) toast.error('Sync Failed');
             }
         } catch (e) {
             console.error('[APP] Save error:', e);
@@ -305,7 +309,9 @@ function App() {
 
     // ── AI assemble ───────────────────────────────────────────────────────────
     async function handleAssemble(forceAi = false) {
-        const baseTemplate = customTemplate || projectFiles.find(f => f.name === 'main.tex')?.content || '';
+        // Prioritize template block from canvas if it exists and is enabled
+        const templateBlock = blocks.find(b => b.type === 'template' && b.enabled !== false);
+        const baseTemplate = templateBlock?.data?.content || customTemplate || projectFiles.find(f => f.name === 'main.tex')?.content || '';
         // Build a cache key from only user-controlled content (blocks + base template)
         // Excluding main.tex from projectFiles because it gets overwritten every compile
         const cacheKey = JSON.stringify(blocks.filter(b => b.enabled !== false)) + '|||' + baseTemplate.slice(0, 500);

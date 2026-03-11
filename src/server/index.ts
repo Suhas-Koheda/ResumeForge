@@ -13,6 +13,7 @@ import { latexCompiler } from './services/latexCompiler.js';
 import { getFileServiceClient } from './services/fileServiceClient.js';
 import { latexParserService } from './services/parser/index.js';
 import { Template } from './entities/Template.entity.js';
+import { UsageService } from './services/usageService.js';
 
 import path from 'path';
 import fs from 'fs';
@@ -82,48 +83,105 @@ apiRouter.use('/files', filesRouter);
 apiRouter.use('/import', importRouter);
 apiRouter.use('/export', exportRouter);
 
+/**
+ * Simple heuristic-based prompt injection check.
+ * Checks for common "ignore previous instructions", "system", "tell me a story", etc.
+ */
+async function isPromptInjection(text: string): Promise<boolean> {
+    if (!text) return false;
+    const lower = text.toLowerCase();
+    const markers = [
+        'ignore all previous instructions',
+        'ignore previous instructions',
+        'system prompt',
+        'you are now',
+        'do not mention',
+        'tell me a story',
+        'write a poem',
+        'bypass',
+        'override',
+        'jailbreak'
+    ];
+    return markers.some(m => lower.includes(m));
+}
+
 // AI Routes (keeping inline for now as they are central to this branch, or could move to aiRouter)
-apiRouter.post('/ai/experience', authMiddleware, async (req, res) => {
+apiRouter.post('/ai/experience', authMiddleware, async (req: AuthRequest, res) => {
     try {
-        const result = await aiService.polishExperience(req.body.text, req.body.provider);
+        const { text, provider } = req.body;
+        if (await isPromptInjection(text)) return res.status(400).json({ error: 'Potential prompt injection detected' });
+
+        const limitCheck = await UsageService.checkAiLimit(req.userId!);
+        if (!limitCheck.allowed) return res.status(403).json({ error: 'AI limit reached', message: limitCheck.message });
+
+        const result = await aiService.polishExperience(text, provider);
+        await UsageService.recordAiAction(req.userId!, 'polish_experience');
         res.json(JSON.parse(result));
     } catch (e: any) {
         res.status(500).json({ error: 'AI processing failed', details: e.message });
     }
 });
 
-apiRouter.post('/ai/skills', authMiddleware, async (req, res) => {
+apiRouter.post('/ai/skills', authMiddleware, async (req: AuthRequest, res) => {
     try {
-        const result = await aiService.polishSkills(req.body.text, req.body.provider);
+        const { text, provider } = req.body;
+        if (await isPromptInjection(text)) return res.status(400).json({ error: 'Potential prompt injection detected' });
+
+        const limitCheck = await UsageService.checkAiLimit(req.userId!);
+        if (!limitCheck.allowed) return res.status(403).json({ error: 'AI limit reached', message: limitCheck.message });
+
+        const result = await aiService.polishSkills(text, provider);
+        await UsageService.recordAiAction(req.userId!, 'polish_skills');
         res.json(JSON.parse(result));
     } catch (e: any) {
         res.status(500).json({ error: 'AI processing failed', details: e.message });
     }
 });
 
-apiRouter.post('/ai/project', authMiddleware, async (req, res) => {
+apiRouter.post('/ai/project', authMiddleware, async (req: AuthRequest, res) => {
     try {
-        const result = await aiService.polishProject(req.body.text, req.body.provider);
+        const { text, provider } = req.body;
+        if (await isPromptInjection(text)) return res.status(400).json({ error: 'Potential prompt injection detected' });
+
+        const limitCheck = await UsageService.checkAiLimit(req.userId!);
+        if (!limitCheck.allowed) return res.status(403).json({ error: 'AI limit reached', message: limitCheck.message });
+
+        const result = await aiService.polishProject(text, provider);
+        await UsageService.recordAiAction(req.userId!, 'polish_project');
         res.json(JSON.parse(result));
     } catch (e: any) {
         res.status(500).json({ error: 'AI processing failed', details: e.message });
     }
 });
 
-apiRouter.post('/ai/education', authMiddleware, async (req, res) => {
+apiRouter.post('/ai/education', authMiddleware, async (req: AuthRequest, res) => {
     try {
-        const result = await aiService.polishEducation(req.body.text, req.body.provider);
+        const { text, provider } = req.body;
+        if (await isPromptInjection(text)) return res.status(400).json({ error: 'Potential prompt injection detected' });
+
+        const limitCheck = await UsageService.checkAiLimit(req.userId!);
+        if (!limitCheck.allowed) return res.status(403).json({ error: 'AI limit reached', message: limitCheck.message });
+
+        const result = await aiService.polishEducation(text, provider);
+        await UsageService.recordAiAction(req.userId!, 'polish_education');
         res.json(JSON.parse(result));
     } catch (e: any) {
         res.status(500).json({ error: 'AI processing failed', details: e.message });
     }
 });
 
-apiRouter.post('/ai/assemble', authMiddleware, async (req, res) => {
+apiRouter.post('/ai/assemble', authMiddleware, async (req: AuthRequest, res) => {
     try {
         const { blocks, template, provider } = req.body;
+        // Template can be long and include LaTeX, but we should check for malicious instructions
+        if (await isPromptInjection(template)) return res.status(400).json({ error: 'Potential prompt injection detected' });
+
+        const limitCheck = await UsageService.checkAiLimit(req.userId!);
+        if (!limitCheck.allowed) return res.status(403).json({ error: 'AI limit reached', message: limitCheck.message });
+
         console.log(`[SERVER] /ai/assemble called. Provider: ${provider}, Blocks: ${blocks?.length}`);
         const result = await aiService.assembleResume(blocks, template, provider);
+        await UsageService.recordAiAction(req.userId!, 'assemble');
         res.send(result);
     } catch (e: any) {
         console.error(`[SERVER] /ai/assemble failed: ${e.message}`);
@@ -150,9 +208,16 @@ apiRouter.post('/ai/assemble-local', authMiddleware, async (req, res) => {
     }
 });
 
-apiRouter.post('/ai/command', authMiddleware, async (req, res) => {
+apiRouter.post('/ai/command', authMiddleware, async (req: AuthRequest, res) => {
     try {
-        const result = await aiService.genericAiCommand(req.body.prompt, req.body.provider);
+        const { prompt, provider } = req.body;
+        if (await isPromptInjection(prompt)) return res.status(400).json({ error: 'Potential prompt injection detected' });
+
+        const limitCheck = await UsageService.checkAiLimit(req.userId!);
+        if (!limitCheck.allowed) return res.status(403).json({ error: 'AI limit reached', message: limitCheck.message });
+
+        const result = await aiService.genericAiCommand(prompt, provider);
+        await UsageService.recordAiAction(req.userId!, 'command');
         res.send(result);
     } catch (e: any) {
         res.status(500).json({ error: 'AI command failed', details: e.message });
@@ -162,9 +227,14 @@ apiRouter.post('/ai/command', authMiddleware, async (req, res) => {
 apiRouter.post('/ai/parse', authMiddleware, async (req: AuthRequest, res) => {
     try {
         const { content, autoSave, title, id, provider } = req.body;
+        if (await isPromptInjection(content)) return res.status(400).json({ error: 'Potential prompt injection detected' });
+
+        const limitCheck = await UsageService.checkAiLimit(req.userId!);
+        if (!limitCheck.allowed) return res.status(403).json({ error: 'AI limit reached', message: limitCheck.message });
 
         // ALWAYS use the AI for parsing, regardless of whether it's LaTeX or Plain Text.
         const resultText = await aiService.parseResume(content, provider);
+        await UsageService.recordAiAction(req.userId!, 'parse');
         let blocksArray: any[] = JSON.parse(resultText);
 
         if (autoSave && req.userId && blocksArray) {
@@ -188,21 +258,34 @@ apiRouter.post('/ai/parse', authMiddleware, async (req: AuthRequest, res) => {
     }
 });
 
-apiRouter.post('/ai/optimize', authMiddleware, async (req, res) => {
+apiRouter.post('/ai/optimize', authMiddleware, async (req: AuthRequest, res) => {
     try {
         const { blocks, jd, provider } = req.body;
+        if (await isPromptInjection(jd)) return res.status(400).json({ error: 'Potential prompt injection detected' });
+
+        const limitCheck = await UsageService.checkAiLimit(req.userId!);
+        if (!limitCheck.allowed) return res.status(403).json({ error: 'AI limit reached', message: limitCheck.message });
+
         const result = await aiService.optimizeForJD(blocks, jd, provider);
+        await UsageService.recordAiAction(req.userId!, 'optimize');
         res.json(JSON.parse(result));
     } catch (e: any) {
         res.status(500).json({ error: 'AI optimization failed', details: e.message });
     }
 });
 
-apiRouter.post('/ai/edit-file', authMiddleware, async (req, res) => {
+apiRouter.post('/ai/edit-file', authMiddleware, async (req: AuthRequest, res) => {
     try {
         const { content, instruction, workspaceFiles, provider } = req.body;
         if (!content && !instruction) return res.status(400).json({ error: 'content and instruction are required' });
+        
+        if (await isPromptInjection(instruction)) return res.status(400).json({ error: 'Potential prompt injection detected' });
+
+        const limitCheck = await UsageService.checkAiLimit(req.userId!);
+        if (!limitCheck.allowed) return res.status(403).json({ error: 'AI limit reached', message: limitCheck.message });
+
         const result = await aiService.editLatexFile(content, instruction, workspaceFiles, provider);
+        await UsageService.recordAiAction(req.userId!, 'edit_file');
         res.send(result);
     } catch (e: any) {
         res.status(500).json({ error: 'AI file editing failed', details: e.message });

@@ -24,6 +24,7 @@ const TYPE_ACCENT: Record<string, string> = {
     skills:     '#ec4899',
     summary:    '#8b5cf6',
     other:      '#64748b',
+    template:   '#f43f5e',
 };
 
 // Cluster column X origins (blocks of the same type stack in the same column)
@@ -35,6 +36,7 @@ const CLUSTER_COLUMNS: Record<string, number> = {
     project:    2000,
     skills:     2500,
     other:      3000,
+    template:   3500,
 };
 const NODE_WIDTH  = 420;
 const NODE_VGAP   = 24;  // vertical gap between stacked nodes of same type

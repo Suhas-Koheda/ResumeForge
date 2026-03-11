@@ -1,7 +1,7 @@
 import React, { memo, useRef, useEffect, useState } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical, Briefcase, GraduationCap, Code, Rocket, Trash2, User, Power, FileText } from 'lucide-react';
+import { GripVertical, Briefcase, GraduationCap, Code, Rocket, Trash2, User, Power, FileText, Layers, FileCode } from 'lucide-react';
 import { ResumeBlock } from '@shared/types';
 import { BlockRenderer } from './BlockRenderer';
 import { useBlock } from '../../hooks/useResume';
@@ -18,6 +18,7 @@ const getBlockMeta = (type: string) => {
         case 'skills':     return { icon: Code,          accent: '#f59e0b', label: 'Skills' };
         case 'project':    return { icon: Rocket,        accent: '#ec4899', label: 'Project' };
         case 'summary':    return { icon: FileText,      accent: '#8b5cf6', label: 'Summary' };
+        case 'template':   return { icon: FileCode,      accent: '#f43f5e', label: 'Template' };
         default:           return { icon: Briefcase,     accent: '#71717a', label: type };
     }
 };

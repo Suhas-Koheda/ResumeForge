@@ -51,7 +51,8 @@ async function postJson<T = any>(path: string, body: unknown): Promise<T> {
         });
         if (!res.ok) {
             const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
-            throw new Error(err.error || err.details || `Request failed: ${res.status}`);
+            // 403 responses carry a human-friendly 'message' (e.g. rate limit + GitHub link)
+            throw new Error(err.message || err.error || err.details || `Request failed: ${res.status}`);
         }
         return res.json();
     } finally {
@@ -76,7 +77,8 @@ async function postText(path: string, body: unknown): Promise<string> {
         });
         if (!res.ok) {
             const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
-            throw new Error(err.error || err.details || `Request failed: ${res.status}`);
+            // 403 responses carry a human-friendly 'message' (e.g. rate limit + GitHub link)
+            throw new Error(err.message || err.error || err.details || `Request failed: ${res.status}`);
         }
         return res.text();
     } finally {

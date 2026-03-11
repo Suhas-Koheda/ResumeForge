@@ -3,6 +3,7 @@ import { config } from './config.js';
 import { Resume } from '../entities/Resume.entity.js';
 import { Template, TemplateVersion } from '../entities/Template.entity.js';
 import { User } from '../entities/User.entity.js';
+import { AiUsage } from '../entities/AiUsage.entity.js';
 
 const rawUrl = config.DB_URL.replace(/^jdbc:postgresql:\/\//, '').replace(/^jdbc:/, '');
 const [hostAndPort, dbName] = rawUrl.split('/');
@@ -16,7 +17,7 @@ export const AppDataSource = new DataSource(
         database: 'local_dev.sqlite',
         synchronize: true,
         logging: false,
-        entities: [Resume, Template, TemplateVersion, User],
+        entities: [Resume, Template, TemplateVersion, User, AiUsage],
     }
     : {
         type: 'postgres',
@@ -27,7 +28,7 @@ export const AppDataSource = new DataSource(
         database: dbName,
         synchronize: true,
         logging: false,
-        entities: [Resume, Template, TemplateVersion, User],
+        entities: [Resume, Template, TemplateVersion, User, AiUsage],
         ssl: {
             rejectUnauthorized: false
         }

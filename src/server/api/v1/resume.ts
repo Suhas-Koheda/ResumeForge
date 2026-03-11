@@ -2,6 +2,7 @@ import express from 'express';
 import { AppDataSource } from '../../core/database.js';
 import { Resume } from '../../entities/Resume.entity.js';
 import { authMiddleware, AuthRequest } from '../../core/auth.js';
+import { UsageService } from '../../services/usageService.js';
 
 const router = express.Router();
 
@@ -64,6 +65,13 @@ router.post('/', authMiddleware, async (req: AuthRequest, res) => {
 
         // 3. Create new resume
         console.log(`[LOG_DB] Creating new resume: ${normalizedTitle}`);
+
+        // Enforcement of limits in Cloud
+        const limitCheck = await UsageService.checkResumeLimit(req.userId);
+        if (!limitCheck.allowed) {
+            return res.status(403).json({ error: 'Limit reached', message: limitCheck.message });
+        }
+
         const resume = resumeRepo.create({
             userId: req.userId,
             title: normalizedTitle,
