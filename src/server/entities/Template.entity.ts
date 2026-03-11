@@ -1,5 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
-import { TemplateVersion } from './TemplateVersion.entity.js';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany, ManyToOne } from 'typeorm';
 
 /**
  * A LaTeX template stored in the local SQLite database.
@@ -46,4 +45,25 @@ export class Template {
 
     @OneToMany(() => TemplateVersion, (v: TemplateVersion) => v.template)
     versions!: TemplateVersion[];
+}
+
+@Entity('template_versions')
+export class TemplateVersion {
+    @PrimaryGeneratedColumn('uuid')
+    id!: string;
+
+    @ManyToOne(() => Template, (template: Template) => template.versions, { onDelete: 'CASCADE' })
+    template!: Template;
+
+    @Column('int')
+    version!: number;
+
+    @Column({ type: 'text', default: '{}' })
+    config!: string; // serialized JSON
+
+    @Column({ type: 'text' })
+    preamble!: string;
+
+    @CreateDateColumn()
+    createdAt!: Date;
 }

@@ -1,8 +1,7 @@
 import { DataSource } from 'typeorm';
 import { config } from './config.js';
 import { Resume } from '../entities/Resume.entity.js';
-import { Template } from '../entities/Template.entity.js';
-import { TemplateVersion } from '../entities/TemplateVersion.entity.js';
+import { Template, TemplateVersion } from '../entities/Template.entity.js';
 import { User } from '../entities/User.entity.js';
 
 const rawUrl = config.DB_URL.replace(/^jdbc:postgresql:\/\//, '').replace(/^jdbc:/, '');

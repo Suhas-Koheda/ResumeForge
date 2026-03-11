@@ -1,7 +1,6 @@
 import express from 'express';
 import { AppDataSource } from '../../core/database.js';
-import { Template } from '../../entities/Template.entity.js';
-import { TemplateVersion } from '../../entities/TemplateVersion.entity.js';
+import { Template, TemplateVersion } from '../../entities/Template.entity.js';
 import { latexCompiler } from '../../services/latexCompiler.js';
 
 const router = express.Router();
