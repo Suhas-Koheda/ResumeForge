@@ -79,7 +79,10 @@ export const geminiService = {
         postJson('/ai/education', { text: rawText }),
 
     assembleFullResume: (blocks: ResumeBlock[], template: string, _apiKey?: string) =>
-        postText('/ai/assemble', { blocks, template }),
+        postText('/ai/assemble', { 
+            blocks: blocks.filter(b => b.enabled !== false), 
+            template 
+        }),
 
     parseResume: (content: string | Blob, _type: 'text' | 'file', _apiKey?: string, autoSave = false, title?: string, id?: string): Promise<any> =>
         postJson('/ai/parse', { content, autoSave, title, id }),

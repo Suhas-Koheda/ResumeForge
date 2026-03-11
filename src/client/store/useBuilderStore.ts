@@ -173,7 +173,7 @@ export const useBuilderStore = create<BuilderStore>()(
             toggleBlock: (id) =>
                 set((state) => {
                     const newBlocks = state.blocks.map(b =>
-                        b.id === id ? { ...b, enabled: !b.enabled } : b,
+                        b.id === id ? { ...b, enabled: b.enabled === false } : b,
                     );
                     return { blocks: newBlocks, resumes: syncActiveResume(state, { blocks: newBlocks }) };
                 }),

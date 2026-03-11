@@ -249,7 +249,7 @@ function App() {
     }
 
     // ── Manual assemble (blocks → LaTeX → compile) ────────────────────────────
-    function handleManualAssemble(forcedLatex?: string, filename?: string) {
+    function handleManualAssemble(forcedLatex?: string, filename?: string, forceFromBlocks = false) {
         let latex = forcedLatex;
         
         if (!latex) {
@@ -274,9 +274,10 @@ function App() {
     async function handleAssemble() {
         setIsAssembling(true);
         setShowBuildOutput(true);
-        const toastId = toast.loading('AI Assembly in progress…', { position: 'bottom-center' });
+        const toastId = toast.loading('Syncing Canvas to Template…', { position: 'bottom-center' });
         try {
-            const sectionContent = await geminiService.assembleFullResume(blocks, customTemplate || '');
+            const baseTemplate = customTemplate || projectFiles.find(f => f.name === 'main.tex')?.content || '';
+            const sectionContent = await geminiService.assembleFullResume(blocks, baseTemplate);
             if (!sectionContent) {
                 toast.dismiss(toastId);
                 throw new Error('AI returned empty content. Verify your API key and template.');
@@ -525,10 +526,10 @@ function App() {
                         )}
 
                         <button
-                            onClick={() => handleManualAssemble()}
+                            onClick={() => handleAssemble()}
                             className="hidden sm:flex px-3 py-1.5 text-[9px] font-bold uppercase tracking-[0.2em] border border-black dark:border-white text-black dark:text-white hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black transition-all items-center gap-2"
                         >
-                            <Sparkles size={10} /> COMPILE
+                            <Sparkles size={10} /> SYNC & COMPILE
                         </button>
 
                         <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="lg:hidden p-1.5 text-zinc-500 dark:text-zinc-400 hover:text-black dark:hover:text-white">
@@ -647,8 +648,8 @@ function App() {
                                     <button onClick={() => { downloadJson(); setIsMobileMenuOpen(false); }} className="w-full h-12 flex items-center gap-4 px-4 bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-100 dark:border-[#2d3042] rounded-xl text-[10px] font-bold uppercase tracking-widest">
                                         <Layers size={16} /> Export JSON
                                     </button>
-                                    <button onClick={() => { handleManualAssemble(); setIsMobileMenuOpen(false); }} className="w-full h-12 flex items-center gap-4 px-4 bg-black dark:bg-white text-white dark:text-black rounded-xl text-[10px] font-bold uppercase tracking-widest">
-                                        <Sparkles size={16} /> Compile
+                                    <button onClick={() => { handleAssemble(); setIsMobileMenuOpen(false); }} className="w-full h-12 flex items-center gap-4 px-4 bg-black dark:bg-white text-white dark:text-black rounded-xl text-[10px] font-bold uppercase tracking-widest">
+                                        <Sparkles size={16} /> Sync & Compile
                                     </button>
                                 </div>
                             </div>
