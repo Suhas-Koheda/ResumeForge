@@ -288,6 +288,7 @@ function App() {
                 if (localResult) {
                     finalDoc = localResult;
                     usedLocal = true;
+                    setPreviewMode('pdf');
                     toast.success('Local Assembly complete.', { id: toastId });
                 }
             } catch (e) {
