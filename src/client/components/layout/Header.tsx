@@ -37,7 +37,7 @@ interface HeaderProps {
     downloadPdf: (download?: boolean) => void;
     downloadTex: () => void;
     downloadJson: () => void;
-    handleAssemble: () => void;
+    handleAssemble: (forceAi?: boolean) => void;
     setIsMobileMenuOpen: (val: boolean) => void;
     isMobileMenuOpen: boolean;
     isAssembling: boolean;
@@ -248,11 +248,19 @@ export const Header: React.FC<HeaderProps> = ({
                     )}
 
                     <button
+                        onClick={() => handleAssemble(true)}
+                        disabled={isAssembling}
+                        className="hidden sm:flex px-3 py-1.5 text-[10.5px] font-bold uppercase tracking-[0.15em] bg-blue-600 border border-blue-600 text-white hover:bg-blue-700 transition-all items-center gap-2 disabled:opacity-50 shadow-lg shadow-blue-500/20"
+                    >
+                        <Sparkles size={10} /> AI COMPILE
+                    </button>
+
+                    <button
                         onClick={() => handleAssemble()}
                         disabled={isAssembling}
                         className="hidden sm:flex px-3 py-1.5 text-[10.5px] font-bold uppercase tracking-[0.15em] border border-black dark:border-white text-black dark:text-white hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black transition-all items-center gap-2 disabled:opacity-50"
                     >
-                        <Sparkles size={10} /> SYNC & COMPILE
+                        <RefreshCw size={10} /> SYNC & COMPILE
                     </button>
 
                     <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="lg:hidden p-1.5 text-zinc-500 dark:text-zinc-400 hover:text-black dark:hover:text-white">

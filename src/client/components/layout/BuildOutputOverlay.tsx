@@ -12,6 +12,8 @@ interface BuildOutputOverlayProps {
     downloadPdf: (download?: boolean) => void;
     handleManualAssemble: (latex?: string, filename?: string) => void;
     MultiFileEditor: React.FC<any>;
+    onAiAssemble: () => Promise<void>;
+    isAssembling: boolean;
 }
 
 /**
@@ -69,7 +71,7 @@ function extractLatexError(log: string): { summary: string; hasMore: boolean } {
 export const BuildOutputOverlay: React.FC<BuildOutputOverlayProps> = ({
     showBuildOutput, setShowBuildOutput, previewMode, setPreviewMode,
     pdfUrl, isGeneratingPdf, compilationLog, downloadPdf,
-    handleManualAssemble, MultiFileEditor
+    handleManualAssemble, MultiFileEditor, onAiAssemble, isAssembling
 }) => {
     const [showFullError, setShowFullError] = useState(false);
     const [copied, setCopied] = useState(false);
@@ -118,6 +120,8 @@ export const BuildOutputOverlay: React.FC<BuildOutputOverlayProps> = ({
                         <MultiFileEditor
                             onCompile={(latex: string, filename: string) => handleManualAssemble(latex, filename)}
                             isCompiling={isGeneratingPdf}
+                            onAiAssemble={onAiAssemble}
+                            isAssembling={isAssembling}
                         />
                     ) : (
                         <div className="flex-1 relative bg-zinc-100 flex items-center justify-center">

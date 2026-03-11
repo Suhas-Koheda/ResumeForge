@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Editor from '@monaco-editor/react';
 import { FileTree } from './FileTree';
-import { Save, Play, Sparkles, Loader2, FileCode, RefreshCcw, X, Wand2 } from 'lucide-react';
+import { Save, Play, Sparkles, Loader2, FileCode, RefreshCcw, X, Wand2, AlertTriangle } from 'lucide-react';
 import { useBuilderStore } from '../../store/useBuilderStore';
 import { manualLatexGenerator } from '../../services/manualLatex';
 import { geminiService } from '../../services/ai';
@@ -10,9 +10,11 @@ import toast from 'react-hot-toast';
 interface MultiFileEditorProps {
     onCompile?: (latex: string, filename?: string) => void;
     isCompiling?: boolean;
+    onAiAssemble?: () => Promise<void>;
+    isAssembling?: boolean;
 }
 
-export function MultiFileEditor({ onCompile, isCompiling }: MultiFileEditorProps) {
+export function MultiFileEditor({ onCompile, isCompiling, onAiAssemble, isAssembling }: MultiFileEditorProps) {
     const [activeFile, setActiveFile] = useState<string | null>(null);
     const [content, setContent] = useState<string>('');
     const [isSaving, setIsSaving] = useState(false);
@@ -203,10 +205,19 @@ export function MultiFileEditor({ onCompile, isCompiling }: MultiFileEditorProps
                         </button>
                         <button 
                             onClick={handleSyncFromCanvas}
-                            title="Sync from Visual Builder"
+                            title="Quick Sync (Local)"
                             className="p-1.5 text-zinc-400 hover:text-blue-500 transition-colors"
                         >
                             <RefreshCcw size={14} />
+                        </button>
+                        <button 
+                            onClick={() => onAiAssemble?.()}
+                            disabled={isAssembling || !activeFile}
+                            title="AI Assemble (Canvas -> Code)"
+                            className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded text-[9px] font-bold uppercase tracking-widest hover:bg-blue-100 dark:hover:bg-blue-900/40 disabled:opacity-50 transition-all border border-blue-200 dark:border-blue-800/50"
+                        >
+                            {isAssembling ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+                            AI ASSEMBLE
                         </button>
                         <button 
                             onClick={() => handleSave()}
@@ -225,6 +236,16 @@ export function MultiFileEditor({ onCompile, isCompiling }: MultiFileEditorProps
                             COMPILE
                         </button>
                     </div>
+                </div>
+
+                <div className="bg-amber-50 dark:bg-amber-950/20 px-6 py-2 border-b border-amber-100 dark:border-amber-900/30 flex items-start gap-3">
+                    <div className="mt-0.5 text-amber-500">
+                        <AlertTriangle size={12} />
+                    </div>
+                    <p className="text-[10px] text-amber-700 dark:text-amber-400/80 leading-relaxed font-medium">
+                        <strong>PRO TIP:</strong> If your template uses custom <code className="bg-amber-100 dark:bg-amber-900/50 px-1 rounded">.cls</code> or <code className="bg-amber-100 dark:bg-amber-900/50 px-1 rounded">.sty</code> files, 
+                        make sure to upload them to the project via the file explorer on the left.
+                    </p>
                 </div>
 
                 <div className="flex-1 min-h-0 relative bg-white dark:bg-[#1e1e1e]">

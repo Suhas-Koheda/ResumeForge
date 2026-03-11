@@ -304,14 +304,14 @@ function App() {
     }
 
     // ── AI assemble ───────────────────────────────────────────────────────────
-    async function handleAssemble() {
+    async function handleAssemble(forceAi = false) {
         const baseTemplate = customTemplate || projectFiles.find(f => f.name === 'main.tex')?.content || '';
         // Build a cache key from only user-controlled content (blocks + base template)
         // Excluding main.tex from projectFiles because it gets overwritten every compile
         const cacheKey = JSON.stringify(blocks.filter(b => b.enabled !== false)) + '|||' + baseTemplate.slice(0, 500);
 
         // 🛑 Fast path: same blocks+template as last time, PDF already rendered — just show it
-        if (lastAssembledStateRef.current === cacheKey && lastAssembledDocRef.current && pdfUrl) {
+        if (!forceAi && lastAssembledStateRef.current === cacheKey && lastAssembledDocRef.current && pdfUrl) {
             setShowBuildOutput(true);
             setPreviewMode('pdf');
             toast.success('No changes — showing cached PDF.', { position: 'bottom-center' });
@@ -320,26 +320,53 @@ function App() {
 
         setIsAssembling(true);
         setShowBuildOutput(true);
-        const toastId = toast.loading('Syncing Canvas to Template…', { position: 'bottom-center' });
+        const toastId = toast.loading(forceAi ? 'Forcing AI Assembly…' : 'Syncing Canvas to Template…', { position: 'bottom-center' });
         try {
 
             let finalDoc = '';
             let usedLocal = false;
 
             // Attempt local assembly first WITHOUT API CALL
-            try {
-                const { LatexBlockManager } = await import('../shared/latexBlockManager');
-                const manager = new LatexBlockManager();
-                const localResult = manager.assembleLocal(baseTemplate, blocks);
+            if (!forceAi) {
+                try {
+                    const { LatexBlockManager } = await import('../shared/latexBlockManager');
+                    const manager = new LatexBlockManager();
+                    const localResult = manager.assembleLocal(baseTemplate, blocks);
 
-                if (localResult) {
-                    finalDoc = localResult;
-                    usedLocal = true;
-                    setPreviewMode('pdf');
-                    toast.success('Local Assembly complete.', { id: toastId });
+                    if (localResult) {
+                        finalDoc = localResult;
+                        usedLocal = true;
+                        setPreviewMode('pdf');
+
+                        // If no custom template was used, warn the user this is a neutral layout
+                        if (!baseTemplate || baseTemplate.trim().length < 50) {
+                            toast.dismiss(toastId);
+                            toast(
+                                (t) => (
+                                    <div className="flex flex-col gap-1.5 max-w-xs">
+                                        <p className="text-[11px] font-black uppercase tracking-widest">Neutral Template</p>
+                                        <p className="text-[10px] text-zinc-600 leading-relaxed">
+                                            No custom template detected — using a basic layout. Hit{' '}
+                                            <strong>AI&nbsp;Assemble</strong> (✦) or open the{' '}
+                                            <strong>Source editor</strong> to apply your own template.
+                                        </p>
+                                        <button
+                                            onClick={() => toast.dismiss(t.id)}
+                                            className="self-end text-[9px] font-bold uppercase tracking-widest text-zinc-400 hover:text-black mt-0.5"
+                                        >
+                                            Got it
+                                        </button>
+                                    </div>
+                                ),
+                                { duration: 8000, position: 'bottom-center', icon: 'ℹ️' }
+                            );
+                        } else {
+                            toast.success('Local Assembly complete.', { id: toastId });
+                        }
+                    }
+                } catch (e) {
+                    console.warn('[APP] Local assembly failed, falling back to AI:', e);
                 }
-            } catch (e) {
-                console.warn('[APP] Local assembly failed, falling back to AI:', e);
             }
 
             // Fallback to AI if local assembly was not possible
@@ -518,6 +545,8 @@ function App() {
                         downloadPdf={downloadPdf}
                         handleManualAssemble={handleManualAssemble}
                         MultiFileEditor={MultiFileEditor}
+                        onAiAssemble={() => handleAssemble(true)}
+                        isAssembling={isAssembling}
                     />
                 </main>
             </div>
