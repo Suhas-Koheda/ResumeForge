@@ -23,7 +23,7 @@ import { Header } from './components/layout/Header';
 import { Sidebar } from './components/layout/Sidebar';
 import { MobileDrawer } from './components/layout/MobileDrawer';
 
-const API_BASE_URL = (import.meta as any).env.VITE_API_URL || '/api/v1';
+const API_BASE_URL = (import.meta as any).env.VITE_API_URL || 'api/v1';
 
 // ── Block sidebar configuration ───────────────────────────────────────────────
 const BLOCK_BUTTONS: { type: BlockType; label: string; icon: React.ElementType }[] = [
