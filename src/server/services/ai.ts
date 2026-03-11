@@ -4,26 +4,44 @@ import { ResumeBlock } from "../../shared/types.js";
 
 const parseSafeJson = (text: string) => {
     try {
-        // Remove markdown formatting: ```json ... ``` or just ```
+        // 1. Pre-clean: Remove common AI conversational filler and code fences
         let jsonStr = text.replace(/```json\n?|```\n?/g, "").trim();
 
-        // Try to find a JSON array or object in the response first
-        const arrayMatch = jsonStr.match(/\[[\s\S]*\]/);
-        const objectMatch = jsonStr.match(/\{[\s\S]*\}/);
+        // 2. Find the bounds of the JSON structure (either [ and ] or { and })
+        const firstBracket = jsonStr.indexOf('[');
+        const firstBrace = jsonStr.indexOf('{');
+        
+        let start = -1;
+        let end = -1;
 
-        // Use the match that appears first/is larger, or fallback to cleaned
-        if (arrayMatch && objectMatch) {
-            jsonStr = arrayMatch[0].length > objectMatch[0].length ? arrayMatch[0] : objectMatch[0];
-        } else if (arrayMatch) {
-            jsonStr = arrayMatch[0];
-        } else if (objectMatch) {
-            jsonStr = objectMatch[0];
+        if (firstBracket !== -1 && (firstBrace === -1 || firstBracket < firstBrace)) {
+            start = firstBracket;
+            end = jsonStr.lastIndexOf(']');
+        } else if (firstBrace !== -1) {
+            start = firstBrace;
+            end = jsonStr.lastIndexOf('}');
         }
+
+        if (start !== -1 && end !== -1 && end > start) {
+            jsonStr = jsonStr.substring(start, end + 1);
+        }
+
+        // 3. Fix common Llama issues:
+        // - Double backslashes in LaTeX often get messed up
+        // - Trailing commas
+        jsonStr = jsonStr.replace(/,\s*([\]}])/g, '$1');
+        
+        // Remove control characters except for common whitespace
+        jsonStr = jsonStr.replace(/[\u0000-\u001F\u007F-\u009F]/g, (match) => {
+            if (match === '\n' || match === '\r' || match === '\t') return match;
+            return '';
+        });
 
         return JSON.parse(jsonStr);
     } catch (e) {
-        console.error("[LOG_AI_BACKEND] Failed to parse AI JSON. Raw Output:", text);
-        throw new Error(`AI response was not valid JSON: ${e instanceof Error ? e.message : 'Invalid format'}`);
+        console.error("[LOG_AI_BACKEND] JSON Parse Error. Raw Text snippet:", text.substring(0, 300) + "...");
+        console.error("[LOG_AI_BACKEND] Cleaned String snippet:", text.length > 0 ? text.substring(0, 300) : "EMPTY");
+        throw new Error(`AI response invalid: ${e instanceof Error ? e.message : 'Invalid format'}`);
     }
 };
 
@@ -32,27 +50,57 @@ let rotationIndex = 0;
 /**
  * Execute a task with Ollama.
  */
-async function executeWithOllama(prompt: string, modelName: string = config.OLLAMA_MODEL): Promise<string> {
+async function executeWithOllama(prompt: string, modelName: string = config.OLLAMA_MODEL, system?: string): Promise<string> {
+    const url = `${config.OLLAMA_BASE_URL}/api/generate`;
+    console.log(`[LOG_AI_BACKEND] Connecting to Ollama at: ${url} (Model: ${modelName})`);
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 600_000); // 10 min timeout for slow models
+
     try {
-        const response = await fetch(`${config.OLLAMA_BASE_URL}/api/generate`, {
+        console.log(`[LOG_AI_BACKEND] Sending request to Ollama (timeout: 10m)...`);
+        const response = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 model: modelName,
                 prompt: prompt,
+                system: system,
                 stream: false,
+                format: 'json',
+                options: {
+                    temperature: 0.1,
+                }
             }),
+            signal: controller.signal
         });
+
+        clearTimeout(timeoutId);
 
         if (!response.ok) {
             const error = await response.text();
+            console.error(`[LOG_AI_BACKEND] Ollama HTTP Error: ${response.status}`, error);
             throw new Error(`Ollama API error (${response.status}): ${error}`);
         }
 
         const data = await response.json() as { response: string };
+        console.log(`[LOG_AI_BACKEND] Ollama Success. Received ${data.response?.length || 0} chars.`);
         return data.response;
     } catch (error: any) {
-        console.error("[LOG_AI_BACKEND] Ollama execution failed:", error.message);
+        clearTimeout(timeoutId);
+        console.error("[LOG_AI_BACKEND] Ollama execution failed details:", {
+            name: error.name,
+            message: error.message,
+            url
+        });
+        
+        if (error.name === 'AbortError') {
+            throw new Error("Ollama request timed out on the server side (150s exceeded).");
+        }
+        
+        if (error.message.includes('fetch failed')) {
+            throw new Error(`Ollama connection failed (fetch failed). Ensure Ollama is running at ${config.OLLAMA_BASE_URL}. Try checking if it's listening on 127.0.0.1 or localhost.`);
+        }
         throw new Error(`Ollama execution failed: ${error.message}`);
     }
 }
@@ -90,90 +138,75 @@ async function executeWithRotation<T>(task: (model: any) => Promise<T>, modelNam
     throw lastError || new Error("All Gemini API keys are currently rate limited.");
 }
 
-async function runAiTask(geminiTask: (model: any) => Promise<string>, ollamaPrompt: string, provider: string = config.AI_PROVIDER): Promise<string> {
-    if (provider === 'ollama') {
-        return await executeWithOllama(ollamaPrompt);
+async function runAiTask(geminiTask: (model: any) => Promise<string>, userPrompt: string, provider: string = config.AI_PROVIDER, systemPrompt?: string): Promise<string> {
+    // Ensure we respect the config default if provider is missing or empty
+    let activeProvider = (provider && provider.length > 0) ? provider : config.AI_PROVIDER;
+
+    // Safety fallback: If client explicitly asks for gemini but we have no keys, and the server is configured for ollama, fallback.
+    if (activeProvider === 'gemini' && config.GEMINI_API_KEYS.length === 0 && config.AI_PROVIDER === 'ollama') {
+        console.warn("[LOG_AI_BACKEND] Client requested Gemini but no keys configured. Falling back to configured Ollama.");
+        activeProvider = 'ollama';
+    }
+
+    if (activeProvider === 'ollama') {
+        return await executeWithOllama(userPrompt, config.OLLAMA_MODEL, systemPrompt);
     } else {
-        return await executeWithRotation(geminiTask);
+        // For Gemini, we combine system and user prompt if system is present
+        const combinedTask = async (model: any) => {
+            const finalPrompt = systemPrompt ? `System: ${systemPrompt}\n\nUser: ${userPrompt}` : userPrompt;
+            const res = await model.generateContent(finalPrompt);
+            return res.response.text();
+        };
+        return await executeWithRotation(combinedTask);
     }
 }
 
 export const aiService = {
     async polishExperience(rawText: string, provider?: string) {
-        const prompt = `
-                You are an expert resume writer and LaTeX specialist. 
-                Convert the following raw job experience description into professional, high-impact bullet points.
-                Input: "${rawText}"
-                
-                Return the response in strictly valid JSON format:
-                {
-                    "polishedPoints": ["Point 1", "Point 2"],
-                    "latexCode": "\\\\customItemListStart\\n  \\\\customItem{...}\\n\\\\customItemListEnd"
-                }
-                
-                Rules:
-                - Output ONLY valid JSON.
-                - Do NOT include markdown code fences (\`\`\`json).
-                - Do NOT include notes or explanations.
-            `;
+        const systemPrompt = "You are a Resume Writer. Convert the input into professional, high-impact bullet points and LaTeX code. Return ONLY JSON.";
+        const userPrompt = `Input: "${rawText}"
+Expected JSON: { "polishedPoints": ["Point 1", "Point 2"], "latexCode": "..." }`;
+        
         const result = await runAiTask(async (model) => {
-            const res = await model.generateContent(prompt);
+            const res = await model.generateContent(`${systemPrompt}\n\n${userPrompt}`);
             return res.response.text();
-        }, prompt, provider);
+        }, userPrompt, provider, systemPrompt);
         return JSON.stringify(parseSafeJson(result));
     },
 
     async polishSkills(rawText: string, provider?: string) {
-        const prompt = `
-                Extract and categorize technical skills from the following text.
-                Input: "${rawText}"
-                Return the response in strictly valid JSON format:
-                {
-                    "skills": "Category 1: Skill A, Skill B; Category 2: Skill C",
-                    "latexCode": "\\\\customItemListStart\\n  \\\\customItem{\\\\textbf{Category 1}{: Skill A, Skill B}}\\n\\\\customItemListEnd"
-                }
-            `;
+        const systemPrompt = "Extract and categorize skills into Category: Skill A, Skill B format. Return ONLY JSON.";
+        const userPrompt = `Input: "${rawText}"
+Expected JSON: { "skills": "...", "latexCode": "..." }`;
+
         const result = await runAiTask(async (model) => {
-            const res = await model.generateContent(prompt);
+            const res = await model.generateContent(`${systemPrompt}\n\n${userPrompt}`);
             return res.response.text();
-        }, prompt, provider);
+        }, userPrompt, provider, systemPrompt);
         return JSON.stringify(parseSafeJson(result));
     },
 
     async polishProject(rawText: string, provider?: string) {
-        const prompt = `
-                Convert the following project description into professional bullet points.
-                Input: "${rawText}"
-                Return the response in strictly valid JSON format:
-                {
-                    "polishedPoints": ["Result 1", "Result 2"],
-                    "technologies": "Tech A, Tech B",
-                    "latexCode": "\\\\customItemListStart\\n  \\\\customItem{...}\\n\\\\customItemListEnd"
-                }
-            `;
+        const systemPrompt = "Convert project descriptions into bullet points and list technologies. Return ONLY JSON.";
+        const userPrompt = `Input: "${rawText}"
+Expected JSON: { "polishedPoints": ["..."], "technologies": "...", "latexCode": "..." }`;
+
         const result = await runAiTask(async (model) => {
-            const res = await model.generateContent(prompt);
+            const res = await model.generateContent(`${systemPrompt}\n\n${userPrompt}`);
             return res.response.text();
-        }, prompt, provider);
+        }, userPrompt, provider, systemPrompt);
         return JSON.stringify(parseSafeJson(result));
     },
 
     async polishEducation(rawText: string, provider?: string) {
-        const prompt = `
-                Extract education details (Institution, Degree, Year) from the following text.
-                Input: "${rawText}"
-                Return the response in strictly valid JSON format:
-                {
-                    "school": "University Name",
-                    "degree": "Degree Name",
-                    "year": "20XX - 20XX",
-                    "latexCode": "\\\\customSubHeading{...}{...}{...}"
-                }
-            `;
+        const systemPrompt = "Extract education details (Institution, Degree, Year). Return ONLY JSON.";
+        const userPrompt = `Input: "${rawText}"
+Expected JSON: { "school": "...", "degree": "...", "year": "...", "latexCode": "..." }`;
+
         const result = await runAiTask(async (model) => {
-            const res = await model.generateContent(prompt);
+            const res = await model.generateContent(`${systemPrompt}\n\n${userPrompt}`);
             return res.response.text();
-        }, prompt, provider);
+        }, userPrompt, provider, systemPrompt);
         return JSON.stringify(parseSafeJson(result));
     },
 
@@ -192,39 +225,23 @@ export const aiService = {
         }
 
         const enabledBlocks = blocks.filter(b => b.enabled !== false);
-        const prompt = cleanTemplate
-            ? `You are a LaTeX Template Processor. Your ONLY job is to take the TEMPLATE provided and swap its placeholder data with the JSON DATA.
-Output MUST be the full document.
+        const systemPrompt = `You are a LaTeX Resume Architect.
+Your task is to populate the template with the provided JSON data.
+STRICT RULES:
+- Return ONLY RAW LaTeX. No markdown backticks. No conversation.
+- Escape special characters: & -> \\&, % -> \\%, $ -> \\$, _ -> \\_, # -> \\#.
+- Ensure the document is complete and compilable.`;
 
-TEMPLATE:
-${cleanTemplate}
+        const userPrompt = `TEMPLATE:
+${cleanTemplate || 'Standard Article Resume Class'}
 
-JSON DATA:
-${JSON.stringify(enabledBlocks)}
-
-STRICT DIRECTIVES:
-1. NO STYLE HALLUCINATION: Use ONLY the structure and macros present in the TEMPLATE.
-2. FULL DOCUMENT: Your output MUST be a complete LaTeX document from \\documentclass to \\end{document}.
-3. NO MARKDOWN: Output ONLY raw LaTeX. No backticks or explanations.
-4. ESCAPING: You MUST escape special fragments: & -> \\&, % -> \\%, $ -> \\$, _ -> \\_, # -> \\#, etc.
-5. NO CONVERSATION: Return ONLY the code.`
-            : `You are an expert LaTeX Resume Architect.
-Create a complete, professional, compilable LaTeX resume using the following JSON DATA.
-Use a standard, high-quality resume document class (like article) and professional formatting.
-
-JSON DATA:
-${JSON.stringify(enabledBlocks)}
-
-DIRECTIVES:
-1. FULL DOCUMENT: Output a complete, self-contained LaTeX document from \\documentclass to \\end{document}.
-2. NO MARKDOWN: Output ONLY raw LaTeX.
-3. ESCAPING: You MUST escape special fragments: & -> \\&, % -> \\%, $ -> \\$, _ -> \\_, # -> \\#, etc.
-4. MODERN STYLE: Use professional fonts, clear sections, and good whitespace.`;
+DATA:
+${JSON.stringify(enabledBlocks)}`;
 
         const result = await runAiTask(async (model) => {
-            const res = await model.generateContent(prompt);
+            const res = await model.generateContent(`${systemPrompt}\n\n${userPrompt}`);
             return res.response.text();
-        }, prompt, provider);
+        }, userPrompt, provider, systemPrompt);
 
         let extracted = result;
         const match = result.match(/```(?:latex|tex)?\n([\s\S]*?)```/);
@@ -237,46 +254,36 @@ DIRECTIVES:
     },
 
     async parseResume(content: string, provider?: string) {
-        const prompt = `
-                You are a resume data extractor. 
-                Extract all information from the provided text/LaTeX and return it as a JSON array of ResumeBlock objects.
-                
-                Supported block types: 'header', 'experience', 'education', 'skills', 'project', 'summary', 'other'.
-                
-                CRITICAL RULES:
-                1. DO NOT make any assumptions or invent data.
-                2. You MUST strictly return all available sections. Do not drop a single entry or data point.
-                3. For Projects, if a date or time period exists, map it to the "duration" field.
-                4. For Experience, map the date or time period to "duration".
+        const systemPrompt = `You are a professional Resume Data Extractor.
+Extract data from the input and return ONLY a valid JSON array of ResumeBlock objects.
+Block Types: 'header', 'experience', 'education', 'skills', 'project', 'summary', 'other'.
 
-                JSON Structure for each object in the array:
-                {
-                    "type": "blockType",
-                    "data": { 
-                        // For 'header': { "name", "email", "phone", "location", "website", "linkedin", "github" }
-                        // For 'experience': { "company", "role", "duration", "location", "highlights" }
-                        // For 'education': { "school", "degree", "year", "location" }
-                        // For 'skills': { "category", "skills" }
-                        // For 'project': { "title", "duration", "technologies", "highlights" }
-                        // For 'summary': { "summary" }
-                        // For 'other': { "title", "highlights", "content" }
-                    },
-                    "latexCode": "The EXACT raw LaTeX code for this section from the input"
-                }
+STRUCTURE RULES:
+- Return ONLY JSON. No conversation.
+- No markdown formatting.
+- Map Experience dates to "duration".
+- Map Project dates to "duration".
+- For "latexCode", extract the original LaTeX fragment exactly.
+- Each object MUST have: "type", "data", and "latexCode".`;
 
-                Rules:
-                - Output ONLY a valid JSON array of objects: [{ "type": BlockType, "data": { ... }, "latexCode": "..." }]
-                - Do NOT include markdown code fences (\`\`\`json).
-                - Do NOT include any preamble or commentary.
-                - For "latexCode", extract the original LaTeX exactly as it appears in the input.
-                
-                INPUT:
-                ${content}
-            `;
+        const userPrompt = `Input Content to Parse:
+"""
+${content}
+"""
+
+JSON Structure Example:
+[
+  {
+    "type": "header",
+    "data": { "name": "...", "email": "..." },
+    "latexCode": "..."
+  }
+]`;
+
         const result = await runAiTask(async (model) => {
-            const res = await model.generateContent(prompt);
+            const res = await model.generateContent(`${systemPrompt}\n\n${userPrompt}`);
             return res.response.text();
-        }, prompt, provider);
+        }, userPrompt, provider, systemPrompt);
 
         console.log("[LOG_AI_BACKEND] Raw response received:", result.substring(0, 100) + "...");
 

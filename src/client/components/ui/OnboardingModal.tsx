@@ -98,27 +98,51 @@ export const OnboardingModal: React.FC<{ isOpen: boolean; onClose: () => void; s
                 );
 
                 console.log("[OnboardingModal] Parsing Result:", result);
-                const parsedBlocks = result.data || result;
-                const resumeId = result.resumeId;
+                let parsedBlocks = result.data || result;
+                
+                // Safety check: ensure we have an array
+                if (!Array.isArray(parsedBlocks)) {
+                    if (parsedBlocks && typeof parsedBlocks === 'object' && Array.isArray(parsedBlocks.blocks)) {
+                        parsedBlocks = parsedBlocks.blocks;
+                    } else if (parsedBlocks && typeof parsedBlocks === 'object' && Array.isArray(parsedBlocks.data)) {
+                        parsedBlocks = parsedBlocks.data;
+                    } else if (parsedBlocks && typeof parsedBlocks === 'object') {
+                        // Sometimes AI returns a single block object Instead of an array
+                        const maybeBlock = parsedBlocks as any;
+                        if (maybeBlock.type && maybeBlock.data) {
+                            parsedBlocks = [maybeBlock];
+                        } else {
+                            throw new Error("AI returned data in an unexpected format. Expected an array of blocks.");
+                        }
+                    } else {
+                        throw new Error("AI returned invalid data structure.");
+                    }
+                }
 
-                const newBlocks: ResumeBlock[] = parsedBlocks.filter((b: any) => b.type && b.data).map((b: any) => ({
+                const newBlocks: ResumeBlock[] = parsedBlocks.filter((b: any) => b && b.type).map((b: any) => ({
                     id: Math.random().toString(36).substring(7),
                     type: b.type,
                     position: { x: 0, y: 0 },
                     data: b.data || {},
-                    latexContent: b.latexCode || b.latexContent,
+                    latexContent: b.latexCode || b.latexContent || '',
                     enabled: true
                 }));
 
                 setBlocks([...blocks, ...newBlocks]);
+                const resumeId = result.resumeId;
                 if (resumeId) {
                     setResumeId(activeResumeIndex, resumeId);
                 }
                 onClose();
             }
         } catch (error: any) {
-            console.error("[OnboardingModal] Final Import Catch Error:", error);
-            toast.error("Failed to parse source. If using raw text, an AI Key might be required.");
+            console.error("[OnboardingModal] Import Error details:", error);
+            const msg = error.message || "Unknown error";
+            if (msg.toLowerCase().includes('aborted')) {
+                toast.error("Import timed out. The AI model is taking too long to respond.");
+            } else {
+                toast.error(`Import failed: ${msg}`);
+            }
         } finally {
             setIsImporting(false);
             console.log("[OnboardingModal] isImporting set to false.");

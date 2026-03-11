@@ -38,8 +38,9 @@ async function postJson<T = any>(path: string, body: unknown): Promise<T> {
     await applyRateLimit();
     const headers = await getAuthHeaders();
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 90_000);
+    const timeout = setTimeout(() => controller.abort(), 600_000); // 10 minute timeout
     try {
+        console.log(`[AI_CLIENT] Request: ${path}`, body);
         const res = await fetch(`${API_BASE_URL}${path}`, {
             method: 'POST',
             headers,
@@ -54,7 +55,9 @@ async function postJson<T = any>(path: string, body: unknown): Promise<T> {
             // 403 responses carry a human-friendly 'message' (e.g. rate limit + GitHub link)
             throw new Error(err.message || err.error || err.details || `Request failed: ${res.status}`);
         }
-        return res.json();
+        const data = await res.json();
+        console.log(`[AI_CLIENT] Response: ${path}`, data);
+        return data;
     } finally {
         clearTimeout(timeout);
     }
@@ -64,8 +67,9 @@ async function postText(path: string, body: unknown): Promise<string> {
     await applyRateLimit();
     const headers = await getAuthHeaders();
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 90_000);
+    const timeout = setTimeout(() => controller.abort(), 600_000); // 10 minute timeout
     try {
+        console.log(`[AI_CLIENT] Request (Text): ${path}`, body);
         const res = await fetch(`${API_BASE_URL}${path}`, {
             method: 'POST',
             headers,

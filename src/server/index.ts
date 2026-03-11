@@ -71,7 +71,8 @@ apiRouter.get('/health', (_req, res) => {
     res.json({
         status: 'ok',
         mode: config.IS_LOCAL ? 'LOCAL' : 'CLOUD',
-        db: config.IS_LOCAL ? 'sqlite' : 'postgres'
+        db: config.IS_LOCAL ? 'sqlite' : 'postgres',
+        aiProvider: config.AI_PROVIDER
     });
 });
 
@@ -109,6 +110,7 @@ async function isPromptInjection(text: string): Promise<boolean> {
 apiRouter.post('/ai/experience', authMiddleware, async (req: AuthRequest, res) => {
     try {
         const { text, provider } = req.body;
+        console.log(`[SERVER] /ai/experience called. Provider: ${provider || 'DEFAULT(' + config.AI_PROVIDER + ')'}`);
         if (await isPromptInjection(text)) return res.status(400).json({ error: 'Potential prompt injection detected' });
 
         const limitCheck = await UsageService.checkAiLimit(req.userId!);
@@ -125,6 +127,7 @@ apiRouter.post('/ai/experience', authMiddleware, async (req: AuthRequest, res) =
 apiRouter.post('/ai/skills', authMiddleware, async (req: AuthRequest, res) => {
     try {
         const { text, provider } = req.body;
+        console.log(`[SERVER] /ai/skills called. Provider: ${provider || 'DEFAULT(' + config.AI_PROVIDER + ')'}`);
         if (await isPromptInjection(text)) return res.status(400).json({ error: 'Potential prompt injection detected' });
 
         const limitCheck = await UsageService.checkAiLimit(req.userId!);
@@ -141,6 +144,7 @@ apiRouter.post('/ai/skills', authMiddleware, async (req: AuthRequest, res) => {
 apiRouter.post('/ai/project', authMiddleware, async (req: AuthRequest, res) => {
     try {
         const { text, provider } = req.body;
+        console.log(`[SERVER] /ai/project called. Provider: ${provider || 'DEFAULT(' + config.AI_PROVIDER + ')'}`);
         if (await isPromptInjection(text)) return res.status(400).json({ error: 'Potential prompt injection detected' });
 
         const limitCheck = await UsageService.checkAiLimit(req.userId!);
@@ -157,6 +161,7 @@ apiRouter.post('/ai/project', authMiddleware, async (req: AuthRequest, res) => {
 apiRouter.post('/ai/education', authMiddleware, async (req: AuthRequest, res) => {
     try {
         const { text, provider } = req.body;
+        console.log(`[SERVER] /ai/education called. Provider: ${provider || 'DEFAULT(' + config.AI_PROVIDER + ')'}`);
         if (await isPromptInjection(text)) return res.status(400).json({ error: 'Potential prompt injection detected' });
 
         const limitCheck = await UsageService.checkAiLimit(req.userId!);
@@ -227,6 +232,7 @@ apiRouter.post('/ai/command', authMiddleware, async (req: AuthRequest, res) => {
 apiRouter.post('/ai/parse', authMiddleware, async (req: AuthRequest, res) => {
     try {
         const { content, autoSave, title, id, provider } = req.body;
+        console.log(`[SERVER] /ai/parse called. Provider: ${provider || 'DEFAULT(' + config.AI_PROVIDER + ')'}`);
         if (await isPromptInjection(content)) return res.status(400).json({ error: 'Potential prompt injection detected' });
 
         const limitCheck = await UsageService.checkAiLimit(req.userId!);

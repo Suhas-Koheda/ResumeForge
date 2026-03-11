@@ -111,7 +111,7 @@ class LatexCompiler {
 
       const env = {
         ...process.env,
-        TECTONIC_CACHE_DIR: path.join(os.tmpdir(), 'tectonic-cache')
+        TECTONIC_CACHE_DIR: path.resolve(process.cwd(), '.tectonic-cache')
       };
 
       const result = await this.runTectonic(args, env, options.timeout || 30000);

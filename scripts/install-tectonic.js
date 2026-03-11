@@ -37,19 +37,26 @@ function downloadFile(url, dest) {
         const file = fs.createWriteStream(dest);
         https.get(url, (response) => {
             if (response.statusCode === 302 || response.statusCode === 301) {
+                // Close the current file stream before redirecting
+                file.end();
+                // Ensure it's unlinked before retrying or handled by the next call
                 downloadFile(response.headers.location, dest).then(resolve).catch(reject);
                 return;
             }
             if (response.statusCode !== 200) {
+                file.end();
                 reject(new Error(`Failed to download: ${response.statusCode}`));
                 return;
             }
             response.pipe(file);
             file.on('finish', () => {
-                file.close();
-                resolve();
+                file.close(() => {
+                    // Small delay to ensure OS releases file lock on Windows
+                    setTimeout(resolve, 500);
+                });
             });
         }).on('error', (err) => {
+            file.end();
             fs.unlink(dest, () => {});
             reject(err);
         });
